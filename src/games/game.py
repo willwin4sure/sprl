@@ -1,12 +1,13 @@
 """
 game.py
 
-This module contains the Game class, the base class for any two-player,
+This module contains the Game class, the abstract base class for any two-player,
 zero-sum, perfect information, abstract strategy game.
 """
 
 from typing import List
 from dataclasses import dataclass
+from abc import ABC, abstractmethod
 import numpy as np
 
 
@@ -26,9 +27,9 @@ class GameState:
         return view
 
 
-class Game:
+class Game(ABC):
     """
-    The Game class is the base class for any two-player, zero-sum, perfect
+    The Game class is the abstract base class for any two-player, zero-sum, perfect
     information, abstract strategy game. Its derived classes need to implement
     game logic, symmetries, and action masks.
 
@@ -43,12 +44,14 @@ class Game:
         display_state: returns a string representation of the game state
     """
 
+    @abstractmethod
     def start_state(self) -> GameState:
         """
         Returns the initial state of the game.
         """
         raise NotImplementedError
 
+    @abstractmethod
     def next_state(self, state: GameState, action: int) -> GameState:
         """
         Returns the next state of the game given a current state and action.
@@ -56,31 +59,35 @@ class Game:
         """
         raise NotImplementedError
 
+    @abstractmethod
     def is_terminal(self, state: GameState) -> bool:
         """
         Returns True if the game is over, False otherwise.
         """
         raise NotImplementedError
 
+    @abstractmethod
     def action_mask(self, state: GameState) -> np.ndarray:
         """
         Returns a mask of legal actions for the player.
         """
         raise NotImplementedError
     
+    @abstractmethod
     def rewards(self, state: GameState) -> np.ndarray:
         """
         Returns a pair consisting of the rewards for the players.
         """
         raise NotImplementedError
 
-    
+    @abstractmethod
     def num_symmetries(self) -> int:
         """
         Returns the number of symmetries for the game.
         """
         raise NotImplementedError
 
+    @abstractmethod
     def symmetries(self, state: GameState, symmetries: List[int]) -> List[GameState]:
         """
         Returns a list of symmetries for the state. The symmetries parameter
@@ -89,6 +96,7 @@ class Game:
         """
         raise NotImplementedError
     
+    @abstractmethod
     def display_state(self, state: GameState) -> str:
         """
         Returns a string representation of the game state.

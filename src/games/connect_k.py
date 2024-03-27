@@ -33,7 +33,7 @@ class ConnectK(Game):
         self._win_idx = self._make_win_idx()  # cached win indices
 
     def start_state(self) -> ConnectKState:
-        board = -np.ones(self.rows * self.cols, dtype=np.int8)  # empty board
+        board = -np.ones(self.rows * self.cols)  # empty board
         return ConnectKState(board, 0, -1)  # player 0 to move
 
     def next_state(self, state: ConnectKState, action: int) -> ConnectKState:
@@ -57,11 +57,11 @@ class ConnectK(Game):
 
     def action_mask(self, state: ConnectKState) -> np.ndarray:
         board2d = state.board.reshape(self.rows, self.cols)
-        return (board2d[0] == -1).astype(np.int8)
+        return board2d[0] == -1
     
     def rewards(self, state: ConnectKState) -> np.ndarray:
         if state.winner == -1:
-            return np.zeros(2, dtype=np.float32)
+            return np.zeros(2)
         return np.array([1.0, -1.0]) if state.winner == 0 else np.array([-1.0, 1.0])
 
     def num_symmetries(self) -> int:
