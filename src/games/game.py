@@ -40,6 +40,7 @@ class Game:
         rewards: returns the rewards for the players
         num_symmetries: returns the number of symmetries for the game
         symmetries: generates game states symmetric to the given one
+        display_state: returns a string representation of the game state
     """
 
     def start_state(self) -> GameState:
@@ -85,5 +86,11 @@ class Game:
         Returns a list of symmetries for the state. The symmetries parameter
         is a list of integers representing the symmetries to apply to the state,
         and should be in the range [0, num_symmetries()).
+        """
+        raise NotImplementedError
+    
+    def display_state(self, state: GameState) -> str:
+        """
+        Returns a string representation of the game state.
         """
         raise NotImplementedError

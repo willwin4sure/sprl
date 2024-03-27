@@ -8,7 +8,7 @@ for a slight generalization of the classic game Connect Four.
 from typing import List
 import numpy as np
 
-from game import Game, GameState
+from src.games.game import Game, GameState
 
 
 ConnectKState = GameState  # type alias for immutable state for ConnectK game
@@ -37,6 +37,9 @@ class ConnectK(Game):
         return ConnectKState(board, 0, -1)  # player 0 to move
 
     def next_state(self, state: ConnectKState, action: int) -> ConnectKState:
+        assert not self.is_terminal(state)
+        assert self.action_mask(state)[action] == 1
+
         # make the move on the copy of the board
         board2d = state.board.copy().reshape(self.rows, self.cols)
         num_filled = (board2d[:, action] != -1).sum()
@@ -76,6 +79,21 @@ class ConnectK(Game):
                 sym_states.append(
                     ConnectKState(np.flip(board2d, axis=1).flatten(), state.player, state.winner))
         return sym_states
+    
+    def display_state(self, state: ConnectKState) -> str:
+        board2d = state.board.reshape(self.rows, self.cols)
+        display = ""
+        for row in range(self.rows):
+            for col in range(self.cols):
+                if board2d[row, col] == -1:
+                    display += "."
+                elif board2d[row, col] == 0:
+                    display += "O"
+                else:
+                    display += "X"
+                display += " "
+            display += "\n"
+        return display
 
     def _make_win_idx(self) -> np.ndarray:
         """
