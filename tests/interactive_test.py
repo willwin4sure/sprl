@@ -8,7 +8,12 @@ against yourself, in order to test it.
 
 from src.games.connect_k import ConnectK
 from src.games.game import Game, GameState
+
+from src.networks.network import Network, ConnectFourNetwork
+
 from src.policies.random_policy import RandomPolicy
+from src.policies.network_policy import NetworkPolicy
+
 from src.agents.agent import Agent
 from src.agents.policy_agent import PolicyAgent
 from src.agents.random_agent import RandomAgent
@@ -71,6 +76,8 @@ if __name__ == "__main__":
     connect4 = ConnectK()
     # play_self(connect4)
 
-    random_policy = RandomPolicy()
-    policy_agent = PolicyAgent(random_policy)
+    network = ConnectFourNetwork()
+    policy = NetworkPolicy(network)
+    policy_agent = PolicyAgent(policy)
+    
     play_agent(connect4, policy_agent, 0)
