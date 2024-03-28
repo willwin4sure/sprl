@@ -121,11 +121,11 @@ class UCTNode:
         back up along the path to the root.
         """
         # value estimate is negated here since values are from the perspective of parent
-        absolute_estimate = -value_estimate * ((-1) ** self.game_state.player)
+        estimate = -value_estimate * ((-1) ** self.game_state.player)
         current = self
         while current.parent is not None:
             current.number_visits += 1
-            current.total_value += absolute_estimate * ((-1) ** current.game_state.player)
+            current.total_value += estimate * ((-1) ** current.game_state.player)
             
             current = current.parent
 
