@@ -22,5 +22,6 @@ class RandomPolicy(Policy):
         """
         Outputs a uniform action distribution and a value estimate given a game and state.
         """
-        action_probs = game.action_mask(state) / np.sum(game.action_mask(state))
+        action_mask = game.action_mask(state)
+        action_probs = action_mask / np.sum(action_mask)
         return action_probs, 0.0

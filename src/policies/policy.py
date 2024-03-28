@@ -21,7 +21,7 @@ class Policy(ABC):
     @abstractmethod
     def action(self, game: Game, state: GameState) -> Tuple[np.ndarray, float]:
         """
-        Outputs a probability distribution over actions and a value estimate given a game and state.
+        Outputs a probability distribution over valid actions and a value estimate given a game and state.
         """
         raise NotImplementedError
 

@@ -9,7 +9,7 @@ against yourself, in order to test it.
 from src.games.connect_k import ConnectK
 from src.games.game import Game, GameState
 
-from src.networks.network import Network, ConnectFourNetwork
+from src.networks.network import ConnectFourNetwork
 
 from src.policies.random_policy import RandomPolicy
 from src.policies.network_policy import NetworkPolicy
@@ -25,7 +25,7 @@ def play_self(game: Game):
     """
     state: GameState = game.start_state()
 
-    # Main game loop
+    # main game loop
     while not game.is_terminal(state):
         print(f"Current state:\n{game.display_state(state)}\n")
         print(f"Player {state.player}'s turn")
@@ -50,7 +50,7 @@ def play_agent(game: Game, agent: Agent, player: int):
     """
     state: GameState = game.start_state()
 
-    # Main game loop
+    # main game loop
     while not game.is_terminal(state):
         print(f"Current state:\n{game.display_state(state)}\n")
         print(f"Player {state.player}'s turn")
@@ -79,5 +79,5 @@ if __name__ == "__main__":
     network = ConnectFourNetwork()
     policy = NetworkPolicy(network)
     policy_agent = PolicyAgent(policy)
-    
+
     play_agent(connect4, policy_agent, 0)
