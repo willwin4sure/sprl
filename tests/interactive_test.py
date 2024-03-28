@@ -21,7 +21,10 @@ from src.agents.human_agent import HumanAgent
 from src.agents.policy_agent import PolicyAgent
 from src.agents.random_agent import RandomAgent
 
-
+# TODO: move this to evaluator, with options
+# such as whether to print each state, logging, etc.
+# then this test can just call that play function
+# with the appropriate agents
 def play(game: Game, agents: Tuple[Agent, Agent]):
     """
     Play an interactive game between two agents.
