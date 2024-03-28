@@ -13,7 +13,7 @@ from src.games.game import Game, GameState
 
 class UCTNode:
 
-    def __init__(self, game: Game, game_state: GameState, action: int, num_actions: int, parent: 'UCTNode' = None):
+    def __init__(self, game: Game, game_state: GameState, action: int, parent: 'UCTNode' = None):
         """
         Initialize a new UCTNode.
         """
@@ -21,13 +21,20 @@ class UCTNode:
         self.game_state: GameState = game_state
         self.action: int = action
         self.is_expanded: bool = False
+
+        # Parent of the node, None if root
         self.parent: Optional[UCTNode] = parent
         
         # This is a dictionary of action -> UCTNode. Only legal actions are keys.
         self.children: Dict[int, UCTNode] = {}
 
+        # Cached values so that we don't need to recompute them every time.
+        self.action_mask = self.game.action_mask(self.game_state)
+        self.is_terminal = self.game.is_terminal(self.game_state)
+
         # The priors and values are obtained from a neural network every time you expand a node
         # The priors, total values, and number visits will be 0 on all illegal actions
+        num_actions = len(self.action_mask)
         self.child_priors: np.ndarray = np.zeros(num_actions)
         self.child_total_value: np.ndarray = np.zeros(num_actions)
         self.child_number_visits: np.ndarray = np.zeros(num_actions)
@@ -58,28 +65,28 @@ class UCTNode:
         """
         The uncertainty for each child, based on the UCT formula (think UCB).
         """
-        return np.sqrt(self.number_visits) * (self.child_priors / (1 + self.child_number_visits))
+        return np.sqrt(1 + np.sum(self.child_number_visits)) * (self.child_priors / (1 + self.child_number_visits))
 
-    def best_child(self):
+    def best_child(self, c: float = 1.0):
         """
         Compute the best legal child, with the action mask.
         """
-        scores = self.child_Q() + self.child_U()
+        scores = self.child_Q() + c * self.child_U()
 
         # set all illegal actions to -inf
-        scores[~self.game_state.action_mask()] = -np.inf
+        scores[~self.action_mask] = -np.inf
 
-        return np.argmax(scores)
+        return self.children[np.argmax(scores)]
     
-    def select_leaf(self) -> 'UCTNode':
+    def select_leaf(self, c: float = 1.0) -> 'UCTNode':
         """
         Deterministically select the next leaf to expand based on the best path.
         """
         current = self
 
         # iterate until either you reach an un-expanded node or a terminal state
-        while current.is_expanded and not self.game.is_terminal(current.game_state):
-            current = current.best_child()
+        while current.is_expanded and not current.is_terminal:
+            current = current.best_child(c)
 
         return current
     
@@ -87,29 +94,29 @@ class UCTNode:
         """
         Expand a non-terminal, un-expanded node using the child_priors from the neural network.
         """
-        if self.game.is_terminal(self.game_state):
-            raise ValueError("Cannot expand from a terminal state.")
+        # if self.game.is_terminal(self.game_state):
+        #     raise ValueError("Cannot expand from a terminal state.")
 
-        if self.is_expanded:
-            raise ValueError("Cannot expand an already expanded node.")
+        # if self.is_expanded:
+        #     raise ValueError("Cannot expand an already expanded node.")
         
         self.is_expanded = True
 
-        action_mask = self.game.action_mask(self.game_state)
         for action, prior in enumerate(child_priors):
-            if action_mask[action]:
+            if self.action_mask[action]:
                 self.add_child(action, prior)
 
     def add_child(self, action, prior):
         """
         Add a child with a given action and prior probability.
         """
-        if action in self.children:
-            raise ValueError(f"Child with action {action} already exists.")
+        # if action in self.children:
+        #     raise ValueError(f"Child with action {action} already exists.")
         
         self.child_priors[action] = prior
         
         self.children[action] = UCTNode(
+            self.game,
             self.game.next_state(self.game_state, action),
             action,
             parent=self,
