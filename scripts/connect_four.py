@@ -14,6 +14,7 @@ from src.games.connect_k import ConnectK
 
 from src.networks.network import ConnectFourNetwork
 
+from src.policies.random_policy import RandomPolicy
 from src.policies.network_policy import NetworkPolicy
 from src.policies.uct_policy import UCTPolicy
 
@@ -25,13 +26,14 @@ from src.agents.random_agent import RandomAgent
 from src.evaluator.play import play
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-RUN_NAME = "alpaca"
-NUM_ITERS = 50
-NUM_GAMES_PER_ITER = 100
+RUN_NAME = "cheetah"
+NUM_ITERS = 100
+NUM_GAMES_PER_ITER = 250
 NUM_PAST_ITERATIONS_TO_TRAIN = 10
-NUM_EPOCHS = 100
+NUM_EPOCHS = 200
 BATCH_SIZE = 1024
 UCT_TRAVERSALS = 100
+EXPLORATION = 2.0
 
 def train_network(game: Game, network: ConnectFourNetwork, iteration: int):
     """
@@ -113,7 +115,6 @@ def train_network(game: Game, network: ConnectFourNetwork, iteration: int):
     torch.save(network, f"data/models/{RUN_NAME}/{RUN_NAME}_iteration_{iteration}.pt")
 
 
-
 def train():
     """
     Train a Connect Four bot.
@@ -122,40 +123,47 @@ def train():
     game = ConnectK()
     network = ConnectFourNetwork()
 
+    random_policy = RandomPolicy()
     network_policy = NetworkPolicy(network)
-    uct_policy = UCTPolicy(network_policy, UCT_TRAVERSALS)
+    uct_policy = UCTPolicy(network_policy, UCT_TRAVERSALS, c=EXPLORATION)
+    uct_random_policy = UCTPolicy(random_policy, UCT_TRAVERSALS, c=EXPLORATION)
 
-    uct_win_counts = []
+    # uct_win_counts = []
     network_win_counts = []
 
     for iteration in range(NUM_ITERS):
         print(f"Iteration {iteration}...")
 
-        states, distributions, rewards = run_iteration(game, (uct_policy, uct_policy), NUM_GAMES_PER_ITER)
+        if iteration == 0:
+            policy_to_use = uct_random_policy
+        else:
+            policy_to_use = uct_policy
+
+        states, distributions, rewards = run_iteration(game, (policy_to_use, policy_to_use), NUM_GAMES_PER_ITER)
 
         torch.save((states, distributions, rewards), f"data/games/{RUN_NAME}/{RUN_NAME}_iteration_{iteration}.pkl")
 
         train_network(game, network, iteration)
 
         random_agent = RandomAgent()
-        uct_agent = PolicyAgent(uct_policy, 0)
+        # uct_agent = PolicyAgent(uct_policy, 0)
 
-        uct_wins = 0
+        # uct_wins = 0
 
-        with tqdm(total=100) as pbar:
-            for _ in range(50):
-                winner = play(game, (uct_agent, random_agent))
-                if winner == 0:
-                    uct_wins += 1
-                pbar.update(1)
-                pbar.set_description(f"UCT wins: {uct_wins}")
+        # with tqdm(total=100) as pbar:
+        #     for _ in range(50):
+        #         winner = play(game, (uct_agent, random_agent))
+        #         if winner == 0:
+        #             uct_wins += 1
+        #         pbar.update(1)
+        #         pbar.set_description(f"UCT wins: {uct_wins}")
 
-            for _ in range(50):
-                winner = play(game, (random_agent, uct_agent))
-                if winner == 1:
-                    uct_wins += 1
-                pbar.update(1)
-                pbar.set_description(f"UCT wins: {uct_wins}")
+        #     for _ in range(50):
+        #         winner = play(game, (random_agent, uct_agent))
+        #         if winner == 1:
+        #             uct_wins += 1
+        #         pbar.update(1)
+        #         pbar.set_description(f"UCT wins: {uct_wins}")
 
         network_agent = PolicyAgent(network_policy, 0)
 
@@ -176,14 +184,14 @@ def train():
                 pbar.update(1)
                 pbar.set_description(f"Network wins: {network_wins}")
 
-        uct_win_counts.append(uct_wins)
+        # uct_win_counts.append(uct_wins)
         network_win_counts.append(network_wins)
 
     # save the win counts
-    torch.save((uct_win_counts, network_win_counts), f"data/{RUN_NAME}_win_counts.pkl")
+    torch.save((network_win_counts), f"data/{RUN_NAME}_win_counts.pkl")
 
     # plot the win counts
-    plt.plot(uct_win_counts, label="UCT")
+    # plt.plot(uct_win_counts, label="UCT")
     plt.plot(network_win_counts, label="Network")
     plt.xlabel("Iteration")
     plt.ylabel("Win count")

@@ -18,13 +18,14 @@ class UCTPolicy(Policy):
     A policy that uses the UCT algorithm to select actions.
     """
 
-    def __init__(self, policy: Policy, num_iters=1000, c: float = 1.0):
+    def __init__(self, policy: Policy, num_iters=1000, c: float = 1.0, train: bool = True):
         self.policy = policy
         self.num_iters = num_iters
-        self.c = c
+        self.c = c  # exploration parameter
+        self.train = train  # whether we are training or inference
 
     def action(self, game: Game, state: GameState) -> Tuple[np.ndarray, float]:
         """
         Select an action using the UCT algorithm.
         """
-        return UCT_search(game, state, self.policy, self.num_iters, self.c)
+        return UCT_search(game, state, self.policy, self.num_iters, self.c, self.train)

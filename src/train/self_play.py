@@ -25,15 +25,26 @@ def self_play(game: Game, policies: Tuple[Policy, Policy]) -> Tuple[List[GameSta
     distributions: List[np.ndarray] = []
 
     state: GameState = game.start_state()
+
+    moves = 0
+
     while not game.is_terminal(state):
         states.append(state)
 
         policy = policies[state.player]
         distribution, _ = policy.action(game, state)
+
+        if moves >= 10:
+            # decrease temperature when later on in the game
+            distribution = distribution ** 10
+            distribution /= np.sum(distribution)
+
         distributions.append(distribution)
 
         action = np.random.choice(len(distribution), p=distribution)
         state = game.next_state(state, action)
+
+        moves += 1
 
     return states, distributions, game.rewards(state)[0]
 

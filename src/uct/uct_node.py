@@ -90,7 +90,7 @@ class UCTNode:
 
         return current
     
-    def expand(self, child_priors):
+    def expand(self, child_priors, train=True):
         """
         Expand a non-terminal, un-expanded node using the child_priors from the neural network.
         """
@@ -102,7 +102,7 @@ class UCTNode:
         
         self.is_expanded = True
 
-        if self.action == -1:
+        if train and self.action == -1:
             # if you are the root, add dirichlet noise to the prior
             places = self.action_mask > 0
             noise = np.random.dirichlet(0.03 * np.ones(np.sum(places)))
