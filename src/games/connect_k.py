@@ -93,6 +93,10 @@ class ConnectK(Game):
                     display += "X"
                 display += " "
             display += "\n"
+
+        for col in range(self.cols):
+            display += str(col) + " "
+
         return display
 
     def _make_win_idx(self) -> np.ndarray:
