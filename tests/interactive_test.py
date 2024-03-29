@@ -6,6 +6,7 @@ against yourself, in order to test it.
 """
 
 from typing import Tuple
+import torch
 import time
 
 from src.games.connect_k import ConnectK
@@ -40,11 +41,7 @@ def play(game: Game, agents: Tuple[Agent, Agent]):
         action_mask = game.action_mask(state)
         print(f"Legal action mask: {action_mask}")
 
-        tick = time.perf_counter()
         action = agents[state.player].action(game, state)
-        tock = time.perf_counter()
-
-        print(f"Time taken to get action: {tock - tick}")
 
         state = game.next_state(state, action)
 
@@ -60,15 +57,20 @@ def play(game: Game, agents: Tuple[Agent, Agent]):
 if __name__ == "__main__":
     connect4 = ConnectK()
 
-    # network = ConnectFourNetwork()
-    # policy = NetworkPolicy(network)
-    policy = RandomPolicy()
-    uct_policy = UCTPolicy(policy, num_iters=1000, c=1.0)
-    policy_agent = PolicyAgent(uct_policy)
+    network1 = torch.load("data/models/alpaca/alpaca_iteration_49.pt")
+    network_policy1 = NetworkPolicy(network1)
+    uct_policy1 = UCTPolicy(network_policy1, num_iters=1000, c=1.0)
+    policy_agent1 = PolicyAgent(uct_policy1, 0.1)
+
+    # network2 = torch.load("data/models/alpaca/alpaca_iteration_0.pt")
+    # network_policy2 = NetworkPolicy(network2)
+    # uct_policy2 = UCTPolicy(network_policy2, num_iters=1000, c=1.0)
+    # policy_agent2 = PolicyAgent(uct_policy2)
 
     agents = (
-        policy_agent,
-        HumanAgent()
+        policy_agent1,
+        HumanAgent(),
+        # policy_agent2,
     )    
 
     play(connect4, agents)
