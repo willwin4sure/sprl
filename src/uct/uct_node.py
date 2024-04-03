@@ -19,22 +19,27 @@ class UCTNode:
         """
         self.game: Game = game
         self.game_state: GameState = game_state
+        
+        # Action to entire the node, -1 if root
         self.action: int = action
-        self.is_expanded: bool = False
 
         # Parent of the node, None if root
         self.parent: Optional[UCTNode] = parent
         
-        # This is a dictionary of action -> UCTNode. Only legal actions are keys.
+        # This is a dictionary of action -> UCTNode. Only legal actions are keys
         self.children: Dict[int, UCTNode] = {}
+        
+        # Whether the node has been expanded to its children
+        self.is_expanded: bool = False
 
-        # Cached values so that we don't need to recompute them every time.
+        # Cached values so that we don't need to recompute them every time
         self.action_mask = self.game.action_mask(self.game_state)
         self.is_terminal = self.game.is_terminal(self.game_state)
 
         # The priors and values are obtained from a neural network every time you expand a node
         # The priors, total values, and number visits will be 0 on all illegal actions
         num_actions = len(self.action_mask)
+        
         self.child_priors: np.ndarray = np.zeros(num_actions)
         self.child_total_value: np.ndarray = np.zeros(num_actions)
         self.child_number_visits: np.ndarray = np.zeros(num_actions)
@@ -67,13 +72,13 @@ class UCTNode:
         """
         return np.sqrt(1 + np.sum(self.child_number_visits)) * (self.child_priors / (1 + self.child_number_visits))
 
-    def best_child(self, c: float = 1.0):
+    def best_child(self, c: float):
         """
         Compute the best legal child, with the action mask.
         """
         scores = self.child_Q() + c * self.child_U()
 
-        # set all illegal actions to -inf
+        # mask out illegal actions
         scores[~self.action_mask] = -np.inf
 
         return self.children[np.argmax(scores)]
@@ -94,23 +99,14 @@ class UCTNode:
         """
         Expand a non-terminal, un-expanded node using the child_priors from the neural network.
         """
-        # if self.game.is_terminal(self.game_state):
-        #     raise ValueError("Cannot expand from a terminal state.")
-
-        # if self.is_expanded:
-        #     raise ValueError("Cannot expand an already expanded node.")
+        assert not self.game.is_terminal(self.game_state), "Cannot expand a terminal node."
+        assert not self.is_expanded, "Cannot expand an already expanded node."
         
         self.is_expanded = True
 
         if train and self.action == -1:
-            # if you are the root, add dirichlet noise to the prior
-            places = self.action_mask > 0
-            noise = np.random.dirichlet(0.03 * np.ones(np.sum(places)))
-
-            noise_distribution = np.zeros_like(self.action_mask, dtype=np.float64)
-            noise_distribution[places] = noise
-
-            child_priors = 0.75 * child_priors + 0.25 * noise_distribution
+            # if you are the root, mix dirichlet noise into the prior
+            child_priors = 0.75 * child_priors + 0.25 * dirichlet_noise(self.action_mask, 0.3)
 
         for action, prior in enumerate(child_priors):
             if self.action_mask[action]:
@@ -120,8 +116,7 @@ class UCTNode:
         """
         Add a child with a given action and prior probability.
         """
-        # if action in self.children:
-        #     raise ValueError(f"Child with action {action} already exists.")
+        assert not action in self.children, f"Child with action {action} already exists."
         
         self.child_priors[action] = prior
         
@@ -146,3 +141,14 @@ class UCTNode:
             
             current = current.parent
 
+
+def dirichlet_noise(action_mask, alpha):
+    """
+    Returns a dirichlet noise distribution on the support of an action mask.
+    """
+    
+    places = action_mask > 0
+    noise = np.random.dirichlet(alpha * np.ones(np.sum(places)))
+
+    noise_distribution = np.zeros_like(action_mask, dtype=np.float64)
+    noise_distribution[places] = noise

@@ -8,7 +8,6 @@ The code is adapted from https://www.moderndescartes.com/essays/deep_dive_mcts/.
 from typing import Tuple
 
 import numpy as np
-import tqdm
 
 from src.games.game import Game, GameState
 from src.policies.policy import Policy
@@ -27,19 +26,16 @@ def uct_search(game: Game, game_state: GameState, policy: Policy, num_iters: int
     root = UCTNode(game, game_state, -1)
 
     for _ in range(num_iters):
-        # for _ in tqdm.tqdm(range(num_iters)):
-        leaf = root.select_leaf(c)
+        # greedily select leaf with given exploration parameter
+        leaf: UCTNode = root.select_leaf(c)
+        
         if leaf.is_terminal:
             # compute the value estimate of the player at the terminal leaf
-            value_estimate = game.rewards(leaf.game_state)[
-                leaf.game_state.player]
+            value_estimate = game.rewards(leaf.game_state)[leaf.game_state.player]
 
         else:
             # run the neural network to get prior policy and value estimate of the player at the leaf
             child_priors, value_estimate = policy.action(game, leaf.game_state)
-
-            # if leaf == root:
-            #     print("Priors", child_priors)
 
             # expand the non-terminal leaf node
             leaf.expand(child_priors, train)

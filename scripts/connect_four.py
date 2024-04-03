@@ -67,7 +67,7 @@ def train_network(game: Game, network: ConnectFourNetwork, iteration: int):
 
         state_tensors.append(network.embed(game, state).squeeze(0))
         policy_tensors.append(torch.tensor(distribution, dtype=torch.float32))
-        value_tensors.append(torch.tensor([reward if state.player == 0 else -reward], dtype=torch.float32))
+        value_tensors.append(torch.tensor([reward], dtype=torch.float32))
 
     state_tensor = torch.stack(state_tensors).to(device)
     policy_tensor = torch.stack(policy_tensors).to(device)

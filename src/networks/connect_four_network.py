@@ -77,12 +77,15 @@ class ConnectFourNetwork(Network):
     
     def embed(self, game: Game, state: GameState) -> torch.Tensor:
         """
-        Embeds a single Connect Four state into a tensor. The tensor
-        should have two channels of size 6 x 7, where the first
+        Embeds a single Connect Four state into a tensor.
+        
+        The tensor has two channels of size 6 x 7, where the first
         channel represents a bitmask of the current player's stones,
         and the second channel represents a bitmask of the opponent's stones.
         """
         player_stones = torch.tensor(state.board == state.player, dtype=torch.float64).view(1, 1, 6, 7)
         opponent_stones = torch.tensor(state.board == (1 - state.player), dtype=torch.float64).view(1, 1, 6, 7)
 
-        return torch.cat([player_stones, opponent_stones], dim=1)  # (B=1, C=2, H=6, W=7)
+        output = torch.cat([player_stones, opponent_stones], dim=1)  # (B=1, C=2, H=6, W=7)
+        
+        return output
