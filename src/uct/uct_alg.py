@@ -26,7 +26,8 @@ def UCT_search(game: Game, game_state: GameState, policy: Policy, num_iters: int
     # set root action to -1 so can identify it and add noise
     root = UCTNode(game, game_state, -1)
 
-    for _ in tqdm.tqdm(range(num_iters)):
+    for _ in range(num_iters):
+        # for _ in tqdm.tqdm(range(num_iters)):
         leaf = root.select_leaf(c)
         if leaf.is_terminal:
             # compute the value estimate of the player at the terminal leaf

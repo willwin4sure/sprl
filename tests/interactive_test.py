@@ -59,11 +59,11 @@ def play_print(game: Game, agents: Tuple[Agent, Agent]):
 if __name__ == "__main__":
     connect4 = ConnectK()
 
-    # network1 = torch.load("data/models/cheetah/cheetah_iteration_20.pt")
-    # network_policy1 = NetworkPolicy(network1)
-
-    # uct_policy1 = UCTPolicy(network_policy1, num_iters=1000, c=1.0, train=False)
-    # policy_agent1 = PolicyAgent(uct_policy1, 0.1)
+    network1 = torch.load("data/models/cheetah/cheetah_iteration_99.pt")
+    network_policy1 = NetworkPolicy(network1)
+    uct_policy1 = UCTPolicy(
+        network_policy1, num_iters=1000, c=1.0, train=False)
+    policy_agent1 = PolicyAgent(uct_policy1, 0.1)
 
     # network2 = torch.load("data/models/bison/bison_iteration_0.pt")
     # network_policy2 = NetworkPolicy(network2)
@@ -76,27 +76,27 @@ if __name__ == "__main__":
         monte_policy, num_iters=1000, c=1.0, train=False)
     policy_agent3 = PolicyAgent(uct_monte_policy, 0.1)
 
-    # wins = 0
+    wins = 0
 
-    # with tqdm(total=100) as pbar:
-    #     for _ in range(50):
-    #         winner = play(connect4, (policy_agent1, policy_agent2))
-    #         if winner == 0:
-    #             wins += 1
-    #         pbar.update(1)
-    #         pbar.set_description(f"UCT wins: {wins}")
+    with tqdm(total=2) as pbar:
+        for _ in range(1):
+            winner = play(connect4, (policy_agent1, policy_agent3))
+            if winner == 0:
+                wins += 1
+            pbar.update(1)
+            pbar.set_description(f"UCT wins: {wins}")
 
-    #     for _ in range(50):
-    #         winner = play(connect4, (policy_agent2, policy_agent1))
-    #         if winner == 1:
-    #             wins += 1
-    #         pbar.update(1)
-    #         pbar.set_description(f"UCT wins: {wins}")
+        for _ in range(1):
+            winner = play(connect4, (policy_agent3, policy_agent1))
+            if winner == 1:
+                wins += 1
+            pbar.update(1)
+            pbar.set_description(f"UCT wins: {wins}")
 
-    agents = (
-        # policy_agent2,
-        HumanAgent(),
-        policy_agent3,
-    )
+    # agents = (
+    #     # policy_agent2,
+    #     HumanAgent(),
+    #     policy_agent3,
+    # )
 
-    play_print(connect4, agents)
+    # play_print(connect4, agents)
