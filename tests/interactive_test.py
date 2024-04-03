@@ -61,9 +61,9 @@ def play_print(game: Game, agents: Tuple[Agent, Agent]):
 if __name__ == "__main__":
     connect4 = ConnectK()
 
-    network1 = torch.load("data/models/cheetah/cheetah_iteration_20.pt")
+    network1 = torch.load("data/models/cheetah/cheetah_iteration_99.pt")
     network_policy1 = NetworkPolicy(network1)
-    uct_policy1 = UCTPolicy(network_policy1, num_iters=1000, c=1.0, train=False)
+    uct_policy1 = UCTPolicy(network_policy1, num_iters=10000, c=1.0, train=False)
     policy_agent1 = PolicyAgent(uct_policy1, 0.1)
 
     # network2 = torch.load("data/models/bison/bison_iteration_0.pt")
@@ -90,8 +90,8 @@ if __name__ == "__main__":
 
     agents = (
         # policy_agent2,
-        HumanAgent(),
         policy_agent1,
+        HumanAgent(),
     )    
 
     play_print(connect4, agents)

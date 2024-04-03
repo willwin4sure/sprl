@@ -88,9 +88,9 @@ class ConnectK(Game):
                 if board2d[row, col] == -1:
                     display += "."
                 elif board2d[row, col] == 0:
-                    display += "O"
+                    display += "\033[91mO\033[0m"
                 else:
-                    display += "X"
+                    display += "\033[93mX\033[0m"
                 display += " "
             display += "\n"
 
@@ -98,6 +98,7 @@ class ConnectK(Game):
             display += str(col) + " "
 
         return display
+
 
     def _make_win_idx(self) -> np.ndarray:
         """
