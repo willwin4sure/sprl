@@ -152,3 +152,5 @@ def dirichlet_noise(action_mask, alpha):
 
     noise_distribution = np.zeros_like(action_mask, dtype=np.float64)
     noise_distribution[places] = noise
+
+    return noise_distribution

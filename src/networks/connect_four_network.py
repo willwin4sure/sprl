@@ -37,7 +37,6 @@ class ConnectFourNetwork(Network):
 
         self.residual_blocks = torch.nn.ModuleList([
             ResidualBlock(64, 64, kernel_size=3, stride=1, padding=1),
-            ResidualBlock(64, 64, kernel_size=3, stride=1, padding=1),
         ])
 
         self.policy_conv = torch.nn.Conv2d(64, 2, kernel_size=1)
@@ -83,8 +82,8 @@ class ConnectFourNetwork(Network):
         channel represents a bitmask of the current player's stones,
         and the second channel represents a bitmask of the opponent's stones.
         """
-        player_stones = torch.tensor(state.board == state.player, dtype=torch.float64).view(1, 1, 6, 7)
-        opponent_stones = torch.tensor(state.board == (1 - state.player), dtype=torch.float64).view(1, 1, 6, 7)
+        player_stones = torch.tensor(state.board == state.player, dtype=torch.float32).view(1, 1, 6, 7)
+        opponent_stones = torch.tensor(state.board == (1 - state.player), dtype=torch.float32).view(1, 1, 6, 7)
 
         output = torch.cat([player_stones, opponent_stones], dim=1)  # (B=1, C=2, H=6, W=7)
         

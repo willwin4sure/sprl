@@ -33,13 +33,24 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 ##  Hyperparameters  ##
 #######################
 
-RUN_NAME = "cheetah"
+# RUN_NAME = "dragon_mini"
+# NUM_ITERS = 20
+# NUM_INIT_GAMES = 200
+# NUM_GAMES_PER_ITER = 50
+# NUM_PAST_ITERATIONS_TO_TRAIN = 10
+# NUM_EPOCHS = 10
+# BATCH_SIZE = 1024
+# UCT_TRAVERSALS = 10
+# EXPLORATION = 2.0
+
+RUN_NAME = "dragon"
 NUM_ITERS = 100
-NUM_GAMES_PER_ITER = 250
-NUM_PAST_ITERATIONS_TO_TRAIN = 10
-NUM_EPOCHS = 200
+NUM_INIT_GAMES = 2500
+NUM_GAMES_PER_ITER = 500
+NUM_PAST_ITERATIONS_TO_TRAIN = 20
+NUM_EPOCHS = 300
 BATCH_SIZE = 1024
-UCT_TRAVERSALS = 100
+UCT_TRAVERSALS = 200
 EXPLORATION = 2.0
 
 def train_network(game: Game, network: ConnectFourNetwork, iteration: int):
@@ -143,34 +154,18 @@ def train():
 
         if iteration == 0:
             policy_to_use = uct_random_policy
+            num_games_to_use = NUM_INIT_GAMES
         else:
             policy_to_use = uct_policy
+            num_games_to_use = NUM_GAMES_PER_ITER
 
-        states, distributions, rewards = run_iteration(game, (policy_to_use, policy_to_use), NUM_GAMES_PER_ITER)
+        states, distributions, rewards = run_iteration(game, (policy_to_use, policy_to_use), num_games_to_use)
 
         torch.save((states, distributions, rewards), f"data/games/{RUN_NAME}/{RUN_NAME}_iteration_{iteration}.pkl")
 
         train_network(game, network, iteration)
 
         random_agent = RandomAgent()
-        # uct_agent = PolicyAgent(uct_policy, 0)
-
-        # uct_wins = 0
-
-        # with tqdm(total=100) as pbar:
-        #     for _ in range(50):
-        #         winner = play(game, (uct_agent, random_agent))
-        #         if winner == 0:
-        #             uct_wins += 1
-        #         pbar.update(1)
-        #         pbar.set_description(f"UCT wins: {uct_wins}")
-
-        #     for _ in range(50):
-        #         winner = play(game, (random_agent, uct_agent))
-        #         if winner == 1:
-        #             uct_wins += 1
-        #         pbar.update(1)
-        #         pbar.set_description(f"UCT wins: {uct_wins}")
 
         network_agent = PolicyAgent(network_policy, 0)
 
