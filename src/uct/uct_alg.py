@@ -15,7 +15,7 @@ from src.policies.policy import Policy
 from src.uct.uct_node import UCTNode
 
 
-def UCT_search(game: Game, game_state: GameState, policy: Policy, num_iters: int, c: float = 1.0, train: bool = True) -> Tuple[np.ndarray, float]:
+def uct_search(game: Game, game_state: GameState, policy: Policy, num_iters: int, c: float = 1.0, train: bool = True) -> Tuple[np.ndarray, float]:
     """
     Perform num_iters iterations of the UCT algorithm from the given game state
     using the exploration parameter c. Return the distribution of visits to each direct child.

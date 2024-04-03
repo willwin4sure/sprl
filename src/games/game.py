@@ -17,12 +17,15 @@ class GameState:
     """
     Immutable base class to store the state of a game.
     """
-    _board: np.ndarray = None
+    _board: np.ndarray = None  # private field, do not access directly
     player: int = 0
     winner: int = -1
 
     @property
     def board(self) -> np.ndarray:
+        """
+        Read-only property for the game board.
+        """
         view = self._board.view()
         view.flags.writeable = False
         return view
@@ -30,13 +33,14 @@ class GameState:
 
 class Game(ABC):
     """
-    The Game class is the abstract base class for any two-player, zero-sum, perfect
-    information, abstract strategy game. Its derived classes need to implement
-    game logic, symmetries, and action masks.
+    The Game class is the abstract base class for any two-player, zero-sum,
+    perfect information, abstract strategy game.
+    
+    Derived classes need to implement game logic, symmetries, and action masks.
 
     Methods:
-        start_state: returns the initial state of the game
-        next_state: returns the next state of the game given a current state and action
+        start_state: returns initial state of the game
+        next_state: returns next state of the game given current state and action
         is_terminal: returns True if the game is over, False otherwise
         action_mask: returns a mask of legal actions for the player
         rewards: returns the rewards for the players
@@ -57,7 +61,10 @@ class Game(ABC):
     def next_state(self, state: GameState, action: int) -> GameState:
         """
         Returns the next state of the game given a current state and action.
-        Only valid if state is non-terminal and action is legal.
+        
+        Requires that the state is non-terminal and action is legal.
+        If the next state is terminal, the board, player, and winner still must
+        be updated. The player should be the opposite of the player that just moved.
         """
         raise NotImplementedError
 
@@ -72,6 +79,8 @@ class Game(ABC):
     def action_mask(self, state: GameState) -> np.ndarray:
         """
         Returns a mask of legal actions for the player.
+        
+        Requires that the state is non-terminal.
         """
         raise NotImplementedError
 
@@ -92,9 +101,11 @@ class Game(ABC):
     @abstractmethod
     def symmetries(self, state: GameState, symmetries: List[int]) -> List[GameState]:
         """
-        Returns a list of symmetries for the state. The symmetries parameter
-        is a list of integers representing the symmetries to apply to the state,
-        and should be in the range [0, num_symmetries()).
+        Returns a list of states symmetric to the given state.
+        
+        The symmetries parameter is a list of integers representing
+        the symmetries to apply to the state, and should be
+        in the range [0, num_symmetries()).
         """
         raise NotImplementedError
 

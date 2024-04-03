@@ -1,3 +1,8 @@
+"""
+This script is used to reconstruct connect four states.
+"""
+
+
 import numpy as np
 import torch
 

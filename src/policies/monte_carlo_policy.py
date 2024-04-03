@@ -8,16 +8,14 @@ of a Policy class that uses a monte carlo simulation.
 from typing import Tuple
 
 import numpy as np
-import torch
 
 from src.games.game import Game, GameState
-from src.networks.network import Network
 from src.policies.policy import Policy
 
 
 class MonteCarloPolicy(Policy):
     """
-    A Policy that uses a monte carlo simulation to output a probability distribution over actions.
+    A policy that uses Monte Carlo rollouts to output a probability distribution over actions.
     """
 
     def __init__(self, temperature: float, num_simulations: int):
@@ -39,9 +37,10 @@ class MonteCarloPolicy(Policy):
         action_mask = game.action_mask(state)
         num_actions = action_mask.size
         legal_actions = np.sum(action_mask)
+        
         # initialize Q and N for each action
         Q = np.zeros(num_actions)
-        N = np.ones(num_actions)  # Initialize to 1 to avoid division by zero.
+        N = np.ones(num_actions)  # initialize to 1 to avoid division by zero
 
         who = state.player
 
@@ -50,13 +49,15 @@ class MonteCarloPolicy(Policy):
         for i in range(legal_actions):
             while action_mask[action_idx] == 0:
                 action_idx += 1
-            iterations = (i < self.num_simulations %
-                          legal_actions) + self.num_simulations // legal_actions
+                
+            iterations = (i < self.num_simulations % legal_actions) \
+                + self.num_simulations // legal_actions
+            
             for _ in range(iterations):
                 next_state = game.next_state(state, action_idx)
 
                 while not game.is_terminal(next_state):
-                    # Select a random action and play it with np.random.multinomial
+                    # select a random action and play it with np.random.multinomial
                     next_action_mask = game.action_mask(next_state)
                     action_idx_next = np.random.choice(
                         num_actions, p=next_action_mask / np.sum(next_action_mask))
@@ -65,7 +66,8 @@ class MonteCarloPolicy(Policy):
                 # calculate the reward for the current player
                 reward = game.rewards(next_state)[who]
                 Q[action_idx] += reward
-            # Set, not +=, because we initialized to 1.
+                
+            # set, not +=, because we initialized to 1.
             N[action_idx] = iterations
 
         # calculate the utility of each action
@@ -82,6 +84,7 @@ class MonteCarloPolicy(Policy):
             # greedy action
             P = np.zeros(num_actions)
             P[np.argmax(U)] = 1.0
+            
         else:
             P = np.exp(U / self.temperature)
             # np.exp(-np.inf) = 0.0, so we're good here.

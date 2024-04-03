@@ -13,6 +13,11 @@ from src.agents.agent import Agent
 
 
 class PolicyAgent(Agent):
+    """
+    An agent that samples from a policy to select actions,
+    using a temperature parameter.
+    """
+    
     def __init__(self, policy: Policy, temperature: float = 1.0):
         self.policy = policy
         self.temperature = temperature
@@ -21,8 +26,8 @@ class PolicyAgent(Agent):
         # note that action_probs only has support over valid actions
         action_probs, value_estimate = self.policy.action(game, state)
 
-        print(action_probs)
-        print(value_estimate)
+        # print(action_probs)
+        # print(value_estimate)
 
         if self.temperature == 0:
             # deterministically pick best action

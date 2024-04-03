@@ -2,7 +2,7 @@
 connect_k.py
 
 This module contains the ConnectK class, a derived class of the Game class
-for a slight generalization of the classic game Connect Four.
+implementing a slight generalization of the classic game Connect Four.
 """
 
 from typing import List
@@ -16,8 +16,8 @@ ConnectKState = GameState  # type alias for immutable state for ConnectK game
 
 class ConnectK(Game):
     """
-    ConnectK class, a derived class of the Game class for a slight generalization
-    of the classic game Connect Four.
+    Derived class of the Game class implementing a slight
+    generalization of the classic game Connect Four.
     """
 
     def __init__(self, rows: int = 6, cols: int = 7, k: int = 4):
@@ -27,6 +27,8 @@ class ConnectK(Game):
 
         Requires 1 <= rows, cols and 1 <= k <= min(rows, cols).
         """
+        assert rows >= 1 and cols >= 1 and 1 <= k <= min(rows, cols)
+        
         self.rows = rows
         self.cols = cols
         self.k = k
@@ -40,7 +42,7 @@ class ConnectK(Game):
         assert not self.is_terminal(state)
         assert self.action_mask(state)[action] == 1
 
-        # make the move on the copy of the board
+        # make the move on a copy of the board
         board2d = state.board.copy().reshape(self.rows, self.cols)
         num_filled = (board2d[:, action] != -1).sum()
         board2d[self.rows - num_filled - 1, action] = state.player
@@ -61,7 +63,9 @@ class ConnectK(Game):
 
     def rewards(self, state: ConnectKState) -> np.ndarray:
         if state.winner == -1:
+            # neither player has won yet
             return np.zeros(2)
+        
         return np.array([1.0, -1.0]) if state.winner == 0 else np.array([-1.0, 1.0])
 
     def num_symmetries(self) -> int:
@@ -72,12 +76,14 @@ class ConnectK(Game):
         # there is only one symmetry, encoded by the integer 1
         board2d = state.board.reshape(self.rows, self.cols)
         sym_states = []
+        
         for sym in symmetries:
             if sym == 0:
                 sym_states.append(state)
             if sym == 1:
                 sym_states.append(
                     ConnectKState(np.flip(board2d, axis=1).flatten(), state.player, state.winner))
+        
         return sym_states
 
     def display_state(self, state: ConnectKState) -> str:
@@ -88,8 +94,10 @@ class ConnectK(Game):
                 if board2d[row, col] == -1:
                     display += "."
                 elif board2d[row, col] == 0:
+                    # colored red
                     display += "\033[91mO\033[0m"
                 else:
+                    # colored yellow
                     display += "\033[93mX\033[0m"
                 display += " "
             display += "\n"

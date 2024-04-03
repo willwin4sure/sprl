@@ -5,7 +5,6 @@ This module contains the Agent class, the abstract base class for all agents,
 which take in a game and game state and output an action.
 """
 
-from typing import Tuple
 from abc import ABC, abstractmethod
 
 from src.games.game import Game, GameState

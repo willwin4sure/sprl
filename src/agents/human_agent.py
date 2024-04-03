@@ -36,4 +36,6 @@ class HumanAgent(Agent):
         Outputs an action given a game and state, by asking the human to input an action.
         """
         action_mask = game.action_mask(state)
+        print(f"Legal action mask: {action_mask}")
+        
         return get_human_action(action_mask)

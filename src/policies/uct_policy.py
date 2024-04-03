@@ -11,7 +11,7 @@ from src.games.game import Game, GameState
 
 from src.policies.policy import Policy
 
-from src.uct.uct_alg import UCT_search
+from src.uct.uct_alg import uct_search
 
 class UCTPolicy(Policy):
     """
@@ -26,6 +26,6 @@ class UCTPolicy(Policy):
 
     def action(self, game: Game, state: GameState) -> Tuple[np.ndarray, float]:
         """
-        Select an action using the UCT algorithm.
+        Selects an action using the UCT algorithm.
         """
-        return UCT_search(game, state, self.policy, self.num_iters, self.c, self.train)
+        return uct_search(game, state, self.policy, self.num_iters, self.c, self.train)

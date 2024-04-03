@@ -11,6 +11,10 @@ from src.agents.agent import Agent
 
 
 class RandomAgent(Agent):
+    """
+    An agent that samples actions uniformly at random.
+    """
+    
     def action(self, game: Game, state: GameState) -> int:
         action_mask = game.action_mask(state)
         return np.random.choice(np.arange(len(action_mask)), p=action_mask / np.sum(action_mask))

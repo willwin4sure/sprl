@@ -6,13 +6,15 @@ Putting it all together to train a Connect Four bot.
 
 import numpy as np
 import matplotlib.pyplot as plt
-import torch
 from tqdm import tqdm
+
+import torch
+from torch.utils.data import TensorDataset, DataLoader
 
 from src.games.game import Game, GameState
 from src.games.connect_k import ConnectK
 
-from src.networks.network import ConnectFourNetwork
+from src.networks.connect_four_network import ConnectFourNetwork
 
 from src.policies.random_policy import RandomPolicy
 from src.policies.network_policy import NetworkPolicy
@@ -26,6 +28,11 @@ from src.agents.random_agent import RandomAgent
 from src.evaluator.play import play
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
+
+#######################
+##  Hyperparameters  ##
+#######################
+
 RUN_NAME = "cheetah"
 NUM_ITERS = 100
 NUM_GAMES_PER_ITER = 250
@@ -66,8 +73,8 @@ def train_network(game: Game, network: ConnectFourNetwork, iteration: int):
     policy_tensor = torch.stack(policy_tensors).to(device)
     value_tensor = torch.stack(value_tensors).to(device)
 
-    dataset = torch.utils.data.TensorDataset(state_tensor, policy_tensor, value_tensor)
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
+    dataset = TensorDataset(state_tensor, policy_tensor, value_tensor)
+    dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
 
     network.to(device)
 
