@@ -5,9 +5,10 @@ This module contains the Game class, the abstract base class for any two-player,
 zero-sum, perfect information, abstract strategy game.
 """
 
-from typing import List
-from dataclasses import dataclass
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import List
+
 import numpy as np
 
 
@@ -42,6 +43,7 @@ class Game(ABC):
         num_symmetries: returns the number of symmetries for the game
         symmetries: generates game states symmetric to the given one
         display_state: returns a string representation of the game state
+        hash_state: returns a hash of the game state
     """
 
     @abstractmethod
@@ -72,7 +74,7 @@ class Game(ABC):
         Returns a mask of legal actions for the player.
         """
         raise NotImplementedError
-    
+
     @abstractmethod
     def rewards(self, state: GameState) -> np.ndarray:
         """
@@ -95,10 +97,17 @@ class Game(ABC):
         and should be in the range [0, num_symmetries()).
         """
         raise NotImplementedError
-    
+
     @abstractmethod
     def display_state(self, state: GameState) -> str:
         """
         Returns a string representation of the game state.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def hash_state(self, state: GameState) -> int:
+        """
+        Returns a hash of the game state.
         """
         raise NotImplementedError

@@ -6,10 +6,10 @@ for a slight generalization of the classic game Connect Four.
 """
 
 from typing import List
+
 import numpy as np
 
 from src.games.game import Game, GameState
-
 
 ConnectKState = GameState  # type alias for immutable state for ConnectK game
 
@@ -58,7 +58,7 @@ class ConnectK(Game):
     def action_mask(self, state: ConnectKState) -> np.ndarray:
         board2d = state.board.reshape(self.rows, self.cols)
         return board2d[0] == -1
-    
+
     def rewards(self, state: ConnectKState) -> np.ndarray:
         if state.winner == -1:
             return np.zeros(2)
@@ -79,7 +79,7 @@ class ConnectK(Game):
                 sym_states.append(
                     ConnectKState(np.flip(board2d, axis=1).flatten(), state.player, state.winner))
         return sym_states
-    
+
     def display_state(self, state: ConnectKState) -> str:
         board2d = state.board.reshape(self.rows, self.cols)
         display = ""
@@ -116,14 +116,16 @@ class ConnectK(Game):
         for row in range(self.rows - self.k + 1):
             for col in range(self.cols):
                 base = row * self.cols + col
-                idx.append(np.arange(base, base + self.k * self.cols, self.cols))
+                idx.append(
+                    np.arange(base, base + self.k * self.cols, self.cols))
 
         # Diagonal (down-right)
         for row in range(self.rows - self.k + 1):
             for col in range(self.cols - self.k + 1):
                 base = row * self.cols + col
                 idx.append(
-                    np.arange(base, base + self.k * (self.cols + 1), self.cols + 1)
+                    np.arange(base, base + self.k *
+                              (self.cols + 1), self.cols + 1)
                 )
 
         # Diagonal (down-left)
@@ -131,7 +133,11 @@ class ConnectK(Game):
             for col in range(self.k - 1, self.cols):
                 base = row * self.cols + col
                 idx.append(
-                    np.arange(base, base + self.k * (self.cols - 1), self.cols - 1)
+                    np.arange(base, base + self.k *
+                              (self.cols - 1), self.cols - 1)
                 )
 
         return np.array(idx)
+
+    def hash_state(self, state: GameState) -> int:
+        return 0  # hash is not needed for this game
