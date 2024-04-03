@@ -47,8 +47,8 @@ RUN_NAME = "dragon"
 NUM_ITERS = 100
 NUM_INIT_GAMES = 2500
 NUM_GAMES_PER_ITER = 500
-NUM_PAST_ITERATIONS_TO_TRAIN = 20
-NUM_EPOCHS = 300
+NUM_PAST_ITERATIONS_TO_TRAIN = 10
+NUM_EPOCHS = 150
 BATCH_SIZE = 1024
 UCT_TRAVERSALS = 200
 EXPLORATION = 2.0
@@ -149,7 +149,7 @@ def train():
     # uct_win_counts = []
     network_win_counts = []
 
-    for iteration in range(NUM_ITERS):
+    for iteration in range(1, NUM_ITERS):
         print(f"Iteration {iteration}...")
 
         if iteration == 0:

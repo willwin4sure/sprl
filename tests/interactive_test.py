@@ -31,46 +31,46 @@ from src.policies.uct_policy import UCTPolicy
 if __name__ == "__main__":
     connect4 = ConnectK()
     
-    random_policy = RandomPolicy()
-    uct_random_policy = UCTPolicy(random_policy, num_iters=100, c=1.0, train=False)
-    policy_agent = PolicyAgent(uct_random_policy, 0.1)
+    network1 = torch.load("data/models/dragon/dragon_iteration_13.pt")
+    network_policy1 = NetworkPolicy(network1)
+    uct_policy1 = UCTPolicy(network_policy1, num_iters=100, c=1.0, train=False)
+    policy_agent1 = PolicyAgent(uct_policy1, 0.5)
+
+    network2 = torch.load("data/models/dragon/dragon_iteration_3.pt")
+    network_policy2 = NetworkPolicy(network2)
+    uct_policy2 = UCTPolicy(network_policy2, num_iters=100, c=1.0, train=False)
+    policy_agent2 = PolicyAgent(uct_policy2, 0.5)
     
-    random_agent = RandomAgent()
-    
-    policy_wins = 0
-    random_wins = 0
+    policy1_wins = 0
+    policy2_wins = 0
     
     with tqdm(total=50) as pbar:
         for _ in range(50):
-            winner = play(connect4, (policy_agent, random_agent), do_print=False)
+            winner = play(connect4, (policy_agent1, policy_agent2), do_print=False)
             
             if winner == 0:
-                policy_wins += 1
+                policy1_wins += 1
             else:
-                random_wins += 1    
+                policy2_wins += 1
             
-            winner = play(connect4, (random_agent, policy_agent), do_print=False)
+            winner = play(connect4, (policy_agent2, policy_agent1), do_print=False)
             
             if winner == 1:
-                policy_wins += 1
+                policy1_wins += 1
             else:
-                random_wins += 1
-                
-            pbar.set_description(f"Policy wins: {policy_wins}, Random wins: {random_wins}")
+                policy2_wins += 1
             
-    # network2 = torch.load("data/models/bison/bison_iteration_0.pt")
-    # network_policy2 = NetworkPolicy(network2)
-    # uct_policy2 = UCTPolicy(network_policy2, num_iters=100, c=1.0, train=False)
-    # policy_agent2 = PolicyAgent(uct_policy2, 0.1)
+            pbar.update(1)
+            pbar.set_description(f"Policy 1 wins: {policy1_wins}, Policy 2 wins: {policy2_wins}")
 
     # monte_policy = MonteCarloPolicy(temperature=1.0, num_simulations=10)
 
     # uct_monte_policy = UCTPolicy(monte_policy, num_iters=1000, c=1.0, train=False)
     # policy_agent3 = PolicyAgent(uct_monte_policy, 0.1)
 
-    agents = (
-        policy_agent,
-        HumanAgent(),
-    )
+    # agents = (
+    #     HumanAgent(),
+    #     policy_agent1,
+    # )
 
-    play(connect4, agents, do_print=True)
+    # play(connect4, agents, do_print=True)
