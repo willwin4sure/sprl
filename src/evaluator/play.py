@@ -6,7 +6,10 @@ from src.agents.agent import Agent
 
 def play(game: Game, agents: Tuple[Agent, Agent], do_print: bool = False):
     """
-    Play a game between two agents and returns the winner.
+    Play a game between two agents and return the winner.
+
+    The winner is 0 if the first agent wins, 1 if the second agent wins,
+    and -1 if the game is a draw.
     """
     state: GameState = game.start_state()
 

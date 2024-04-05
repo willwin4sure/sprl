@@ -36,7 +36,7 @@ class ConnectK(Game):
 
     def start_state(self) -> ConnectKState:
         board = -np.ones(self.rows * self.cols)  # empty board
-        return ConnectKState(board, 0, -1)  # player 0 to move
+        return ConnectKState(board, 0, -1)  # player 0 to move, no winner
 
     def next_state(self, state: ConnectKState, action: int) -> ConnectKState:
         assert not self.is_terminal(state)
@@ -114,20 +114,20 @@ class ConnectK(Game):
         """
         idx = []
 
-        # Horizontal
+        # horizontal
         for row in range(self.rows):
             for col in range(self.cols - self.k + 1):
                 base = row * self.cols + col
                 idx.append(np.arange(base, base + self.k))
 
-        # Vertical
+        # vertical
         for row in range(self.rows - self.k + 1):
             for col in range(self.cols):
                 base = row * self.cols + col
                 idx.append(
                     np.arange(base, base + self.k * self.cols, self.cols))
 
-        # Diagonal (down-right)
+        # diagonal (down-right)
         for row in range(self.rows - self.k + 1):
             for col in range(self.cols - self.k + 1):
                 base = row * self.cols + col
@@ -136,7 +136,7 @@ class ConnectK(Game):
                               (self.cols + 1), self.cols + 1)
                 )
 
-        # Diagonal (down-left)
+        # diagonal (down-left)
         for row in range(self.rows - self.k + 1):
             for col in range(self.k - 1, self.cols):
                 base = row * self.cols + col

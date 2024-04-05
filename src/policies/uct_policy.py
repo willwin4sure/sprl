@@ -1,7 +1,8 @@
 """
 uct_policy.py
 
-This is a policy that uses the UCT algorithm to select actions.
+This is a policy improvement operator that uses the UCT algorithm
+combined with an existing policy to select actions.
 """
 
 from typing import Tuple
@@ -18,11 +19,11 @@ class UCTPolicy(Policy):
     A policy that uses the UCT algorithm to select actions.
     """
 
-    def __init__(self, policy: Policy, num_iters=1000, c: float = 1.0, train: bool = True, init_type: str = "offset"):
+    def __init__(self, policy: Policy, num_iters=1000, c: float = 1.0, train: bool = True, init_type: str = "parent"):
         """
         Initialize the UCTPolicy.
 
-        init_type should be in ["zero", "offset"]
+        init_type should be in ["zero", "parent"]
         """
         self.policy = policy
         self.num_iters = num_iters

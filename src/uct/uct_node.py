@@ -14,7 +14,7 @@ from src.games.game import Game, GameState
 
 class UCTNode:
 
-    def __init__(self, game: Game, game_state: GameState, action: int, parent: 'UCTNode' = None, init_type: str = "offset"):
+    def __init__(self, game: Game, game_state: GameState, action: int, parent: 'UCTNode' = None, init_type: str = "parent"):
         """
         Initialize a new UCTNode.
         """
@@ -120,7 +120,7 @@ class UCTNode:
 
         # Value estimate is *not* negated here because it is from the perspective of the current player
 
-        if self.init_type == "offset":
+        if self.init_type == "parent":
             self.child_total_value += (value_estimate) * self.action_mask
 
         for action, prior in enumerate(child_priors):
