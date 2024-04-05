@@ -4,28 +4,23 @@ connect_four.py
 Putting it all together to train a Connect Four bot.
 """
 
-import numpy as np
 import matplotlib.pyplot as plt
-from tqdm import tqdm
-
+import numpy as np
 import torch
-from torch.utils.data import TensorDataset, DataLoader
-
-from src.games.game import Game, GameState
-from src.games.connect_k import ConnectK
-
-from src.networks.connect_four_network import ConnectFourNetwork
-
-from src.policies.random_policy import RandomPolicy
-from src.policies.network_policy import NetworkPolicy
-from src.policies.uct_policy import UCTPolicy
-
-from src.train.self_play import run_iteration
+from torch.utils.data import DataLoader, TensorDataset
+from tqdm import tqdm
 
 from src.agents.policy_agent import PolicyAgent
 from src.agents.random_agent import RandomAgent
-
 from src.evaluator.play import play
+from src.games.connect_k import ConnectK
+from src.games.game import Game, GameState
+from src.networks.connect_four_network import ConnectFourNetwork
+from src.policies.monte_carlo_policy import MonteCarloPolicy
+from src.policies.network_policy import NetworkPolicy
+from src.policies.random_policy import RandomPolicy
+from src.policies.uct_policy import UCTPolicy
+from src.train.self_play import run_iteration
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -33,25 +28,26 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 ##  Hyperparameters  ##
 #######################
 
-# RUN_NAME = "dragon_mini"
-# NUM_ITERS = 20
-# NUM_INIT_GAMES = 200
-# NUM_GAMES_PER_ITER = 50
+RUN_NAME = "electron_mini"
+NUM_ITERS = 20
+NUM_INIT_GAMES = 200
+NUM_GAMES_PER_ITER = 50
+NUM_PAST_ITERATIONS_TO_TRAIN = 10
+NUM_EPOCHS = 10
+BATCH_SIZE = 1024
+UCT_TRAVERSALS = 10
+EXPLORATION = 2.0
+
+# RUN_NAME = "electron"
+# NUM_ITERS = 100
+# NUM_INIT_GAMES = 2500
+# NUM_GAMES_PER_ITER = 500
 # NUM_PAST_ITERATIONS_TO_TRAIN = 10
-# NUM_EPOCHS = 10
+# NUM_EPOCHS = 150
 # BATCH_SIZE = 1024
-# UCT_TRAVERSALS = 10
+# UCT_TRAVERSALS = 200
 # EXPLORATION = 2.0
 
-RUN_NAME = "dragon"
-NUM_ITERS = 100
-NUM_INIT_GAMES = 2500
-NUM_GAMES_PER_ITER = 500
-NUM_PAST_ITERATIONS_TO_TRAIN = 10
-NUM_EPOCHS = 150
-BATCH_SIZE = 1024
-UCT_TRAVERSALS = 200
-EXPLORATION = 2.0
 
 def train_network(game: Game, network: ConnectFourNetwork, iteration: int):
     """
@@ -62,7 +58,8 @@ def train_network(game: Game, network: ConnectFourNetwork, iteration: int):
     rewards = []
 
     for i in range(max(0, iteration - NUM_PAST_ITERATIONS_TO_TRAIN), iteration + 1):
-        states_i, distributions_i, rewards_i = torch.load(f"data/games/{RUN_NAME}/{RUN_NAME}_iteration_{i}.pkl")
+        states_i, distributions_i, rewards_i = torch.load(
+            f"data/games/{RUN_NAME}/{RUN_NAME}_iteration_{i}.pkl")
         states.extend(states_i)
         distributions.extend(distributions_i)
         rewards.extend(rewards_i)
@@ -106,8 +103,10 @@ def train_network(game: Game, network: ConnectFourNetwork, iteration: int):
             for batch_state, batch_policy, batch_value in dataloader:
                 policy_pred, value_pred = network(batch_state)
 
-                policy_loss = torch.nn.functional.cross_entropy(policy_pred, batch_policy)
-                value_loss = torch.nn.functional.mse_loss(value_pred, batch_value)
+                policy_loss = torch.nn.functional.cross_entropy(
+                    policy_pred, batch_policy)
+                value_loss = torch.nn.functional.mse_loss(
+                    value_pred, batch_value)
 
                 loss = policy_loss + value_loss
 
@@ -126,14 +125,16 @@ def train_network(game: Game, network: ConnectFourNetwork, iteration: int):
                 init_policy_loss = average_policy_loss
                 init_value_loss = average_value_loss
 
-            pbar.set_description(f"Policy: {init_policy_loss:.6f} -> {average_policy_loss:.6f}, Value: {init_value_loss:.6f} -> {average_value_loss:.6f}")
+            pbar.set_description(
+                f"Policy: {init_policy_loss:.6f} -> {average_policy_loss:.6f}, Value: {init_value_loss:.6f} -> {average_value_loss:.6f}")
 
     network.to("cpu")
 
-    torch.save(network, f"data/models/{RUN_NAME}/{RUN_NAME}_iteration_{iteration}.pt")
+    torch.save(
+        network, f"data/models/{RUN_NAME}/{RUN_NAME}_iteration_{iteration}.pt")
 
 
-def train():
+def train(starting_policy="random"):
     """
     Train a Connect Four bot.
     """
@@ -141,27 +142,36 @@ def train():
     game = ConnectK()
     network = ConnectFourNetwork()
 
-    random_policy = RandomPolicy()
     network_policy = NetworkPolicy(network)
     uct_policy = UCTPolicy(network_policy, UCT_TRAVERSALS, c=EXPLORATION)
-    uct_random_policy = UCTPolicy(random_policy, UCT_TRAVERSALS, c=EXPLORATION)
+
+    if starting_policy == "monte_carlo":
+        monte_policy = MonteCarloPolicy(temperature=1.0, num_simulations=10)
+        uct_starting_policy = UCTPolicy(
+            monte_policy, UCT_TRAVERSALS, c=EXPLORATION)
+    elif starting_policy == "random":
+        random_policy = RandomPolicy()
+        uct_starting_policy = UCTPolicy(
+            random_policy, UCT_TRAVERSALS, c=EXPLORATION)
 
     # uct_win_counts = []
     network_win_counts = []
 
-    for iteration in range(1, NUM_ITERS):
+    for iteration in range(0, NUM_ITERS):
         print(f"Iteration {iteration}...")
 
         if iteration == 0:
-            policy_to_use = uct_random_policy
+            policy_to_use = uct_starting_policy
             num_games_to_use = NUM_INIT_GAMES
         else:
             policy_to_use = uct_policy
             num_games_to_use = NUM_GAMES_PER_ITER
 
-        states, distributions, rewards = run_iteration(game, (policy_to_use, policy_to_use), num_games_to_use)
+        states, distributions, rewards = run_iteration(
+            game, (policy_to_use, policy_to_use), num_games_to_use)
 
-        torch.save((states, distributions, rewards), f"data/games/{RUN_NAME}/{RUN_NAME}_iteration_{iteration}.pkl")
+        torch.save((states, distributions, rewards),
+                   f"data/games/{RUN_NAME}/{RUN_NAME}_iteration_{iteration}.pkl")
 
         train_network(game, network, iteration)
 
@@ -201,16 +211,5 @@ def train():
     plt.savefig(f"data/{RUN_NAME}_win_counts.png")
 
 
-
-
-
-
-        
-        
-
 if __name__ == "__main__":
     train()
-
-
-
-

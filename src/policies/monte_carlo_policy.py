@@ -37,7 +37,7 @@ class MonteCarloPolicy(Policy):
         action_mask = game.action_mask(state)
         num_actions = action_mask.size
         legal_actions = np.sum(action_mask)
-        
+
         # initialize Q and N for each action
         Q = np.zeros(num_actions)
         N = np.ones(num_actions)  # initialize to 1 to avoid division by zero
@@ -49,10 +49,10 @@ class MonteCarloPolicy(Policy):
         for i in range(legal_actions):
             while action_mask[action_idx] == 0:
                 action_idx += 1
-                
+
             iterations = (i < self.num_simulations % legal_actions) \
                 + self.num_simulations // legal_actions
-            
+
             for _ in range(iterations):
                 next_state = game.next_state(state, action_idx)
 
@@ -66,7 +66,7 @@ class MonteCarloPolicy(Policy):
                 # calculate the reward for the current player
                 reward = game.rewards(next_state)[who]
                 Q[action_idx] += reward
-                
+
             # set, not +=, because we initialized to 1.
             N[action_idx] = iterations
 
@@ -84,7 +84,7 @@ class MonteCarloPolicy(Policy):
             # greedy action
             P = np.zeros(num_actions)
             P[np.argmax(U)] = 1.0
-            
+
         else:
             P = np.exp(U / self.temperature)
             # np.exp(-np.inf) = 0.0, so we're good here.

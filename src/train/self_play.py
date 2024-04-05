@@ -7,9 +7,9 @@ and returns the game states and action distributions, as well as the final resul
 It also contains a larger function which generates a dataset of self-play games.
 """
 
-from typing import Tuple, List
-import numpy as np
+from typing import List, Tuple
 
+import numpy as np
 from tqdm import tqdm
 
 from src.games.game import Game, GameState
@@ -52,9 +52,9 @@ def self_play(game: Game, policies: Tuple[Policy, Policy]) -> Tuple[List[GameSta
 def run_iteration(game: Game, policies: Tuple[Policy, Policy], num_games: int) -> Tuple[List[GameState], List[np.ndarray], List[float]]:
     """
     Run a single iteration of self-play, generating a dataset of games.
-    
+
     The dataset is a tuple of lists of states, distributions, and rewards.
-    
+
     Each tuple (states[i], distributions[i], rewards[i]) is a datapoint
     that can be used to train a neural network directly.
     """
@@ -68,7 +68,7 @@ def run_iteration(game: Game, policies: Tuple[Policy, Policy], num_games: int) -
             states, distributions, reward = self_play(game, policies)
             all_states.extend(states)
             all_distributions.extend(distributions)
-            
+
             for state in states:
                 if state.player == 0:
                     all_rewards.append(reward)
@@ -76,7 +76,7 @@ def run_iteration(game: Game, policies: Tuple[Policy, Policy], num_games: int) -
                     all_rewards.append(-reward)
 
             pbar.set_description(f"{len(all_states)} states generated")
-            
+
     assert len(all_states) == len(all_distributions) == len(all_rewards)
 
     return all_states, all_distributions, all_rewards

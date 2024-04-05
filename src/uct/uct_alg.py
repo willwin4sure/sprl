@@ -14,7 +14,15 @@ from src.policies.policy import Policy
 from src.uct.uct_node import UCTNode
 
 
-def uct_search(game: Game, game_state: GameState, policy: Policy, num_iters: int, c: float = 1.0, train: bool = True) -> Tuple[np.ndarray, float]:
+def uct_search(
+    game: Game,
+    game_state: GameState,
+    policy: Policy,
+    num_iters: int,
+    c: float = 1.0,
+    train: bool = True,
+    init_type: str = "offset"
+) -> Tuple[np.ndarray, float]:
     """
     Perform num_iters iterations of the UCT algorithm from the given game state
     using the exploration parameter c. Return the distribution of visits to each direct child.
@@ -23,22 +31,23 @@ def uct_search(game: Game, game_state: GameState, policy: Policy, num_iters: int
     """
 
     # set root action to -1 so can identify it and add noise
-    root = UCTNode(game, game_state, -1)
+    root = UCTNode(game, game_state, -1, init_type=init_type)
 
     for _ in range(num_iters):
         # greedily select leaf with given exploration parameter
         leaf: UCTNode = root.select_leaf(c)
-        
+
         if leaf.is_terminal:
             # compute the value estimate of the player at the terminal leaf
-            value_estimate = game.rewards(leaf.game_state)[leaf.game_state.player]
+            value_estimate = game.rewards(leaf.game_state)[
+                leaf.game_state.player]
 
         else:
             # run the neural network to get prior policy and value estimate of the player at the leaf
             child_priors, value_estimate = policy.action(game, leaf.game_state)
 
             # expand the non-terminal leaf node
-            leaf.expand(child_priors, train)
+            leaf.expand(child_priors, value_estimate, train)
 
         # backup the value estimate along the path to the root
         leaf.backup(value_estimate)
