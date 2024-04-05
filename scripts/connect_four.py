@@ -4,6 +4,8 @@ connect_four.py
 Putting it all together to train a Connect Four bot.
 """
 
+import os
+
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -28,25 +30,29 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 ##  Hyperparameters  ##
 #######################
 
-RUN_NAME = "electron_mini"
-NUM_ITERS = 20
-NUM_INIT_GAMES = 200
-NUM_GAMES_PER_ITER = 50
-NUM_PAST_ITERATIONS_TO_TRAIN = 10
-NUM_EPOCHS = 10
+# RUN_NAME = "electron_mini"
+# NUM_ITERS = 20
+# NUM_INIT_GAMES = 200
+# NUM_GAMES_PER_ITER = 50
+# NUM_PAST_ITERATIONS_TO_TRAIN = 10
+# NUM_EPOCHS = 10
+# BATCH_SIZE = 1024
+# UCT_TRAVERSALS = 10
+# EXPLORATION = 2.0
+
+RUN_NAME = "electron_no_offset"
+NUM_ITERS = 100
+NUM_INIT_GAMES = 2500
+NUM_GAMES_PER_ITER = 1000
+NUM_PAST_ITERATIONS_TO_TRAIN = 20
+NUM_EPOCHS = 150
 BATCH_SIZE = 1024
-UCT_TRAVERSALS = 10
+UCT_TRAVERSALS = 200
 EXPLORATION = 2.0
 
-# RUN_NAME = "electron"
-# NUM_ITERS = 100
-# NUM_INIT_GAMES = 2500
-# NUM_GAMES_PER_ITER = 500
-# NUM_PAST_ITERATIONS_TO_TRAIN = 10
-# NUM_EPOCHS = 150
-# BATCH_SIZE = 1024
-# UCT_TRAVERSALS = 200
-# EXPLORATION = 2.0
+# create directories if they don't exist
+os.makedirs(f"data/games/{RUN_NAME}", exist_ok=True)
+os.makedirs(f"data/models/{RUN_NAME}", exist_ok=True)
 
 
 def train_network(game: Game, network: ConnectFourNetwork, iteration: int):
