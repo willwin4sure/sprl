@@ -70,9 +70,8 @@ if __name__ == "__main__":
     # policy_agent3 = PolicyAgent(uct_monte_policy, 0.1)
 
     agents = (
-        PolicyAgent(UCTPolicy(MonteCarloPolicy(RandomPolicy(), 0.5, 10), 100, train=False), 0.0),
+        PolicyAgent(UCTPolicy(NetworkPolicy(torch.load("data/models/elephant_mini/elephant_mini_iteration_19.pt")), 1000), 0.1),
         HumanAgent()
-
     )
 
     play(connect4, agents, do_print=True)

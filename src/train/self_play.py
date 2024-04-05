@@ -29,17 +29,22 @@ def self_play(game: Game, policies: Tuple[Policy, Policy]) -> Tuple[List[GameSta
     moves = 0
 
     while not game.is_terminal(state):
-        states.append(state)
+        states.extend(game.symmetrize_state(state, range(game.num_symmetries())))
 
         policy = policies[state.player]
-        distribution, _ = policy.action(game, state)
+
+        symmetry = np.random.randint(game.num_symmetries())
+        sym_state = game.symmetrize_state(state, [symmetry])[0]
+
+        distribution, _ = policy.action(game, sym_state)
+        distribution = game.symmetrize_action_distribution(distribution, [game.inverse_symmetry(symmetry)])[0]
+
+        distributions.extend(game.symmetrize_action_distribution(distribution, range(game.num_symmetries())))
 
         if moves >= 10:
-            # decrease temperature when later on in the game
+            # decrease temperature for sampling when later on in the game
             distribution = distribution ** 10
             distribution /= np.sum(distribution)
-
-        distributions.append(distribution)
 
         action = np.random.choice(len(distribution), p=distribution)
         state = game.next_state(state, action)
