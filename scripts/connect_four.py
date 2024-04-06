@@ -40,7 +40,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 # UCT_TRAVERSALS = 10
 # EXPLORATION = 2.0
 
-RUN_NAME = "electron_no_offset"
+RUN_NAME = "negative_electron_no_offset"
 NUM_ITERS = 100
 NUM_INIT_GAMES = 2500
 NUM_GAMES_PER_ITER = 1000

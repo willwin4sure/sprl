@@ -121,7 +121,13 @@ class UCTNode:
         # Value estimate is *not* negated here because it is from the perspective of the current player
 
         if self.init_type == "offset":
-            self.child_total_value += (value_estimate) * self.action_mask
+            self.child_total_value += (value_estimate - 0.1) * self.action_mask
+        if self.init_type == "equal":
+            self.child_total_value += value_estimate * self.action_mask
+        if self.init_type == "invert":
+            self.child_total_value += (- value_estimate) * self.action_mask
+        if self.init_type == "zero":
+            pass
 
         for action, prior in enumerate(child_priors):
             if self.action_mask[action]:
