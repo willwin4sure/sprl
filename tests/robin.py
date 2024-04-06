@@ -75,14 +75,18 @@ def handle_master(results_path, num_games, num_workers):
             # wait until this file exists
             if not os.path.exists(results_file):
                 continue
-            with open(results_file, "r") as f:
-                lines = f.readlines()[1:len(players) + 1]
-                lines = [line.split(" ")[1:] for line in lines]
-                scores = [[float(x) for x in line if x.strip() != ""]
-                          for line in lines]
-                total_scores = [[total_scores[i][j] + scores[i][j]
-                                 for j in range(len(players))] for i in range(len(players))]
-                total_games += sum(sum(score) for score in scores)
+            try:
+                with open(results_file, "r") as f:
+                    lines = f.readlines()[1:len(players) + 1]
+                    lines = [line.split(" ")[1:] for line in lines]
+                    scores = [[float(x) for x in line if x.strip() != ""]
+                              for line in lines]
+                    total_scores = [[total_scores[i][j] + scores[i][j]
+                                    for j in range(len(players))] for i in range(len(players))]
+                    total_games += sum(sum(score) for score in scores)
+            except Exception as e:
+                print("Error reading file ", results_file)
+                print(e)
         win_matrix = {player: {opponent: score for opponent, score in zip(
             players, scores)} for player, scores in zip(players, total_scores)}
 
