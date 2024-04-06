@@ -33,11 +33,7 @@ def self_play(game: Game, policies: Tuple[Policy, Policy]) -> Tuple[List[GameSta
 
         policy = policies[state.player]
 
-        symmetry = np.random.randint(game.num_symmetries())
-        sym_state = game.symmetrize_state(state, [symmetry])[0]
-
-        distribution, _ = policy.action(game, sym_state)
-        distribution = game.symmetrize_action_distribution(distribution, [game.inverse_symmetry(symmetry)])[0]
+        distribution, _ = policy.action(game, state)
 
         distributions.extend(game.symmetrize_action_distribution(distribution, range(game.num_symmetries())))
 

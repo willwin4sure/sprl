@@ -26,17 +26,17 @@ from src.policies.uct_policy import UCTPolicy
 if __name__ == "__main__":
     connect4 = ConnectK()
 
-    # network1 = torch.load("data/models/dragon/dragon_iteration_13.pt")
-    # network_policy1 = NetworkPolicy(network1)
-    # uct_policy1 = UCTPolicy(
-    #     network_policy1, num_iters=1000, c=1.0, train=False, init_type="zero")
-    # policy_agent1 = PolicyAgent(uct_policy1, 0.5)
+    network1 = torch.load("data/models/elephant/elephant_iteration_19.pt")
+    network_policy1 = NetworkPolicy(network1, symmetrize=True)
+    uct_policy1 = UCTPolicy(
+        network_policy1, num_iters=10000, c=1.0, train=False) # , init_type="zero")
+    policy_agent1 = PolicyAgent(uct_policy1, 0.5)
 
     # network2 = torch.load(
-    #     "data/models/electron_mini/electron_mini_iteration_19.pt")
+    #     "data/models/dragon/dragon_iteration_50.pt")
     # network_policy2 = NetworkPolicy(network2)
     # uct_policy2 = UCTPolicy(
-    #     network_policy2, num_iters=1000, c=1.0, train=False)
+    #     network_policy2, num_iters=100, c=1.0, train=False)
     # policy_agent2 = PolicyAgent(uct_policy2, 0.5)
 
     # policy1_wins = 0
@@ -70,7 +70,8 @@ if __name__ == "__main__":
     # policy_agent3 = PolicyAgent(uct_monte_policy, 0.1)
 
     agents = (
-        PolicyAgent(UCTPolicy(NetworkPolicy(torch.load("data/models/elephant_mini/elephant_mini_iteration_19.pt")), 1000), 0.1),
+        # PolicyAgent(UCTPolicy(NetworkPolicy(torch.load("data/models/elephant/elephant_iteration_0.pt")), 1000), 0.1),
+        PolicyAgent(uct_policy1, 0.1),
         HumanAgent()
     )
 

@@ -53,6 +53,7 @@ def uct_search(
         leaf.backup(value_estimate)
 
     # print("Number visits", root.child_number_visits)
+    # print("Prior policy", root.child_priors)
     # print("Q values", root.child_Q())
     # print("U values", root.child_U())
 

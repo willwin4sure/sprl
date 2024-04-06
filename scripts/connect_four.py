@@ -37,11 +37,11 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 # NUM_PAST_ITERATIONS_TO_TRAIN = 10
 # NUM_EPOCHS = 10
 # BATCH_SIZE = 1024
-# UCT_TRAVERSALS = 10
+# UCT_TRAVERSALS = 25
 # EXPLORATION = 2.0
 
 RUN_NAME = "elephant"
-NUM_ITERS = 50
+NUM_ITERS = 100
 NUM_INIT_GAMES = 2500
 NUM_GAMES_PER_ITER = 500
 NUM_PAST_ITERATIONS_TO_TRAIN = 10
@@ -148,7 +148,7 @@ def train(starting_policy="random"):
     game = ConnectK()
     network = ConnectFourNetwork()
 
-    network_policy = NetworkPolicy(network)
+    network_policy = NetworkPolicy(network, symmetrize=True)
     uct_policy = UCTPolicy(network_policy, UCT_TRAVERSALS, c=EXPLORATION)
 
     if starting_policy == "monte_carlo":
