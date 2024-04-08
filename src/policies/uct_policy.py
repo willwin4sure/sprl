@@ -19,11 +19,11 @@ class UCTPolicy(Policy):
     A policy that uses the UCT algorithm to select actions.
     """
 
-    def __init__(self, policy: Policy, num_iters=1000, c: float = 1.0, train: bool = True, init_type: str = "parent"):
+    def __init__(self, policy: Policy, num_iters=1000, c: float = 1.0, train: bool = True, init_type: str = "zero"):
         """
         Initialize the UCTPolicy.
 
-        init_type should be in ["zero", "parent"]
+        init_type should be in ["zero", "offset", "negative", "equal"]
         """
         self.policy = policy
         self.num_iters = num_iters

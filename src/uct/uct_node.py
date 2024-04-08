@@ -14,7 +14,7 @@ from src.games.game import Game, GameState
 
 class UCTNode:
 
-    def __init__(self, game: Game, game_state: GameState, action: int, parent: 'UCTNode' = None, init_type: str = "parent"):
+    def __init__(self, game: Game, game_state: GameState, action: int, parent: 'UCTNode' = None, init_type: str = "zero"):
         """
         Initialize a new UCTNode.
         """

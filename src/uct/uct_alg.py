@@ -21,7 +21,7 @@ def uct_search(
     num_iters: int,
     c: float = 1.0,
     train: bool = True,
-    init_type: str = "parent"
+    init_type: str = "zero"
 ) -> Tuple[np.ndarray, float]:
     """
     Perform num_iters iterations of the UCT algorithm from the given game state
