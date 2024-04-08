@@ -1,8 +1,8 @@
 """
 monte_carlo_policy.py
 
-This module contains the MonteCarloPolicy class, a basic implementation
-of a Policy class that uses a monte carlo simulation.
+This is a policy improvement operator that uses Monte Carlo rollouts
+combined with an existing policy to select actions.
 """
 
 from typing import Tuple
@@ -18,7 +18,7 @@ class MonteCarloPolicy(Policy):
     A policy that uses Monte Carlo rollouts to output a probability distribution over actions.
     """
 
-    def __init__(self, temperature: float, num_simulations: int):
+    def __init__(self, policy: Policy, temperature: float, num_simulations: int):
         """
         Initialize the MonteCarloPolicy with a temperature and number of simulations.
 
@@ -27,6 +27,7 @@ class MonteCarloPolicy(Policy):
 
         num_simulations is the number of simulations to run for each action.
         """
+        self.policy = policy
         self.temperature = temperature
         self.num_simulations = num_simulations
 
@@ -36,7 +37,7 @@ class MonteCarloPolicy(Policy):
         """
         action_mask = game.action_mask(state)
         num_actions = action_mask.size
-        legal_actions = np.sum(action_mask)
+        num_legal_actions = np.sum(action_mask)
 
         # initialize Q and N for each action
         Q = np.zeros(num_actions)
@@ -46,35 +47,37 @@ class MonteCarloPolicy(Policy):
 
         # run simulations
         action_idx = 0
-        for i in range(legal_actions):
+        for a in range(num_legal_actions):
             while action_mask[action_idx] == 0:
                 action_idx += 1
 
-            iterations = (i < self.num_simulations % legal_actions) \
-                + self.num_simulations // legal_actions
-
-            for _ in range(iterations):
+            for t in range(self.num_simulations):
                 next_state = game.next_state(state, action_idx)
 
                 while not game.is_terminal(next_state):
-                    # select a random action and play it with np.random.multinomial
-                    next_action_mask = game.action_mask(next_state)
-                    action_idx_next = np.random.choice(
-                        num_actions, p=next_action_mask / np.sum(next_action_mask))
-                    next_state = game.next_state(next_state, action_idx_next)
+                    # sample an action from the rollout policy
+                    distribution, _ = self.policy.action(game, next_state)
+                    action = np.random.choice(len(distribution), p=distribution)
+                    next_state = game.next_state(next_state, action)
 
                 # calculate the reward for the current player
                 reward = game.rewards(next_state)[who]
                 Q[action_idx] += reward
 
             # set, not +=, because we initialized to 1.
-            N[action_idx] = iterations
+            N[action_idx] = self.num_simulations
+
+            action_idx += 1
 
         # calculate the utility of each action
         U = Q / N
 
+        # print("Q: ", Q)
+        # print("N: ", N)
+        # print("U: ", U)
+
         # also compute the total utility
-        total_utility = np.sum(Q) / self.num_simulations
+        total_utility = np.sum(Q) / (self.num_simulations * num_legal_actions)
 
         # set mask to -inf
         U[action_mask == 0] = -np.inf

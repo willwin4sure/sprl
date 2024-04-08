@@ -21,7 +21,7 @@ def uct_search(
     num_iters: int,
     c: float = 1.0,
     train: bool = True,
-    init_type: str = "offset"
+    init_type: str = "parent"
 ) -> Tuple[np.ndarray, float]:
     """
     Perform num_iters iterations of the UCT algorithm from the given game state
@@ -30,7 +30,7 @@ def uct_search(
     Requires that game_state is a non-terminal state.
     """
 
-    # set root action to -1 so can identify it and add noise
+    # set root action to -1 so we can identify it and add noise
     root = UCTNode(game, game_state, -1, init_type=init_type)
 
     for _ in range(num_iters):
@@ -39,7 +39,7 @@ def uct_search(
 
         if leaf.is_terminal:
             # compute the value estimate of the player at the terminal leaf
-            value_estimate = game.rewards(leaf.game_state)[
+            value_estimate: float = game.rewards(leaf.game_state)[
                 leaf.game_state.player]
 
         else:
@@ -53,6 +53,7 @@ def uct_search(
         leaf.backup(value_estimate)
 
     # print("Number visits", root.child_number_visits)
+    # print("Prior policy", root.child_priors)
     # print("Q values", root.child_Q())
     # print("U values", root.child_U())
 

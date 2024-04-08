@@ -30,24 +30,24 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 ##  Hyperparameters  ##
 #######################
 
-# RUN_NAME = "electron_mini"
+# RUN_NAME = "elephant_mini"
 # NUM_ITERS = 20
 # NUM_INIT_GAMES = 200
 # NUM_GAMES_PER_ITER = 50
 # NUM_PAST_ITERATIONS_TO_TRAIN = 10
 # NUM_EPOCHS = 10
 # BATCH_SIZE = 1024
-# UCT_TRAVERSALS = 10
+# UCT_TRAVERSALS = 25
 # EXPLORATION = 2.0
 
-RUN_NAME = "negative_electron_no_offset"
+RUN_NAME = "elephant"
 NUM_ITERS = 100
 NUM_INIT_GAMES = 2500
-NUM_GAMES_PER_ITER = 1000
-NUM_PAST_ITERATIONS_TO_TRAIN = 20
+NUM_GAMES_PER_ITER = 500
+NUM_PAST_ITERATIONS_TO_TRAIN = 10
 NUM_EPOCHS = 150
 BATCH_SIZE = 1024
-UCT_TRAVERSALS = 200
+UCT_TRAVERSALS = 250
 EXPLORATION = 2.0
 
 # create directories if they don't exist
@@ -98,7 +98,7 @@ def train_network(game: Game, network: ConnectFourNetwork, iteration: int):
     if iteration >= 25:
         lr = 1e-4
 
-    optimizer = torch.optim.Adam(network.parameters(), lr=lr)
+    optimizer = torch.optim.AdamW(network.parameters(), lr=lr)
 
     with tqdm(range(NUM_EPOCHS)) as pbar:
         for epoch in pbar:
@@ -148,22 +148,22 @@ def train(starting_policy="random"):
     game = ConnectK()
     network = ConnectFourNetwork()
 
-    network_policy = NetworkPolicy(network)
+    network_policy = NetworkPolicy(network, symmetrize=True)
     uct_policy = UCTPolicy(network_policy, UCT_TRAVERSALS, c=EXPLORATION)
 
     if starting_policy == "monte_carlo":
-        monte_policy = MonteCarloPolicy(temperature=1.0, num_simulations=10)
+        monte_policy = MonteCarloPolicy(
+            RandomPolicy(), temperature=1.0, num_simulations=10)
         uct_starting_policy = UCTPolicy(
             monte_policy, UCT_TRAVERSALS, c=EXPLORATION)
     elif starting_policy == "random":
-        random_policy = RandomPolicy()
         uct_starting_policy = UCTPolicy(
-            random_policy, UCT_TRAVERSALS, c=EXPLORATION)
+            RandomPolicy(), UCT_TRAVERSALS, c=EXPLORATION)
 
     # uct_win_counts = []
     network_win_counts = []
 
-    for iteration in range(0, NUM_ITERS):
+    for iteration in range(NUM_ITERS):
         print(f"Iteration {iteration}...")
 
         if iteration == 0:

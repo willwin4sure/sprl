@@ -45,7 +45,9 @@ class Game(ABC):
         action_mask: returns a mask of legal actions for the player
         rewards: returns the rewards for the players
         num_symmetries: returns the number of symmetries for the game
-        symmetries: generates game states symmetric to the given one
+        inverse_symmetry: returns the inverse of the given symmetry
+        symmetrize_state: returns a list of states symmetric to the given state
+        symmetrize_action_distribution: returns a list of action distributions symmetric to the given distribution
         display_state: returns a string representation of the game state
         hash_state: returns a hash of the game state
     """
@@ -97,14 +99,33 @@ class Game(ABC):
         Returns the number of symmetries for the game.
         """
         raise NotImplementedError
+    
+    @abstractmethod
+    def inverse_symmetry(self, symmetry: int) -> int:
+        """
+        Returns the inverse of the given symmetry.
+        """
+        raise NotImplementedError
 
     @abstractmethod
-    def symmetries(self, state: GameState, symmetries: List[int]) -> List[GameState]:
+    def symmetrize_state(self, state: GameState, symmetries: List[int]) -> List[GameState]:
         """
         Returns a list of states symmetric to the given state.
         
         The symmetries parameter is a list of integers representing
         the symmetries to apply to the state, and should be
+        in the range [0, num_symmetries()).
+        """
+        raise NotImplementedError
+    
+    @abstractmethod
+    def symmetrize_action_distribution(self, action_distribution: np.ndarray, symmetries: List[int]) -> List[np.ndarray]:
+        """
+        Returns a list of action distributions symmetric to the given distribution.
+        Returns *views* of the original np.ndarray.
+        
+        The symmetries parameter is a list of integers representing
+        the symmetries to apply to the distribution, and should be
         in the range [0, num_symmetries()).
         """
         raise NotImplementedError

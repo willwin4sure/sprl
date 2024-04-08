@@ -36,7 +36,7 @@ class ConnectK(Game):
 
     def start_state(self) -> ConnectKState:
         board = -np.ones(self.rows * self.cols)  # empty board
-        return ConnectKState(board, 0, -1)  # player 0 to move
+        return ConnectKState(board, 0, -1)  # player 0 to move, no winner
 
     def next_state(self, state: ConnectKState, action: int) -> ConnectKState:
         assert not self.is_terminal(state)
@@ -71,8 +71,11 @@ class ConnectK(Game):
     def num_symmetries(self) -> int:
         # can only flip the board horizontally
         return 2
+    
+    def inverse_symmetry(self, symmetry: int) -> int:
+        return symmetry
 
-    def symmetries(self, state: ConnectKState, symmetries: List[int]) -> List[ConnectKState]:
+    def symmetrize_state(self, state: ConnectKState, symmetries: List[int]) -> List[ConnectKState]:
         # there is only one symmetry, encoded by the integer 1
         board2d = state.board.reshape(self.rows, self.cols)
         sym_states = []
@@ -85,6 +88,18 @@ class ConnectK(Game):
                     ConnectKState(np.flip(board2d, axis=1).flatten(), state.player, state.winner))
         
         return sym_states
+    
+    def symmetrize_action_distribution(self, action_distribution: np.ndarray, symmetries: List[int]) -> List[np.ndarray]:
+        # there is only one symmetry, encoded by the integer 1
+        sym_action_distributions = []
+        
+        for sym in symmetries:
+            if sym == 0:
+                sym_action_distributions.append(action_distribution)
+            if sym == 1:
+                sym_action_distributions.append(np.flip(action_distribution))
+        
+        return sym_action_distributions
 
     def display_state(self, state: ConnectKState) -> str:
         board2d = state.board.reshape(self.rows, self.cols)
@@ -114,20 +129,20 @@ class ConnectK(Game):
         """
         idx = []
 
-        # Horizontal
+        # horizontal
         for row in range(self.rows):
             for col in range(self.cols - self.k + 1):
                 base = row * self.cols + col
                 idx.append(np.arange(base, base + self.k))
 
-        # Vertical
+        # vertical
         for row in range(self.rows - self.k + 1):
             for col in range(self.cols):
                 base = row * self.cols + col
                 idx.append(
                     np.arange(base, base + self.k * self.cols, self.cols))
 
-        # Diagonal (down-right)
+        # diagonal (down-right)
         for row in range(self.rows - self.k + 1):
             for col in range(self.cols - self.k + 1):
                 base = row * self.cols + col
@@ -136,7 +151,7 @@ class ConnectK(Game):
                               (self.cols + 1), self.cols + 1)
                 )
 
-        # Diagonal (down-left)
+        # diagonal (down-left)
         for row in range(self.rows - self.k + 1):
             for col in range(self.k - 1, self.cols):
                 base = row * self.cols + col
