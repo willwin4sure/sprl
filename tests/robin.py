@@ -127,25 +127,43 @@ if __name__ == "__main__":
     results_file = f"{RESULTS_PATH}_{my_task_id}.txt"
     os.makedirs(os.path.dirname(results_file), exist_ok=True)
     players = {}
-    for i in range(0, 100, 10):
-        elephant_net = NetworkPolicy(torch.load(
+
+    for i in [80, 90]:
+        dragon_net = NetworkPolicy(torch.load(
             f"data/models/dragon/dragon_iteration_{i}.pt"))
-        elephant = PolicyAgent(UCTPolicy(elephant_net, num_iters=1000,
-                                         c=1.0, train=False, init_type="zero"), temperature=0.5)
-        players.update({f"dr_{i}": elephant})
-    for i in range(0, 30, 10):
+        dragon = PolicyAgent(UCTPolicy(dragon_net, num_iters=1000,
+                                       c=1.0, train=False, init_type="zero"), temperature=0.5)
+        players.update({f"dr_{i}": dragon})
+
+    for i in [0, 10, 20, 30, 40, 50, 60, 70]:
         elephant_net = NetworkPolicy(torch.load(
             f"data/models/elephant/elephant_iteration_{i}.pt"))
         elephant = PolicyAgent(UCTPolicy(elephant_net, num_iters=1000,
                                          c=1.0, train=False, init_type="equal"), temperature=0.5)
         players.update({f"el_{i}": elephant})
 
-    electron_net = NetworkPolicy(torch.load(
-        "data/models/electron/electron_iteration_20.pt"))
-    electron = PolicyAgent(UCTPolicy(electron_net, num_iters=1000,
-                                     c=1.0, train=False, init_type="offset"), temperature=0.5)
-    random_agent = RandomAgent()
-    players.update({"electron": electron, "random": random_agent})
+    for i in [0, 10, 20, 30, 40, 50]:
+        electron_net = NetworkPolicy(torch.load(
+            f"data/models/electron/electron_iteration_{i}.pt"))
+        electron = PolicyAgent(UCTPolicy(electron_net, num_iters=1000,
+                                         c=1.0, train=False, init_type="offset"), temperature=0.5)
+        players.update({f"e^-_{i}": electron})
+
+    for i in []:
+        electron_no_offset_net = NetworkPolicy(torch.load(
+            f"data/models/electron_no_offset/electron_no_offset_iteration_{i}.pt"))
+        electron_no_offset = PolicyAgent(UCTPolicy(electron_no_offset_net, num_iters=1000,
+                                                   c=1.0, train=False, init_type="zero"), temperature=0.5)
+        players.update({f"eno_{i}": electron_no_offset})
+
+    for i in []:
+        negative_electron_no_offset_net = NetworkPolicy(torch.load(
+            f"data/models/negative_electron_no_offset/negative_electron_no_offset_iteration_{i}.pt"))
+        negative_electron_no_offset = PolicyAgent(UCTPolicy(negative_electron_no_offset_net, num_iters=1000,
+                                                            c=1.0, train=False, init_type="zero"), temperature=0.5)
+        players.update(
+            {f"neno_{i}": negative_electron_no_offset})
+
     # play a round robin tournament among the players.
 
     win_matrix = {player: {opponent: 0 for opponent in players.keys()}
