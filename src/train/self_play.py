@@ -26,26 +26,26 @@ def self_play(game: Game, policies: Tuple[Policy, Policy]) -> Tuple[List[GameSta
 
     state: GameState = game.start_state()
 
-    moves = 0
+    move_count = 0
 
     while not game.is_terminal(state):
-        states.extend(game.symmetrize_state(state, range(game.num_symmetries())))
+        states.extend(game.symmetrize_state(state, list(range(game.num_symmetries()))))
 
         policy = policies[state.player]
 
         distribution, _ = policy.action(game, state)
-
-        distributions.extend(game.symmetrize_action_distribution(distribution, range(game.num_symmetries())))
-
-        if moves >= 10:
+        
+        if move_count >= 5:
             # decrease temperature for sampling when later on in the game
             distribution = distribution ** 10
             distribution /= np.sum(distribution)
 
+        distributions.extend(game.symmetrize_action_distribution(distribution, list(range(game.num_symmetries()))))
+        
         action = np.random.choice(len(distribution), p=distribution)
         state = game.next_state(state, action)
 
-        moves += 1
+        move_count += 1
 
     return states, distributions, game.rewards(state)[0]
 

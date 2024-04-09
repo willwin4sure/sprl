@@ -30,25 +30,25 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 ##  Hyperparameters  ##
 #######################
 
-# RUN_NAME = "elephant_mini"
-# NUM_ITERS = 20
-# NUM_INIT_GAMES = 200
-# NUM_GAMES_PER_ITER = 50
-# NUM_PAST_ITERATIONS_TO_TRAIN = 10
-# NUM_EPOCHS = 10
-# BATCH_SIZE = 1024
-# UCT_TRAVERSALS = 25
-# EXPLORATION = 2.0
-
-RUN_NAME = "elephant"
-NUM_ITERS = 100
-NUM_INIT_GAMES = 2500
-NUM_GAMES_PER_ITER = 500
+RUN_NAME = "elephant_mini"
+NUM_ITERS = 20
+NUM_INIT_GAMES = 200
+NUM_GAMES_PER_ITER = 50
 NUM_PAST_ITERATIONS_TO_TRAIN = 10
-NUM_EPOCHS = 150
+NUM_EPOCHS = 10
 BATCH_SIZE = 1024
-UCT_TRAVERSALS = 250
+UCT_TRAVERSALS = 25
 EXPLORATION = 2.0
+
+# RUN_NAME = "elephant"
+# NUM_ITERS = 100
+# NUM_INIT_GAMES = 2500
+# NUM_GAMES_PER_ITER = 500
+# NUM_PAST_ITERATIONS_TO_TRAIN = 10
+# NUM_EPOCHS = 150
+# BATCH_SIZE = 1024
+# UCT_TRAVERSALS = 250
+# EXPLORATION = 2.0
 
 # create directories if they don't exist
 os.makedirs(f"data/games/{RUN_NAME}", exist_ok=True)

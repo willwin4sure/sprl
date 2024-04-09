@@ -95,9 +95,9 @@ class ConnectK(Game):
         
         for sym in symmetries:
             if sym == 0:
-                sym_action_distributions.append(action_distribution)
+                sym_action_distributions.append(action_distribution.copy())
             if sym == 1:
-                sym_action_distributions.append(np.flip(action_distribution))
+                sym_action_distributions.append(np.flip(action_distribution).copy())
         
         return sym_action_distributions
 

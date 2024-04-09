@@ -122,7 +122,7 @@ class Game(ABC):
     def symmetrize_action_distribution(self, action_distribution: np.ndarray, symmetries: List[int]) -> List[np.ndarray]:
         """
         Returns a list of action distributions symmetric to the given distribution.
-        Returns *views* of the original np.ndarray.
+        Returns copies of the original np.ndarray.
         
         The symmetries parameter is a list of integers representing
         the symmetries to apply to the distribution, and should be

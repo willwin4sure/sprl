@@ -35,7 +35,7 @@ class PolicyAgent(Agent):
 
         else:
             # reweight actions by raising probs to 1 / T and normalizing
-            action_probs = np.power(action_probs, 1.0 / self.temperature)
+            action_probs = action_probs ** (1.0 / self.temperature)
             action_probs /= np.sum(action_probs)
             action = np.random.choice(len(action_probs), p=action_probs)
         

@@ -32,7 +32,7 @@ class NetworkPolicy(Policy):
             state = game.symmetrize_state(state, [symmetry])[0]
 
         input = self.network.embed(game, state)  # (B=1, C=2, H=6, W=7)
-        policy, value = self.network(input)  # (B=1, A=7), (B=1, V=1)
+        policy, value = self.network.forward(input)  # (B=1, A=7), (B=1, V=1)
 
         # the network outputs logits, so we need to apply softmax
         policy = torch.nn.functional.softmax(policy, dim=1)
