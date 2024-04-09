@@ -13,18 +13,19 @@ using ActionIdx = int8_t;
 /// Type alias for the symmetry index.
 using Symmetry = int8_t;
 
+/// Templated type alias for some action distribution.
+template<int ACTION_SIZE>
+using GameActionDist = std::array<float, ACTION_SIZE>;
+
 /**
  * Interface class for two-player, zero-sum, abstract strategy games.
 */
 template <int BOARD_SIZE, int ACTION_SIZE>
 class Game {
 public:
-    /// Type alias for the game state.
     using State = GameState<BOARD_SIZE>;
-    
-    /// Type alias for the action space.
-    using ActionSpace = std::array<float, ACTION_SIZE>;
-    
+    using ActionDist = GameActionDist<ACTION_SIZE>;
+
     virtual ~Game() = default;
 
     /**
@@ -45,7 +46,7 @@ public:
     /**
      * Returns a mask of valid actions for the current state.
     */
-    virtual ActionSpace actionMask(const State& state) const = 0;
+    virtual ActionDist actionMask(const State& state) const = 0;
 
     /**
      * Returns the rewards for the two players given the current state.
@@ -70,7 +71,7 @@ public:
     /**
      * Returns a vector of symmetrized action spaces given an action space and a vector of symmetries.
     */
-    virtual std::vector<ActionSpace> symmetrizeActionSpace(const ActionSpace& actionSpace, const std::vector<Symmetry>& symmetries) const = 0;
+    virtual std::vector<ActionDist> symmetrizeActionSpace(const ActionDist& actionSpace, const std::vector<Symmetry>& symmetries) const = 0;
 
     /**
      * Returns a string representation of the game state.

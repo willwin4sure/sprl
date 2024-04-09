@@ -54,8 +54,8 @@ bool ConnectFour::isTerminal(const State& state) const {
     return true;
 }
 
-ConnectFour::ActionSpace ConnectFour::actionMask(const State& state) const {
-    ActionSpace mask {};
+ConnectFour::ActionDist ConnectFour::actionMask(const State& state) const {
+    ActionDist mask {};
     mask.fill(0.0f);
 
     const auto& board = state.getBoard();
@@ -86,7 +86,7 @@ int ConnectFour::numSymmetries() const {
     return 2;
 }
 
-SPRL::Symmetry ConnectFour::inverseSymmetry(const Symmetry& symmetry) const {
+Symmetry ConnectFour::inverseSymmetry(const Symmetry& symmetry) const {
     // All symmetries are involutions
     return symmetry;
 }
@@ -117,12 +117,12 @@ std::vector<ConnectFour::State> ConnectFour::symmetrizeState(const State& state,
     return symmetrizedStates;
 }
 
-std::vector<ConnectFour::ActionSpace> ConnectFour::symmetrizeActionSpace(const ActionSpace& actionSpace, const std::vector<Symmetry>& symmetries) const {
-    std::vector<ActionSpace> symmetrizedActionSpaces;
+std::vector<ConnectFour::ActionDist> ConnectFour::symmetrizeActionSpace(const ActionDist& actionSpace, const std::vector<Symmetry>& symmetries) const {
+    std::vector<ActionDist> symmetrizedActionSpaces;
     symmetrizedActionSpaces.reserve(symmetries.size());
 
     for (const auto& symmetry : symmetries) {
-        ActionSpace symmetrizedActionSpace {};
+        ActionDist symmetrizedActionSpace {};
         switch (symmetry) {
         case 0:
             symmetrizedActionSpaces.push_back(actionSpace);
@@ -176,7 +176,7 @@ std::string ConnectFour::stateToString(const State& state) const {
 }
 
 
-bool ConnectFour::checkWin(const std::array<Piece, C4_NUM_ROWS * C4_NUM_COLS>& board, const int piece_row, const int piece_col, const Piece piece) const {
+bool ConnectFour::checkWin(const State::Board& board, const int piece_row, const int piece_col, const Piece piece) const {
     // First, extend left and right
     int row_count = 1;
 
