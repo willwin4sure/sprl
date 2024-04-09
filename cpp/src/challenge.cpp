@@ -16,17 +16,17 @@ int getHumanAction(const std::array<float, 7>& actionSpace) {
     return action;
 }
 
-template <int BOARD_SIZE, int ACTION_SIZE>
-SPRL::Player play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game) {
-    SPRL::GameState<BOARD_SIZE> state = game->startState();
+template <class TGame, class TState, class TActionSpace>
+SPRL::Player play(TGame* game) {
+    TState state = game->startState();
 
     while (!game->isTerminal(state)) {
         std::cout << game->stateToString(state) << std::endl;
 
-        std::array<float, ACTION_SIZE> actionSpace = game->actionMask(state);
+        TActionSpace actionSpace = game->actionMask(state);
         std::cout << "Action mask: ";
-        for (int i = 0; i < ACTION_SIZE; i++) {
-            std::cout << actionSpace[i] << ' ';
+        for (auto& action : actionSpace) {
+            std::cout << action << ' ';
         }
         std::cout << '\n';
 
@@ -44,5 +44,5 @@ SPRL::Player play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game) {
 
 int main() { 
     auto game = std::make_unique<SPRL::ConnectFour>();
-    play(game.get());
+    play<SPRL::ConnectFour, SPRL::ConnectFour::State, SPRL::ConnectFour::ActionSpace>(game.get());
 }
