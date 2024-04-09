@@ -6,9 +6,10 @@
 #include "games/Game.hpp"
 #include "games/ConnectFour.hpp"
 
-int getHumanAction(const std::array<float, 7>& actionSpace) {
+template <class TActionSpace>
+int getHumanAction(const TActionSpace& actionSpace) {
     int action = -1;
-    while (action < 0 || action >= 7 || actionSpace[action] != 1.0f) {
+    while (action < 0 || action >= actionSpace.size() || actionSpace[action] != 1.0f) {
         std::cout << "Enter a valid action: ";
         std::cin >> action;
     }
