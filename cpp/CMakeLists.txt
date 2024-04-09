@@ -18,18 +18,18 @@ set(src_dir ${PROJECT_SOURCE_DIR}/src)
 include_directories(${src_dir})
 
 file(GLOB_RECURSE srcs
-    ${src_dir}/*.cpp
     ${src_dir}/*/*.cpp
 )
 
 file(GLOB headers
-    ${src_dir}/*.hpp
     ${src_dir}/*/*.hpp
 )
 
-add_executable(sprl ${srcs} ${headers})
+add_executable(self_play src/self_play.cpp ${srcs} ${headers})
+add_executable(challenge src/challenge.cpp ${srcs} ${headers})
 
-target_link_libraries(sprl "${TORCH_LIBRARIES}")
+target_link_libraries(self_play "${TORCH_LIBRARIES}")
+target_link_libraries(challenge "${TORCH_LIBRARIES}")
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
