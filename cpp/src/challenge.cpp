@@ -31,21 +31,21 @@ public:
         }
     }
 
-    std::pair<std::array<float, 7>, float> evaluate(const SPRL::GameState<42>& state) override {
-        auto player_stones = torch::zeros({1, 1, 6, 7}).to(m_device);
-        auto opponent_stones = torch::zeros({1, 1, 6, 7}).to(m_device);
+    std::pair<std::array<float, 7>, float> evaluate(SPRL::Game<42, 7>* game, const SPRL::GameState<42>& state) override {
+        torch::NoGradGuard no_grad;
+        m_model->eval();
+
+        auto input = torch::zeros({1, 2, 6, 7}).to(m_device);
 
         for (int i = 0; i < 6; ++i) {
             for (int j = 0; j < 7; ++j) {
                 if (state.getBoard()[i * 7 + j] == state.getPlayer()) {
-                    player_stones[0][0][i][j] = 1.0f;
+                    input[0][0][i][j] = 1.0f;
                 } else if (state.getBoard()[i * 7 + j] == 1 - state.getPlayer()) {
-                    opponent_stones[0][0][i][j] = 1.0f;
+                    input[0][1][i][j] = 1.0f;
                 }
             }
         }
-
-        auto input = torch::cat({player_stones, opponent_stones}, 1);
 
         std::vector<torch::jit::IValue> inputs;
         inputs.push_back(input);
@@ -60,13 +60,25 @@ public:
         }
 
         // softmax the policy
+        for (int i = 0; i < 7; ++i) {
+            policy[i] = std::exp(policy[i]);
+        }
+
+        // mask out illegal actions
+        auto actionMask = game->actionMask(state);
+        for (int i = 0; i < 7; ++i) {
+            if (actionMask[i] == 0.0f) {
+                policy[i] = 0.0f;
+            }
+        }
+
         float sum = 0.0f;
         for (int i = 0; i < 7; ++i) {
-            sum += std::exp(policy[i]);
+            sum += policy[i];
         }
 
         for (int i = 0; i < 7; ++i) {
-            policy[i] = std::exp(policy[i]) / sum;
+            policy[i] = policy[i] / sum;
         }
 
         return { policy, value_output.item<float>() };

@@ -72,7 +72,7 @@ public:
             }
             
         } else {
-            std::pair<std::array<float, ACTION_SIZE>, float> output = network->evaluate(leaf->m_state);
+            std::pair<std::array<float, ACTION_SIZE>, float> output = network->evaluate(m_game, leaf->m_state);
 
             std::array<float, ACTION_SIZE> policy = output.first;
             float value = output.second;
