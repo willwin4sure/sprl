@@ -63,9 +63,9 @@ public:
     }
 
 private:
-    Board m_board;
-    Player m_player;
-    Player m_winner;
+    Board m_board {};
+    Player m_player {};
+    Player m_winner {};
 };
 
 } // namespace SPRL
