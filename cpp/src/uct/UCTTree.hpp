@@ -72,18 +72,36 @@ public:
             }
             
         } else {
-            std::pair<std::array<float, ACTION_SIZE>, float> output = network->evaluate(m_game, leaf->m_state);
+            if (!leaf->m_isNetworkEvaluated) {
+                std::pair<std::array<float, ACTION_SIZE>, float> output = network->evaluate(m_game, leaf->m_state);
 
-            std::array<float, ACTION_SIZE> policy = output.first;
-            float value = output.second;
+                std::array<float, ACTION_SIZE> policy = output.first;
+                float value = output.second;
 
-            leaf->updateNetworkOutput(policy, value);
-            leaf->expand(policy);
+                leaf->updateNetworkOutput(policy, value);
+            }
 
-            valueEstimate = value;
+            leaf->expand(leaf->m_networkPolicy);
+
+            valueEstimate = leaf->m_networkValue;
         }
 
         backup(leaf, valueEstimate);
+    }
+
+    /**
+     * Reroots the tree by taking an action. Clears all the statistics and expanded bits,
+     * but leaves the network evaluations intact.
+    */
+    void rerootTree(ActionIdx action) {
+        m_root->m_edgeStatistics.reset();
+        m_root->pruneChildrenExcept(action);
+
+        Node* child = m_root->getAddChild(action);
+        child->clearSubtree();
+
+        m_root = std::move(m_root->m_children[action]);
+        m_root->m_parent = nullptr;
     }
 
 private:

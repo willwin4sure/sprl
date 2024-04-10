@@ -34,6 +34,10 @@ public:
         std::array<int32_t, ACTION_SIZE> m_numberVisits {};
 
         EdgeStatistics() {
+            reset();
+        }
+
+        void reset() {
             m_childPriors.fill(0.0);
             m_totalValues.fill(0.0);
             m_numberVisits.fill(0);
@@ -181,6 +185,36 @@ public:
         }
     }
 
+    /**
+     * Prunes away all children of the node except for the one corresponding to the given action.
+    */
+    void pruneChildrenExcept(ActionIdx action) {
+        for (ActionIdx i = 0; i < ACTION_SIZE; ++i) {
+            if (i != action) {
+                m_children[i] = nullptr;
+            }
+        }
+    }
+
+    /**
+     * Clears all the nodes in the subtree by resetting edge statistics,
+     * as well as setting them all to un-expanded (but keeping the network evaluation).
+    */
+    void clearSubtree() {
+        if (!m_isExpanded) {
+            return;
+        }
+
+        m_edgeStatistics.reset();
+
+        for (auto& child : m_children) {
+            if (child != nullptr) {
+                child->clearSubtree();
+            }
+        }
+
+        m_isExpanded = false;
+    }
 
 private:
     /// Raw pointer to the parent, nullptr if you are the root.

@@ -32,6 +32,8 @@ public:
     }
 
     std::pair<std::array<float, 7>, float> evaluate(SPRL::Game<42, 7>* game, const SPRL::GameState<42>& state) override {
+        ++numEvals;
+
         torch::NoGradGuard no_grad;
         m_model->eval();
 
@@ -88,6 +90,7 @@ public:
         // return { policy, 0.0f };
     }
 
+    int numEvals { 0 };
 
 private:
     torch::Device m_device { torch::kCPU };
@@ -133,8 +136,11 @@ void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, int numIters) {
     ConnectFourNetwork network;
 
     State state = game->startState();
+    SPRL::UCTTree<BOARD_SIZE, ACTION_SIZE> tree { game, state };
 
     Timer t{};
+
+    float totalTime = 0.0f;
 
     int moves = 0;
     while (!game->isTerminal(state)) {
@@ -146,17 +152,19 @@ void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, int numIters) {
             std::cout << action << ' ';
         }
         std::cout << '\n';
-        
+
         int action;
-        if (moves % 2 == 1) {
-            action = getHumanAction(actionMask);
-        } else {
-            SPRL::UCTTree<BOARD_SIZE, ACTION_SIZE> tree { game, state };
+        // if (moves % 2 == 1) {
+        //     action = getHumanAction(actionMask);
+        // } else {
+            // SPRL::UCTTree<BOARD_SIZE, ACTION_SIZE> tree { game, state };
             t.reset();
             for (int i = 0; i < numIters; ++i) {
                 tree.searchIteration(&network);
             }
             std::cout << "Time taken: " << t.elapsed() << "s" << std::endl;
+            totalTime += t.elapsed();
+            std::cout << "Total number of evaluations: " << network.numEvals << std::endl;
             
             auto priors = tree.getRoot()->getEdgeStatistics()->m_childPriors;
             auto values = tree.getRoot()->getEdgeStatistics()->m_totalValues;
@@ -181,8 +189,9 @@ void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, int numIters) {
 
             // sample action with most visits
             action = std::distance(visits.begin(), std::max_element(visits.begin(), visits.end()));
-        }
+        // }
 
+        tree.rerootTree(action);
         state = game->nextState(state, action);
 
         ++moves;
@@ -193,6 +202,7 @@ void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, int numIters) {
 
     std::cout << "The winner is Player " << static_cast<int>(state.getWinner()) << '\n';
     std::cout << "The rewards are " << game->rewards(state).first << " and " << game->rewards(state).second << '\n';
+    std::cout << "Total time taken: " << totalTime << "s" << std::endl;
 }
 
 int main(int argc, char* argv[]) {
