@@ -29,12 +29,14 @@ public:
     virtual ~Game() = default;
 
     /**
-     * Returns the initial state of the game.
+     * Returns the initial state of the game. This must be non-terminal.
     */
     virtual State startState() const = 0;
 
     /**
      * Returns the next state of the game given the current state and an action.
+     * 
+     * Requires that the current state is non-terminal and that the action is legal.
     */
     virtual State nextState(const State& state, const ActionIdx action) const = 0;
 
@@ -45,6 +47,8 @@ public:
 
     /**
      * Returns a mask of valid actions for the current state.
+     * 
+     * Should work even if state is terminal, but the mask must be all zeros in that case.
     */
     virtual ActionDist actionMask(const State& state) const = 0;
 

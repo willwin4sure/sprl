@@ -12,10 +12,9 @@ ConnectFour::State ConnectFour::nextState(const State& state, const ActionIdx ac
     assert(!isTerminal(state));
     assert(actionMask(state)[action] == 1.0f);
 
-    auto newBoard = state.getBoard();  // makes a copy; the board we return
+    State::Board newBoard = state.getBoard();  // The board that we return, a copy of the original.
 
     const Player player = state.getPlayer();
-    const Player nextPlayer = 1 - state.getPlayer();
     const Piece piece = static_cast<Piece>(player);
 
     int col = action;
@@ -30,12 +29,9 @@ ConnectFour::State ConnectFour::nextState(const State& state, const ActionIdx ac
     newBoard[row * C4_NUM_COLS + col] = piece;
 
     // Check if the move wins the game
-    Player winner = -1;
-    if (checkWin(newBoard, row, col, piece)) {
-        winner = player;
-    }
+    Player winner = checkWin(newBoard, row, col, piece) ? player : -1;
 
-    return State { newBoard, nextPlayer, winner };
+    return State { newBoard, 1 - player, winner };
 }
 
 bool ConnectFour::isTerminal(const State& state) const {
@@ -43,7 +39,7 @@ bool ConnectFour::isTerminal(const State& state) const {
         return true;
     }
 
-    const auto& board = state.getBoard();
+    const State::Board& board = state.getBoard();
     for (int col = 0; col < C4_NUM_COLS; col++) {
         // Check if there is an empty space in the top row
         if (board[col] == -1) {
@@ -58,7 +54,7 @@ ConnectFour::ActionDist ConnectFour::actionMask(const State& state) const {
     ActionDist mask {};
     mask.fill(0.0f);
 
-    const auto& board = state.getBoard();
+    const State::Board& board = state.getBoard();
     for (int col = 0; col < C4_NUM_COLS; col++) {
         // Check if the top row has a piece for each column
         if (board[col] == -1) {
@@ -72,12 +68,14 @@ ConnectFour::ActionDist ConnectFour::actionMask(const State& state) const {
 std::pair<float, float> ConnectFour::rewards(const State& state) const {
     const Player winner = state.getWinner();
     switch (winner) {
+    case -1:
+        return { 0.0f, 0.0f };
     case 0:
         return { 1.0f, -1.0f };
     case 1:
         return { -1.0f, 1.0f };
     default:
-        return { 0.0f, 0.0f };
+        assert(false);
     }
 }
 
@@ -95,13 +93,14 @@ std::vector<ConnectFour::State> ConnectFour::symmetrizeState(const State& state,
     std::vector<State> symmetrizedStates;
     symmetrizedStates.reserve(symmetries.size());
 
-    for (const auto& symmetry : symmetries) {
+    for (const Symmetry& symmetry : symmetries) {
         switch (symmetry) {
         case 0:
             symmetrizedStates.push_back(state);
             break;
+
         case 1:
-            auto board = state.getBoard();
+            State::Board board = state.getBoard(); // Copy of the board
             for (int row = 0; row < C4_NUM_ROWS; row++) {
                 for (int col = 0; col < C4_NUM_COLS / 2; col++) {
                     std::swap(board[row * C4_NUM_COLS + col], board[row * C4_NUM_COLS + C4_NUM_COLS - col - 1]);
@@ -109,6 +108,7 @@ std::vector<ConnectFour::State> ConnectFour::symmetrizeState(const State& state,
             }
             symmetrizedStates.push_back(State { board, state.getPlayer(), state.getWinner() });
             break;
+
         default:
             assert(false);
         }
@@ -121,12 +121,13 @@ std::vector<ConnectFour::ActionDist> ConnectFour::symmetrizeActionSpace(const Ac
     std::vector<ActionDist> symmetrizedActionSpaces;
     symmetrizedActionSpaces.reserve(symmetries.size());
 
-    for (const auto& symmetry : symmetries) {
+    for (const Symmetry& symmetry : symmetries) {
         ActionDist symmetrizedActionSpace {};
         switch (symmetry) {
         case 0:
             symmetrizedActionSpaces.push_back(actionSpace);
             break;
+
         case 1:
             for (int col = 0; col < C4_NUM_COLS / 2; col++) {
                 symmetrizedActionSpace[col] = actionSpace[C4_NUM_COLS - col - 1];
@@ -134,6 +135,7 @@ std::vector<ConnectFour::ActionDist> ConnectFour::symmetrizeActionSpace(const Ac
             }
             symmetrizedActionSpaces.push_back(symmetrizedActionSpace);
             break;
+
         default:
             assert(false);
         }
@@ -146,7 +148,7 @@ std::vector<ConnectFour::ActionDist> ConnectFour::symmetrizeActionSpace(const Ac
 std::string ConnectFour::stateToString(const State& state) const {
     std::string str = "";
 
-    const auto& board = state.getBoard();
+    const State::Board& board = state.getBoard();
     for (int row = 0; row < C4_NUM_ROWS; row++) {
         for (int col = 0; col < C4_NUM_COLS; col++) {
             switch (board[row * C4_NUM_COLS + col]) {
