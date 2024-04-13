@@ -15,6 +15,8 @@ ConnectFour::State ConnectFour::nextState(const State& state, const ActionIdx ac
     State::Board newBoard = state.getBoard();  // The board that we return, a copy of the original.
 
     const Player player = state.getPlayer();
+    const Player newPlayer = 1 - player;
+
     const Piece piece = static_cast<Piece>(player);
 
     int col = action;
@@ -31,7 +33,7 @@ ConnectFour::State ConnectFour::nextState(const State& state, const ActionIdx ac
     // Check if the move wins the game
     Player winner = checkWin(newBoard, row, col, piece) ? player : -1;
 
-    return State { newBoard, 1 - player, winner };
+    return State { newBoard, newPlayer, winner };
 }
 
 bool ConnectFour::isTerminal(const State& state) const {
@@ -68,14 +70,12 @@ ConnectFour::ActionDist ConnectFour::actionMask(const State& state) const {
 std::pair<float, float> ConnectFour::rewards(const State& state) const {
     const Player winner = state.getWinner();
     switch (winner) {
-    case -1:
-        return { 0.0f, 0.0f };
     case 0:
         return { 1.0f, -1.0f };
     case 1:
         return { -1.0f, 1.0f };
     default:
-        assert(false);
+        return { 0.0f, 0.0f };
     }
 }
 
