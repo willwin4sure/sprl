@@ -17,7 +17,7 @@ class UCTTree;
 /**
  * Class representing a node in the tree for the UCT algorithm.
 */
-template<int BOARD_SIZE, int ACTION_SIZE>
+template <int BOARD_SIZE, int ACTION_SIZE>
 class UCTNode {
 public:
     /**
@@ -46,7 +46,7 @@ public:
 
     // Constructor for parent node.
     UCTNode(EdgeStatistics* edgeStats, Game<BOARD_SIZE, ACTION_SIZE>* game, const GameState<BOARD_SIZE>& state)
-        : m_game { game }, m_state { state } {
+        : m_parent { nullptr }, m_action { 0 }, m_game { game }, m_state { state } {
 
         m_isTerminal = game->isTerminal(state);
         m_actionMask = game->actionMask(state);
@@ -64,6 +64,9 @@ public:
         m_parentEdgeStatistics = &parent->m_edgeStatistics;
     }
 
+    /**
+     * Returns a readonly pointer to the edge statistics of this node.
+    */
     const EdgeStatistics* getEdgeStatistics() const {
         return &m_edgeStatistics;
     }
@@ -77,6 +80,13 @@ public:
      * Gets a reference to the current total value of the node.
     */
     float& W() { return m_parentEdgeStatistics->m_totalValues[m_action]; }
+
+    /**
+     * Average action value of the current node, as described in UCT.
+    */
+    float Q() {
+        return W() / (1 + static_cast<float>(N()));  // add 1 to avoid division by zero
+    }
 
     /**
      * Number of visits to a particular child.
@@ -97,18 +107,21 @@ public:
      * Average action value of a particular child, as described in UCT.
     */
     float child_Q(ActionIdx action) {
-        return child_W(action) / (1 + child_N(action));
+        return child_W(action) / (1 + static_cast<float>(child_N(action)));  // add 1 to avoid division by zero
     }
 
     /**
      * Uncertainty value of a particular child, as described in the UCT algorithm.
     */
     float child_U(ActionIdx action) {
-        return child_P(action) * std::sqrt(static_cast<float>(N())) / (1 + child_N(action));
+        return child_P(action) * std::sqrt(static_cast<float>(N()))
+                               / (1 + static_cast<float>(child_N(action)));  // add 1 to avoid division by zero
     }
 
     /**
      * Returns the action index of the best move according to the UCT algorithm.
+     * 
+     * Can only be applied on active nodes.
     */
     ActionIdx bestAction(float exploration) {
         assert(!m_isTerminal);
@@ -132,20 +145,22 @@ public:
             }
         }
 
+        assert(bestAction != -1);
+
         return bestAction;
     }
 
     /**
-     * Returns a raw pointer to the child.
+     * Returns a raw pointer to the child of the current non-terminal node.
      * 
-     * If child does not already exist, creates it.
+     * If the child does not already exist, creates it.
     */
     UCTNode* getAddChild(ActionIdx action) {
         assert(!m_isTerminal);
-        assert(m_isExpanded);
-        assert(m_isNetworkEvaluated);
 
         if (m_children[action] == nullptr) {
+            // Child doesn't exist, so we create it.
+            // TODO: Add initialization type options (currently, ZERO INIT)
             m_children[action] = std::make_unique<UCTNode<BOARD_SIZE, ACTION_SIZE>>(
                 this, action, m_game, m_game->nextState(m_state, action));
         }
@@ -154,26 +169,31 @@ public:
     }
 
     /**
-     * Updates the cached network evaluations.
+     * Caches the network output. Converts empty nodes into gray nodes.
     */
-    void updateNetworkOutput(const std::array<float, ACTION_SIZE>& networkPolicy, float valueEstimate, bool addNoise = true) {
+    void addNetworkOutput(const std::array<float, ACTION_SIZE>& networkPolicy, float valueEstimate) {
+        assert(!m_isTerminal);
         assert(!m_isNetworkEvaluated);
+        assert(!m_isExpanded);
+
+        m_isNetworkEvaluated = true;
+
         m_networkPolicy = networkPolicy;
         m_networkValue = valueEstimate;
-        m_isNetworkEvaluated = true;
     }
 
     /**
-     * Expands a node, as in the UCT algorithm.
+     * Expands a node, as in the UCT algorithm. Converts gray nodes into active nodes.
      * 
      * Only adds on the new network estimates if necessary, otherwise ignored.
     */
-    void expand(const std::array<float, ACTION_SIZE>& networkPolicy, bool addNoise = true) {
-        assert(!m_isTerminal && !m_isExpanded && m_isNetworkEvaluated);
+    void expand(bool addNoise = true) {
+        assert(!m_isTerminal);
+        assert(!m_isExpanded);
+        assert(m_isNetworkEvaluated);
 
         m_isExpanded = true;
 
-        // Current init type is ZERO
         for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
             if (m_actionMask[action] == 0.0f) {
                 // Illegal action, skip
@@ -181,18 +201,21 @@ public:
             }
 
             m_edgeStatistics.m_childPriors[action] = m_networkPolicy[action];
-            // TODO: add initialization type options
 
             if (addNoise) {
-                // TODO: add Dirichlet noise
+                // TODO: add Dirichlet noise to the prior probabilities
             }
         }
     }
 
     /**
      * Prunes away all children of the node except for the one corresponding to the given action.
+     * 
+     * Can be used on any non-terminal node. Used in rerooting.
     */
     void pruneChildrenExcept(ActionIdx action) {
+        assert(!m_isTerminal);
+
         for (ActionIdx i = 0; i < ACTION_SIZE; ++i) {
             if (i != action) {
                 m_children[i] = nullptr;
@@ -200,35 +223,15 @@ public:
         }
     }
 
-    /**
-     * Clears all the nodes in the subtree by resetting edge statistics,
-     * as well as setting them all to un-expanded (but keeping the network evaluation).
-    */
-    void clearSubtree() {
-        if (!m_isExpanded) {
-            return;
-        }
-
-        m_edgeStatistics.reset();
-
-        for (auto& child : m_children) {
-            if (child != nullptr) {
-                child->clearSubtree();
-            }
-        }
-
-        m_isExpanded = false;
-    }
-
 private:
     /// Raw pointer to the parent, nullptr if you are the root.
-    UCTNode* m_parent { nullptr };
+    UCTNode* m_parent;
 
     /// Unique pointers to the children; the parent owns them.
-    std::array<std::unique_ptr<UCTNode>, ACTION_SIZE> m_children { nullptr };
+    std::array<std::unique_ptr<UCTNode>, ACTION_SIZE> m_children {};
 
     /// The action index taken into this node, 0 if you are the root.
-    ActionIdx m_action { 0 };
+    ActionIdx m_action;
 
     /// Whether or not the node has been expanded by the UCT algorithm.
     bool m_isExpanded { false };

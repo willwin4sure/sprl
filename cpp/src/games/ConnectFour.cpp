@@ -67,7 +67,7 @@ ConnectFour::ActionDist ConnectFour::actionMask(const State& state) const {
     return mask;
 }
 
-std::pair<float, float> ConnectFour::rewards(const State& state) const {
+std::pair<Value, Value> ConnectFour::rewards(const State& state) const {
     const Player winner = state.getWinner();
     switch (winner) {
     case 0:

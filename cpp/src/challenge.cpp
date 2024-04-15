@@ -18,9 +18,9 @@ class ConnectFourNetwork : public SPRL::Network<42, 7> {
 public:
     ConnectFourNetwork() {
         try {
-            std::string path = "./data/models/dragon/traced_dragon_iteration_56.pt";
+            std::string path = "./data/models/dragon/traced_dragon_iteration_80.pt";
 
-            auto model = std::make_shared<torch::jit::script::Module>(torch::jit::load(path));
+            auto model = std::make_shared<torch::jit::Module>(torch::jit::load(path));
             model->to(m_device);
 
             std::cout << "Connect Four Network loaded successfully." << std::endl;
@@ -32,7 +32,7 @@ public:
         }
     }
 
-    std::vector<std::pair<std::array<float, 7>, float>> evaluate(SPRL::Game<42, 7>* game, const std::vector<SPRL::GameState<42>>& states) override {
+    std::vector<std::pair<SPRL::GameActionDist<7>, SPRL::Value>> evaluate(SPRL::Game<42, 7>* game, const std::vector<SPRL::GameState<42>>& states) override {
         numEvals += states.size();
 
         torch::NoGradGuard no_grad;
@@ -59,7 +59,7 @@ public:
         auto policy_output = output->elements()[0].toTensor();
         auto value_output = output->elements()[1].toTensor();
 
-        std::vector<std::pair<std::array<float, 7>, float>> results;
+        std::vector<std::pair<SPRL::GameActionDist<7>, SPRL::Value>> results;
         results.reserve(num_states);
 
         for (int b = 0; b < num_states; ++b) {
@@ -86,8 +86,14 @@ public:
                 sum += policy[i];
             }
 
-            for (int i = 0; i < 7; ++i) {
-                policy[i] = policy[i] / sum;
+            if (sum == 0.0f) {
+                for (int i = 0; i < 7; ++i) {
+                    policy[i] = 1.0f / 7.0f;
+                }
+            } else {
+                for (int i = 0; i < 7; ++i) {
+                    policy[i] = policy[i] / sum;
+                }
             }
 
             results.push_back({ policy, value_output[b].item<float>() });
@@ -158,7 +164,7 @@ void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, int numIters) {
 
     int moves = 0;
     while (!game->isTerminal(state)) {
-        std::cout << game->stateToString(state) << std::endl;
+        std::cout << game->stateToString(state) << '\n';
 
         ActionDist actionMask = game->actionMask(state);
         std::cout << "Action mask: ";
@@ -173,31 +179,37 @@ void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, int numIters) {
         // } else {
             // SPRL::UCTTree<BOARD_SIZE, ACTION_SIZE> tree { game, state };
             t.reset();
-            for (int i = 0; i < numIters; ++i) {
+            int iters = 0;
+            while (iters < numIters) {
                 // tree.searchIteration(&network);
-                auto leaves = tree.searchAndGetLeaves(32, 8, &network);
-                tree.evaluateAndBackpropLeaves(leaves, &network);
+                // ++iters;
+
+                auto [leaves, iter] = tree.searchAndGetLeaves(16, 8, &network);
+                if (leaves.size() > 0) {
+                    tree.evaluateAndBackpropLeaves(leaves, &network);
+                }
+                iters += iter;
             }
-            std::cout << "Time taken: " << t.elapsed() << "s" << std::endl;
+            std::cout << "Time taken: " << t.elapsed() << "s\n";
             totalTime += t.elapsed();
-            std::cout << "Total number of evaluations: " << network.numEvals << std::endl;
+            std::cout << "Total number of evaluations: " << network.numEvals << '\n';
             
             auto priors = tree.getRoot()->getEdgeStatistics()->m_childPriors;
             auto values = tree.getRoot()->getEdgeStatistics()->m_totalValues;
             auto visits = tree.getRoot()->getEdgeStatistics()->m_numberVisits;
 
             std::cout << "Priors: ";
-            for (auto& prior : priors) {
+            for (const auto& prior : priors) {
                 std::cout << prior << ' ';
             }
 
             std::cout << "\nValues: ";
-            for (auto& value : values) {
+            for (const auto& value : values) {
                 std::cout << value << ' ';
             }
 
             std::cout << "\nVisits: ";
-            for (auto& visit : visits) {
+            for (const auto& visit : visits) {
                 std::cout << visit << ' ';
             }
 
@@ -214,11 +226,11 @@ void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, int numIters) {
     }
 
     std::cout << "Game over!" << '\n';
-    std::cout << game->stateToString(state) << std::endl;
+    std::cout << game->stateToString(state) << '\n';
 
     std::cout << "The winner is Player " << static_cast<int>(state.getWinner()) << '\n';
     std::cout << "The rewards are " << game->rewards(state).first << " and " << game->rewards(state).second << '\n';
-    std::cout << "Total time taken: " << totalTime << "s" << std::endl;
+    std::cout << "Total time taken: " << totalTime << "s\n";
 }
 
 int main(int argc, char* argv[]) {

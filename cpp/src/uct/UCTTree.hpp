@@ -13,7 +13,7 @@
 
 namespace SPRL {
 
-template<int BOARD_SIZE, int ACTION_SIZE>
+template <int BOARD_SIZE, int ACTION_SIZE>
 class UCTTree {
 public:
     using Node = UCTNode<BOARD_SIZE, ACTION_SIZE>;
@@ -24,12 +24,178 @@ public:
           m_game { game },
           m_root { std::make_unique<Node>(&m_edgeStatistics, game, state) } {}
 
+
+    /**
+     * Returns a readonly pointer to the root.
+    */
     const Node* getRoot() {
         return m_root.get();
     }
 
     /**
-     * Deterministically select the next leaf based on the best path.
+     * Performs many iterations of search by repeatedly selecting leaves,
+     * applying virtual losses during downward traversals.
+     * 
+     * When leaves are terminal or gray, immediately backpropagates the result.
+     * When leaves are empty, appends them to a vector for batched NN evaluation.
+     * 
+     * Returns this batch of empty leaves, as well as the number of leaf selections performed.
+     * 
+     * TODO: If we multithread, the interface between leaf traversals and NN eval is a queue,
+     * and we need to adjust the inputs and outputs appropriately
+    */
+    std::pair<std::vector<Node*>, int> searchAndGetLeaves(int maxTraversals, int maxQueueSize, Network<BOARD_SIZE, ACTION_SIZE>* network, float exploration = 1.0f) {
+        std::vector<Node*> leaves;
+
+        int iter = 0;
+
+        while (iter < maxTraversals) {
+            ++iter;
+            Node* leaf = selectLeaf(exploration);  // must be terminal, empty, or gray
+
+            if (leaf->m_isTerminal) {
+                // Terminal case: compute the exact value and backpropagate immediately
+                std::pair<Value, Value> rewards = m_game->rewards(leaf->m_state);
+                Value value = (leaf->m_state.getPlayer() == 0) ? rewards.first : rewards.second;
+
+                backup(leaf, value);
+                continue;
+
+            } else if (leaf->m_isNetworkEvaluated) {
+                // Gray case: expand the node to active and backpropagate the network value estimate
+                leaf->expand();
+
+                backup(leaf, leaf->m_networkValue);
+                continue;
+
+            } else {
+                // Empty case: append the node to the queue and do expansion and backup step after batched NN evaluation
+                leaves.push_back(leaf);
+            }
+
+            // Once we have collected enough leaves, exit. Can also exit from hitting max traversal count.
+            if (leaves.size() >= maxQueueSize) {
+                break;
+            }
+        }
+
+        return { leaves, iter };
+    }
+
+    /**
+     * Takes in queued leaves and evaluates them with the network, then backpropagates the results.
+     * 
+     * Inputs must be leaves that are all empty, as in the return value from searchAndGetLeaves.
+    */
+    void evaluateAndBackpropLeaves(const std::vector<Node*>& leaves, Network<BOARD_SIZE, ACTION_SIZE>* network) {
+        assert(leaves.size() > 0);
+
+        // Assemble a vector of states to pass into the NN
+        std::vector<GameState<BOARD_SIZE>> states;
+        for (Node* leaf : leaves) {
+            states.push_back(leaf->m_state);
+        }
+
+        // Perform batched evaluation of the states
+        std::vector<std::pair<std::array<float, ACTION_SIZE>, float>> outputs = network->evaluate(m_game, states);
+
+        for (int i = 0; i < leaves.size(); ++i) {
+            Node* leaf = leaves[i];
+            std::pair<std::array<float, ACTION_SIZE>, float> output = outputs[i];
+
+            // Note that the same leaf could occur multiple times in the output.
+            // We cannot easily remove duplicates since we still need to remove the virtual losses,
+            // but code could be written to optimize this by not passing them all into the 
+            // network and instead backing up directly.
+
+            if (!leaf->m_isNetworkEvaluated) {
+                // Update the cached network values, making the leaf gray
+                leaf->addNetworkOutput(output.first, output.second);
+            }
+
+            if (!leaf->m_isExpanded) {
+                // Expand the node, making the leaf active
+                leaf->expand();
+            }
+            
+            // Backpropagate the network value estimate
+            backup(leaf, leaf->m_networkValue);
+        }
+    }
+
+    /**
+     * Performs a single iteration of search.
+     * 
+     * Uses unbatched NN evaluations. Should be replaced by calls to
+     * searchAndGetLeaves and evaluateAndBackpropLeaves for batching
+     * efficiency.
+    */
+    void searchIteration(Network<BOARD_SIZE, ACTION_SIZE>* network, float exploration = 1.0f) {
+        Node* leaf = selectLeaf(exploration);
+
+        float valueEstimate;
+
+        if (leaf->m_isTerminal) {
+            std::pair<Value, Value> rewards = m_game->rewards(leaf->m_state);
+            valueEstimate = (leaf->m_state.getPlayer() == 0) ? rewards.first : rewards.second;
+            
+        } else {
+            if (!leaf->m_isNetworkEvaluated) {
+                std::pair<std::array<float, ACTION_SIZE>, float> output = network->evaluate(m_game, {leaf->m_state})[0];
+
+                std::array<float, ACTION_SIZE> policy = output.first;
+                float value = output.second;
+
+                leaf->addNetworkOutput(policy, value);
+            }
+
+            leaf->expand();
+
+            valueEstimate = leaf->m_networkValue;
+        }
+
+        backup(leaf, valueEstimate);
+    }
+
+    /**
+     * Reroots the tree by taking an action, moving the root to one of its children.
+     * 
+     * The root node must be non-terminal.
+     * 
+     * Clears all the statistics and expanded bits in the subtree,
+     * but leaves the network evaluations intact. In particular, all
+     * active nodes are turned gray.
+    */
+    void rerootTree(ActionIdx action) {
+        assert(!m_root->m_isTerminal);
+        assert(m_root->m_actionMask[action] != 0.0f);
+
+        // Destroy all children except for the one we are rerooting to
+        m_root->pruneChildrenExcept(action);
+
+        // Clear all edges statistics of the new subtree, and turn all active nodes gray
+        Node* child = m_root->getAddChild(action);
+        clearSubtree(child);
+
+        // Move the child into the root position and set its parent to null
+        m_root = std::move(m_root->m_children[action]);
+        m_root->m_parent = nullptr;
+
+        // Reset the virtual parent edge statistics and set it for the new root
+        m_edgeStatistics.reset();
+        m_root->m_parentEdgeStatistics = &m_edgeStatistics;
+    }
+
+private:
+    /**
+     * Deterministically select the next leaf based on the best path
+     * through the current active nodes from the root.
+     * 
+     * Adds virtual losses while traveling down the tree, to all nodes
+     * from the root to the leaf, inclusive.
+     * 
+     * Returns a node that is terminal, empty, or gray. Must be the first
+     * such node along the path down from the root.
     */
     Node* selectLeaf(float exploration) {
         Node* current = m_root.get();
@@ -37,28 +203,39 @@ public:
         while (current->m_isExpanded && !current->m_isTerminal) {
             ActionIdx bestAction = current->bestAction(exploration);
 
+            // Record a virtual loss to discount retracing the same path again
             current->N()++;
             current->W()--;
+
+            assert(current->m_isNetworkEvaluated);
 
             current = current->getAddChild(bestAction);
         }
 
+        // Record a virtual loss to discount retracing the same path again
         current->N()++;
         current->W()--;
+
+        assert(current->m_isTerminal || !current->m_isExpanded);
 
         return current;
     }
 
     /**
-     * Propagates the value estimate of a given node back up along the path.
+     * Propagates the value estimate of a given node back up along the path to the root.
+     * 
+     * Undoes the virtual loss penalty from the node to the root, inclusive.
+     * 
+     * The node at the bottom must be terminal or active.
     */
     void backup(Node* node, float valueEstimate) {
-        assert(node->m_isTerminal || node->m_isNetworkEvaluated);
+        assert(node->m_isTerminal || (node->m_isNetworkEvaluated && node->m_isExpanded));
 
-        // value is negated since they are stored from the perspective of the parent
+        // Value is negated since they are stored from the perspective of the parent
         float estimate = -valueEstimate * ((node->m_state.getPlayer() == 0) ? 1 : -1);
         Node* current = node;
         while (current != nullptr) {
+            // Extra +1 due to reverting the virtual losses
             current->W() += 1 + estimate * ((current->m_state.getPlayer() == 0) ? 1 : -1);
 
             current = current->m_parent;
@@ -66,121 +243,28 @@ public:
     }
 
     /**
-     * Performs lots of iterations of search, and returns a vector of leaves.
+     * Clears all the nodes in the subtree of the node by resetting edge statistics,
+     * as well as setting them all to un-expanded (but keeping the network evaluation).
      * 
-     * TODO: if we multithread, the interface between leave traversals and NN eval is a queue,
-     * and we need to adjust the inputs and outputs appropriately
+     * Turns all active nodes to gray.
     */
-    std::vector<Node*> searchAndGetLeaves(int max_traversals, int max_queue_size, Network<BOARD_SIZE, ACTION_SIZE>* network, float exploration = 1.0f) {
-        std::vector<Node*> leaves;
-
-        for (int i = 0; i < max_traversals; ++i) {
-            Node* leaf = selectLeaf(exploration);
-
-            if (leaf->m_isTerminal) {
-                int valueEstimate;
-                auto rewards = m_game->rewards(leaf->m_state);
-                if (leaf->m_state.getPlayer() == 0) {
-                    valueEstimate = rewards.first;
-                } else {
-                    valueEstimate = rewards.second;
-                }
-                backup(leaf, valueEstimate);
-                continue;
-
-            } else if (leaf->m_isNetworkEvaluated) {
-                leaf->expand(leaf->m_networkPolicy);
-                backup(leaf, leaf->m_networkValue);
-                continue;
-
-            } else {
-                leaves.push_back(leaf);
-            }
-
-            if (leaves.size() >= max_queue_size) {
-                break;
-            }
+    void clearSubtree(Node* node) {
+        if (!node->m_isExpanded) {
+            return;
         }
 
-        return leaves;
-    }
+        // Reset the edge statistics and turn off the expanded bit
+        node->m_edgeStatistics.reset();
+        node->m_isExpanded = false;
 
-    void evaluateAndBackpropLeaves(const std::vector<Node*>& leaves, Network<BOARD_SIZE, ACTION_SIZE>* network) {
-        std::vector<GameState<BOARD_SIZE>> states;
-        for (Node* leaf : leaves) {
-            states.push_back(leaf->m_state);
-        }
-
-        std::vector<std::pair<std::array<float, ACTION_SIZE>, float>> outputs = network->evaluate(m_game, states);
-
-        for (int i = 0; i < leaves.size(); ++i) {
-            Node* leaf = leaves[i];
-            std::pair<std::array<float, ACTION_SIZE>, float> output = outputs[i];
-
-            if (!leaf->m_isNetworkEvaluated) {
-                leaf->updateNetworkOutput(output.first, output.second);
+        // Recursively call on the children
+        for (const std::unique_ptr<Node>& child : node->m_children) {
+            if (child != nullptr) {
+                clearSubtree(child.get());
             }
-
-            if (!leaf->m_isExpanded) {
-                leaf->expand(output.first);
-            }
-            
-            backup(leaf, output.second);
         }
     }
 
-    /**
-     * Performs a single iteration of search.
-    */
-    // void searchIteration(Network<BOARD_SIZE, ACTION_SIZE>* network, float exploration = 1.0f) {
-    //     Node* leaf = selectLeaf(exploration);
-
-    //     float valueEstimate;
-
-    //     if (leaf->m_isTerminal) {
-    //         auto rewards = m_game->rewards(leaf->m_state);
-    //         if (leaf->m_state.getPlayer() == 0) {
-    //             valueEstimate = rewards.first;
-    //         } else {
-    //             valueEstimate = rewards.second;
-    //         }
-            
-    //     } else {
-    //         if (!leaf->m_isNetworkEvaluated) {
-    //             std::pair<std::array<float, ACTION_SIZE>, float> output = network->evaluate(m_game, {leaf->m_state})[0];
-
-    //             std::array<float, ACTION_SIZE> policy = output.first;
-    //             float value = output.second;
-
-    //             leaf->updateNetworkOutput(policy, value);
-    //         }
-
-    //         leaf->expand(leaf->m_networkPolicy);
-
-    //         valueEstimate = leaf->m_networkValue;
-    //     }
-
-    //     backup(leaf, valueEstimate);
-    // }
-
-    /**
-     * Reroots the tree by taking an action. Clears all the statistics and expanded bits,
-     * but leaves the network evaluations intact.
-    */
-    void rerootTree(ActionIdx action) {
-        m_root->m_edgeStatistics.reset();
-        m_root->pruneChildrenExcept(action);
-
-        std::cout << "rerooting tree" << std::endl;
-
-        Node* child = m_root->getAddChild(action);
-        child->clearSubtree();
-
-        m_root = std::move(m_root->m_children[action]);
-        m_root->m_parent = nullptr;
-    }
-
-private:
     /// Edge statistics of a virtual "parent" of the root, for accessing N() at the root.
     Node::EdgeStatistics m_edgeStatistics {};
 

@@ -13,6 +13,9 @@ using ActionIdx = int8_t;
 /// Type alias for the symmetry index.
 using Symmetry = int8_t;
 
+/// Type alias for the relative value of a position, a float in the range [-1, 1].
+using Value = float;
+
 /// Templated type alias for some action distribution.
 template<int ACTION_SIZE>
 using GameActionDist = std::array<float, ACTION_SIZE>;
@@ -55,7 +58,7 @@ public:
     /**
      * Returns the rewards for the two players given the current state.
     */
-    virtual std::pair<float, float> rewards(const State& state) const = 0;
+    virtual std::pair<Value, Value> rewards(const State& state) const = 0;
 
     /**
      * Returns the number of symmetries for the game.

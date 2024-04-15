@@ -17,7 +17,7 @@ public:
     State nextState(const State& state, const ActionIdx action) const override;
     bool isTerminal(const State& state) const override;
     ActionDist actionMask(const State& state) const override;
-    std::pair<float, float> rewards(const State& state) const override;
+    std::pair<Value, Value> rewards(const State& state) const override;
     int numSymmetries() const override;
     Symmetry inverseSymmetry(const Symmetry& symmetry) const override;
     std::vector<State> symmetrizeState(const State& state, const std::vector<Symmetry>& symmetries) const override;
