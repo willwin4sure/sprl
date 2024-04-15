@@ -1,3 +1,4 @@
+#include <torch/torch.h>
 #include <torch/script.h>
 
 #include <cassert>
@@ -132,6 +133,10 @@ template <int BOARD_SIZE, int ACTION_SIZE>
 void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, int numIters) {
     using State = SPRL::GameState<BOARD_SIZE>;
     using ActionDist = SPRL::GameActionDist<ACTION_SIZE>;
+
+    std::cout << "CUDA available: ";
+    std::cout << torch::cuda::is_available() << std::endl;
+    std::cout << torch::cuda::cudnn_is_available() << std::endl;
     
     ConnectFourNetwork network;
 

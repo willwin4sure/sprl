@@ -10,7 +10,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include(CTest)
 enable_testing()
 
-list(APPEND CMAKE_PREFIX_PATH "C:\\libtorch\\share\\cmake\\Torch")
+list(APPEND CMAKE_PREFIX_PATH "C:\\libtorch_cuda\\share\\cmake\\Torch")
 find_package(Torch REQUIRED)
 
 set(src_dir ${PROJECT_SOURCE_DIR}/src)
