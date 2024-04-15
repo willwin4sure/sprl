@@ -111,7 +111,9 @@ public:
      * Returns the action index of the best move according to the UCT algorithm.
     */
     ActionIdx bestAction(float exploration) {
-        assert(!m_isTerminal && m_isExpanded && m_isNetworkEvaluated);
+        assert(!m_isTerminal);
+        assert(m_isExpanded);
+        assert(m_isNetworkEvaluated);
 
         ActionIdx bestAction = -1;
         float bestValue = -std::numeric_limits<float>::infinity();
@@ -139,7 +141,9 @@ public:
      * If child does not already exist, creates it.
     */
     UCTNode* getAddChild(ActionIdx action) {
-        assert(!m_isTerminal && m_isExpanded && m_isNetworkEvaluated);
+        assert(!m_isTerminal);
+        assert(m_isExpanded);
+        assert(m_isNetworkEvaluated);
 
         if (m_children[action] == nullptr) {
             m_children[action] = std::make_unique<UCTNode<BOARD_SIZE, ACTION_SIZE>>(

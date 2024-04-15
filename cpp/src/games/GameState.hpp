@@ -13,13 +13,13 @@ using Player = int8_t;
 /// Type alias for the piece (0 or 1), or -1 to represent no piece.
 using Piece = int8_t;
 
-/// Type alias for the board.
+/// Templated type alias for some board.
 template <int BOARD_SIZE>
 using GameBoard = std::array<Piece, BOARD_SIZE>;
 
 
 /**
- * Class for game states, templated on the size of the (flattened) board.
+ * Immutable class for game states, templated on the size of the (flattened) board.
  * 
  * Represents the current state of a game in a light-weight fashion.
 */
@@ -39,7 +39,7 @@ public:
      * Constructs a new game state with the given board, player to move, and winner.
     */
     GameState(const Board& board, Player player, Player winner)
-        : m_board { board }, m_player { player }, m_winner { winner } { }
+        : m_board { board }, m_player { player }, m_winner { winner } {}
 
     /**
      * Returns a readonly reference to the underlying board.

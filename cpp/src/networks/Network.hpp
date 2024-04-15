@@ -15,7 +15,8 @@ public:
     /**
      * Returns a pair of the action distribution and the value estimate for the given state.
     */
-    virtual std::pair<std::array<float, ACTION_SIZE>, float> evaluate(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, const GameState<BOARD_SIZE>& state) = 0;
+    virtual std::vector<std::pair<std::array<float, ACTION_SIZE>, float>> evaluate(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game,
+                                                                                   const std::vector<GameState<BOARD_SIZE>>& states) = 0;
 };
 
 } // namespace SPRL

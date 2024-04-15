@@ -18,7 +18,7 @@ class ConnectFourNetwork : public SPRL::Network<42, 7> {
 public:
     ConnectFourNetwork() {
         try {
-            std::string path = "./data/models/dragon/traced_dragon_iteration_80.pt";
+            std::string path = "./data/models/dragon/traced_dragon_iteration_56.pt";
 
             auto model = std::make_shared<torch::jit::script::Module>(torch::jit::load(path));
             model->to(m_device);
@@ -32,59 +32,68 @@ public:
         }
     }
 
-    std::pair<std::array<float, 7>, float> evaluate(SPRL::Game<42, 7>* game, const SPRL::GameState<42>& state) override {
-        ++numEvals;
+    std::vector<std::pair<std::array<float, 7>, float>> evaluate(SPRL::Game<42, 7>* game, const std::vector<SPRL::GameState<42>>& states) override {
+        numEvals += states.size();
 
         torch::NoGradGuard no_grad;
         m_model->eval();
 
-        auto input = torch::zeros({1, 2, 6, 7}).to(m_device);
+        int num_states = states.size();
 
-        for (int i = 0; i < 6; ++i) {
-            for (int j = 0; j < 7; ++j) {
-                if (state.getBoard()[i * 7 + j] == state.getPlayer()) {
-                    input[0][0][i][j] = 1.0f;
-                } else if (state.getBoard()[i * 7 + j] == 1 - state.getPlayer()) {
-                    input[0][1][i][j] = 1.0f;
+        auto input = torch::zeros({num_states, 2, 6, 7}).to(m_device);
+
+        for (int b = 0; b < num_states; ++b) {
+            for (int i = 0; i < 6; ++i) {
+                for (int j = 0; j < 7; ++j) {
+                    if (states[b].getBoard()[i * 7 + j] == states[b].getPlayer()) {
+                        input[b][0][i][j] = 1.0f;
+                    } else if (states[b].getBoard()[i * 7 + j] == 1 - states[b].getPlayer()) {
+                        input[b][1][i][j] = 1.0f;
+                    }
                 }
             }
         }
 
-        std::vector<torch::jit::IValue> inputs;
-        inputs.push_back(input);
-        auto output = m_model->forward(inputs).toTuple();
+        auto output = m_model->forward({input}).toTuple();
 
         auto policy_output = output->elements()[0].toTensor();
         auto value_output = output->elements()[1].toTensor();
 
-        std::array<float, 7> policy;
-        for (int i = 0; i < 7; ++i) {
-            policy[i] = policy_output[0][i].item<float>();
-        }
+        std::vector<std::pair<std::array<float, 7>, float>> results;
+        results.reserve(num_states);
 
-        // softmax the policy
-        for (int i = 0; i < 7; ++i) {
-            policy[i] = std::exp(policy[i]);
-        }
-
-        // mask out illegal actions
-        auto actionMask = game->actionMask(state);
-        for (int i = 0; i < 7; ++i) {
-            if (actionMask[i] == 0.0f) {
-                policy[i] = 0.0f;
+        for (int b = 0; b < num_states; ++b) {
+            std::array<float, 7> policy;
+            for (int i = 0; i < 7; ++i) {
+                policy[i] = policy_output[b][i].item<float>();
             }
+
+            // Exponentiate the policy
+            for (int i = 0; i < 7; ++i) {
+                policy[i] = std::exp(policy[i]);
+            }
+
+            // Mask out illegal actions
+            auto actionMask = game->actionMask(states[b]);
+            for (int i = 0; i < 7; ++i) {
+                if (actionMask[i] == 0.0f) {
+                    policy[i] = 0.0f;
+                }
+            }
+
+            float sum = 0.0f;
+            for (int i = 0; i < 7; ++i) {
+                sum += policy[i];
+            }
+
+            for (int i = 0; i < 7; ++i) {
+                policy[i] = policy[i] / sum;
+            }
+
+            results.push_back({ policy, value_output[b].item<float>() });
         }
 
-        float sum = 0.0f;
-        for (int i = 0; i < 7; ++i) {
-            sum += policy[i];
-        }
-
-        for (int i = 0; i < 7; ++i) {
-            policy[i] = policy[i] / sum;
-        }
-
-        return { policy, value_output.item<float>() };
+        return results;
 
         // std::array<float, 7> policy;
         // policy.fill(1.0f / 7.0f);
@@ -165,7 +174,9 @@ void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, int numIters) {
             // SPRL::UCTTree<BOARD_SIZE, ACTION_SIZE> tree { game, state };
             t.reset();
             for (int i = 0; i < numIters; ++i) {
-                tree.searchIteration(&network);
+                // tree.searchIteration(&network);
+                auto leaves = tree.searchAndGetLeaves(32, 8, &network);
+                tree.evaluateAndBackpropLeaves(leaves, &network);
             }
             std::cout << "Time taken: " << t.elapsed() << "s" << std::endl;
             totalTime += t.elapsed();

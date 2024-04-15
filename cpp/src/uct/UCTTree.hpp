@@ -7,6 +7,10 @@
 
 #include "UCTNode.hpp"
 
+#include <algorithm>
+#include <queue>
+
+
 namespace SPRL {
 
 template<int BOARD_SIZE, int ACTION_SIZE>
@@ -32,8 +36,15 @@ public:
 
         while (current->m_isExpanded && !current->m_isTerminal) {
             ActionIdx bestAction = current->bestAction(exploration);
+
+            current->N()++;
+            current->W()--;
+
             current = current->getAddChild(bestAction);
         }
+
+        current->N()++;
+        current->W()--;
 
         return current;
     }
@@ -45,49 +56,112 @@ public:
         assert(node->m_isTerminal || node->m_isNetworkEvaluated);
 
         // value is negated since they are stored from the perspective of the parent
-        float estimate = -valueEstimate * (std::pow(-1, node->m_state.getPlayer()));
+        float estimate = -valueEstimate * ((node->m_state.getPlayer() == 0) ? 1 : -1);
         Node* current = node;
         while (current != nullptr) {
-            ++current->N();
-            current->W() += estimate * (std::pow(-1, current->m_state.getPlayer()));
+            current->W() += 1 + estimate * ((current->m_state.getPlayer() == 0) ? 1 : -1);
 
             current = current->m_parent;
         }
     }
 
     /**
-     * Performs a single iteration of search.
+     * Performs lots of iterations of search, and returns a vector of leaves.
+     * 
+     * TODO: if we multithread, the interface between leave traversals and NN eval is a queue,
+     * and we need to adjust the inputs and outputs appropriately
     */
-    void searchIteration(Network<BOARD_SIZE, ACTION_SIZE>* network, float exploration = 1.0f) {
-        Node* leaf = selectLeaf(exploration);
+    std::vector<Node*> searchAndGetLeaves(int max_traversals, int max_queue_size, Network<BOARD_SIZE, ACTION_SIZE>* network, float exploration = 1.0f) {
+        std::vector<Node*> leaves;
 
-        float valueEstimate;
+        for (int i = 0; i < max_traversals; ++i) {
+            Node* leaf = selectLeaf(exploration);
 
-        if (leaf->m_isTerminal) {
-            auto rewards = m_game->rewards(leaf->m_state);
-            if (leaf->m_state.getPlayer() == 0) {
-                valueEstimate = rewards.first;
+            if (leaf->m_isTerminal) {
+                int valueEstimate;
+                auto rewards = m_game->rewards(leaf->m_state);
+                if (leaf->m_state.getPlayer() == 0) {
+                    valueEstimate = rewards.first;
+                } else {
+                    valueEstimate = rewards.second;
+                }
+                backup(leaf, valueEstimate);
+                continue;
+
+            } else if (leaf->m_isNetworkEvaluated) {
+                leaf->expand(leaf->m_networkPolicy);
+                backup(leaf, leaf->m_networkValue);
+                continue;
+
             } else {
-                valueEstimate = rewards.second;
-            }
-            
-        } else {
-            if (!leaf->m_isNetworkEvaluated) {
-                std::pair<std::array<float, ACTION_SIZE>, float> output = network->evaluate(m_game, leaf->m_state);
-
-                std::array<float, ACTION_SIZE> policy = output.first;
-                float value = output.second;
-
-                leaf->updateNetworkOutput(policy, value);
+                leaves.push_back(leaf);
             }
 
-            leaf->expand(leaf->m_networkPolicy);
-
-            valueEstimate = leaf->m_networkValue;
+            if (leaves.size() >= max_queue_size) {
+                break;
+            }
         }
 
-        backup(leaf, valueEstimate);
+        return leaves;
     }
+
+    void evaluateAndBackpropLeaves(const std::vector<Node*>& leaves, Network<BOARD_SIZE, ACTION_SIZE>* network) {
+        std::vector<GameState<BOARD_SIZE>> states;
+        for (Node* leaf : leaves) {
+            states.push_back(leaf->m_state);
+        }
+
+        std::vector<std::pair<std::array<float, ACTION_SIZE>, float>> outputs = network->evaluate(m_game, states);
+
+        for (int i = 0; i < leaves.size(); ++i) {
+            Node* leaf = leaves[i];
+            std::pair<std::array<float, ACTION_SIZE>, float> output = outputs[i];
+
+            if (!leaf->m_isNetworkEvaluated) {
+                leaf->updateNetworkOutput(output.first, output.second);
+            }
+
+            if (!leaf->m_isExpanded) {
+                leaf->expand(output.first);
+            }
+            
+            backup(leaf, output.second);
+        }
+    }
+
+    /**
+     * Performs a single iteration of search.
+    */
+    // void searchIteration(Network<BOARD_SIZE, ACTION_SIZE>* network, float exploration = 1.0f) {
+    //     Node* leaf = selectLeaf(exploration);
+
+    //     float valueEstimate;
+
+    //     if (leaf->m_isTerminal) {
+    //         auto rewards = m_game->rewards(leaf->m_state);
+    //         if (leaf->m_state.getPlayer() == 0) {
+    //             valueEstimate = rewards.first;
+    //         } else {
+    //             valueEstimate = rewards.second;
+    //         }
+            
+    //     } else {
+    //         if (!leaf->m_isNetworkEvaluated) {
+    //             std::pair<std::array<float, ACTION_SIZE>, float> output = network->evaluate(m_game, {leaf->m_state})[0];
+
+    //             std::array<float, ACTION_SIZE> policy = output.first;
+    //             float value = output.second;
+
+    //             leaf->updateNetworkOutput(policy, value);
+    //         }
+
+    //         leaf->expand(leaf->m_networkPolicy);
+
+    //         valueEstimate = leaf->m_networkValue;
+    //     }
+
+    //     backup(leaf, valueEstimate);
+    // }
 
     /**
      * Reroots the tree by taking an action. Clears all the statistics and expanded bits,
@@ -96,6 +170,8 @@ public:
     void rerootTree(ActionIdx action) {
         m_root->m_edgeStatistics.reset();
         m_root->pruneChildrenExcept(action);
+
+        std::cout << "rerooting tree" << std::endl;
 
         Node* child = m_root->getAddChild(action);
         child->clearSubtree();
