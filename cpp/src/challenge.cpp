@@ -13,106 +13,8 @@
 #include "uct/UCTNode.hpp"
 #include "uct/UCTTree.hpp"
 
-
-class ConnectFourNetwork : public SPRL::Network<42, 7> {
-public:
-    ConnectFourNetwork() {
-        try {
-            std::string path = "./data/models/dragon/traced_dragon_iteration_80.pt";
-
-            auto model = std::make_shared<torch::jit::Module>(torch::jit::load(path));
-            model->to(m_device);
-
-            std::cout << "Connect Four Network loaded successfully." << std::endl;
-
-            m_model = model;
-
-        } catch (const c10::Error& e) {
-            std::cerr << "Error loading the model: " << e.what() << std::endl;
-        }
-    }
-
-    std::vector<std::pair<SPRL::GameActionDist<7>, SPRL::Value>> evaluate(SPRL::Game<42, 7>* game, const std::vector<SPRL::GameState<42>>& states) override {
-        numEvals += states.size();
-
-        torch::NoGradGuard no_grad;
-        m_model->eval();
-
-        int num_states = states.size();
-
-        auto input = torch::zeros({num_states, 2, 6, 7}).to(m_device);
-
-        for (int b = 0; b < num_states; ++b) {
-            for (int i = 0; i < 6; ++i) {
-                for (int j = 0; j < 7; ++j) {
-                    if (states[b].getBoard()[i * 7 + j] == states[b].getPlayer()) {
-                        input[b][0][i][j] = 1.0f;
-                    } else if (states[b].getBoard()[i * 7 + j] == 1 - states[b].getPlayer()) {
-                        input[b][1][i][j] = 1.0f;
-                    }
-                }
-            }
-        }
-
-        auto output = m_model->forward({input}).toTuple();
-
-        auto policy_output = output->elements()[0].toTensor();
-        auto value_output = output->elements()[1].toTensor();
-
-        std::vector<std::pair<SPRL::GameActionDist<7>, SPRL::Value>> results;
-        results.reserve(num_states);
-
-        for (int b = 0; b < num_states; ++b) {
-            std::array<float, 7> policy;
-            for (int i = 0; i < 7; ++i) {
-                policy[i] = policy_output[b][i].item<float>();
-            }
-
-            // Exponentiate the policy
-            for (int i = 0; i < 7; ++i) {
-                policy[i] = std::exp(policy[i]);
-            }
-
-            // Mask out illegal actions
-            auto actionMask = game->actionMask(states[b]);
-            for (int i = 0; i < 7; ++i) {
-                if (actionMask[i] == 0.0f) {
-                    policy[i] = 0.0f;
-                }
-            }
-
-            float sum = 0.0f;
-            for (int i = 0; i < 7; ++i) {
-                sum += policy[i];
-            }
-
-            if (sum == 0.0f) {
-                for (int i = 0; i < 7; ++i) {
-                    policy[i] = 1.0f / 7.0f;
-                }
-            } else {
-                for (int i = 0; i < 7; ++i) {
-                    policy[i] = policy[i] / sum;
-                }
-            }
-
-            results.push_back({ policy, value_output[b].item<float>() });
-        }
-
-        return results;
-
-        // std::array<float, 7> policy;
-        // policy.fill(1.0f / 7.0f);
-        // return { policy, 0.0f };
-    }
-
-    int numEvals { 0 };
-
-private:
-    torch::Device m_device { torch::kCPU };
-    std::shared_ptr<torch::jit::script::Module> m_model;
-};
-
+#include "networks/Network.hpp"
+#include "networks/ConnectFourNetwork.hpp"
 
 template <int ACTION_SIZE>
 int getHumanAction(const SPRL::GameActionDist<ACTION_SIZE>& actionSpace) {
@@ -145,7 +47,7 @@ public:
 
 
 template <int BOARD_SIZE, int ACTION_SIZE>
-void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, int numIters) {
+void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, int player, int numIters, int maxTraversals, int maxQueueSize) {
     using State = SPRL::GameState<BOARD_SIZE>;
     using ActionDist = SPRL::GameActionDist<ACTION_SIZE>;
 
@@ -153,7 +55,7 @@ void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, int numIters) {
     std::cout << torch::cuda::is_available() << std::endl;
     std::cout << torch::cuda::cudnn_is_available() << std::endl;
     
-    ConnectFourNetwork network;
+    SPRL::ConnectFourNetwork network { "./data/models/dragon/traced_dragon_iteration_80.pt"};
 
     State state = game->startState();
     SPRL::UCTTree<BOARD_SIZE, ACTION_SIZE> tree { game, state };
@@ -174,9 +76,9 @@ void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, int numIters) {
         std::cout << '\n';
 
         int action;
-        // if (moves % 2 == 1) {
-        //     action = getHumanAction(actionMask);
-        // } else {
+        if (moves % 2 == player) {
+            action = getHumanAction(actionMask);
+        } else {
             // SPRL::UCTTree<BOARD_SIZE, ACTION_SIZE> tree { game, state };
             t.reset();
             int iters = 0;
@@ -184,7 +86,7 @@ void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, int numIters) {
                 // tree.searchIteration(&network);
                 // ++iters;
 
-                auto [leaves, iter] = tree.searchAndGetLeaves(16, 8, &network);
+                auto [leaves, iter] = tree.searchAndGetLeaves(maxTraversals, maxQueueSize, &network);
                 if (leaves.size() > 0) {
                     tree.evaluateAndBackpropLeaves(leaves, &network);
                 }
@@ -192,7 +94,7 @@ void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, int numIters) {
             }
             std::cout << "Time taken: " << t.elapsed() << "s\n";
             totalTime += t.elapsed();
-            std::cout << "Total number of evaluations: " << network.numEvals << '\n';
+            std::cout << "Total number of evaluations: " << network.m_numEvals << '\n';
             
             auto priors = tree.getRoot()->getEdgeStatistics()->m_childPriors;
             auto values = tree.getRoot()->getEdgeStatistics()->m_totalValues;
@@ -213,11 +115,16 @@ void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, int numIters) {
                 std::cout << visit << ' ';
             }
 
+            std::cout << "\nAverage values: ";
+            for (int i = 0; i < ACTION_SIZE; ++i) {
+                std::cout << values[i] / visits[i] << ' ';
+            }
+
             std::cout << '\n';
 
             // sample action with most visits
             action = std::distance(visits.begin(), std::max_element(visits.begin(), visits.end()));
-        // }
+        }
 
         tree.rerootTree(action);
         state = game->nextState(state, action);
@@ -234,15 +141,18 @@ void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, int numIters) {
 }
 
 int main(int argc, char* argv[]) {
-    if (argc != 2) {
-        std::cerr << "Usage: ./challenge.exe <numIters>" << std::endl;
+    if (argc != 5) {
+        std::cerr << "Usage: ./challenge.exe <player> <numIters> <maxTraversals> <maxQueueSize>" << std::endl;
         return 1;
     }
 
-    int numIters = std::stoi(argv[1]);
+    int player = std::stoi(argv[1]);
+    int numIters = std::stoi(argv[2]);
+    int maxTraversals = std::stoi(argv[3]);
+    int maxQueueSize = std::stoi(argv[4]);
 
     auto game = std::make_unique<SPRL::ConnectFour>();
-    play(game.get(), numIters);
+    play(game.get(), player, numIters, maxTraversals, maxQueueSize);
 
     return 0;
 }
