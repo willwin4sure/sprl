@@ -22,6 +22,8 @@
 
 #include "random/Random.hpp"
 
+#include "tqdm/tqdm.hpp"
+
 #include "uct/UCTTree.hpp"
 
 #include "constants.hpp"
@@ -45,8 +47,6 @@ selfPlay(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game,
          int numIters,
          int maxTraversals,
          int maxQueueSize) {
-
-    std::cout << "Running game with UCT..." << std::endl;
 
     using State = SPRL::GameState<BOARD_SIZE>;
     using ActionDist = SPRL::GameActionDist<ACTION_SIZE>;
@@ -73,7 +73,7 @@ selfPlay(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game,
 
         ActionDist actionMask = game->actionMask(state);
 
-        std::cout << game->stateToString(state) << '\n';
+        // std::cout << game->stateToString(state) << '\n';
 
         int iters = 0;
         while (iters < numIters) {
@@ -178,7 +178,9 @@ runIteration(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game,
     std::vector<ActionDist> allDistributions;
     std::vector<float> allOutcomes;
 
-    for (int t = 0; t < numGames; ++t) {
+    auto pbar = tq::trange(numGames);
+    pbar.set_prefix("Generating self-play data: ");
+    for (int t : pbar) {
         auto [states, distributions, outcome] = selfPlay(game, network, numIters, maxTraversals, maxQueueSize);
 
         allStates.reserve(allStates.size() + states.size());
@@ -194,6 +196,8 @@ runIteration(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game,
                 allOutcomes.push_back(-outcome);
             }
         }
+        
+        pbar << "Number of States: " << allStates.size();
     }
 
     assert(allStates.size() == allDistributions.size());
@@ -273,4 +277,4 @@ int main(int argc, char *argv[]) {
     npy::write_npy(savePath + "_outcomes.npy", outcomeData);
 
     return 0;
-}
+}   
