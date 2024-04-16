@@ -46,6 +46,8 @@ selfPlay(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game,
          int maxTraversals,
          int maxQueueSize) {
 
+    std::cout << "Running game with UCT..." << std::endl;
+
     using State = SPRL::GameState<BOARD_SIZE>;
     using ActionDist = SPRL::GameActionDist<ACTION_SIZE>;
 
@@ -70,6 +72,8 @@ selfPlay(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game,
         states.insert(states.end(), symmetrizedStates.begin(), symmetrizedStates.end());
 
         ActionDist actionMask = game->actionMask(state);
+
+        std::cout << game->stateToString(state) << '\n';
 
         int iters = 0;
         while (iters < numIters) {
@@ -214,12 +218,15 @@ int main(int argc, char *argv[]) {
     SPRL::ConnectFour game;
 
     SPRL::Network<42, 7>* network;
-    
+
+    SPRL::RandomNetwork<42, 7> randomNetwork {};
+    SPRL::ConnectFourNetwork neuralNetwork { modelPath };
+
     if (modelPath == "random") {
-        SPRL::RandomNetwork<42, 7> randomNetwork {};
+        std::cout << "Using random network..." << std::endl;
         network = &randomNetwork;
     } else {
-        SPRL::ConnectFourNetwork neuralNetwork { modelPath };
+        std::cout << "Using traced PyTorch network..." << std::endl;
         network = &neuralNetwork;
     }
 

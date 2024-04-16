@@ -58,7 +58,7 @@ void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, int player, int numIters, i
     std::cout << torch::cuda::is_available() << std::endl;
     std::cout << torch::cuda::cudnn_is_available() << std::endl;
     
-    SPRL::ConnectFourNetwork network { "./data/models/dragon/traced_dragon_iteration_80.pt"};
+    SPRL::ConnectFourNetwork network { "./data/models/dragon/traced_dragon_iteration_80.pt" };
 
     State state = game->startState();
     SPRL::UCTTree<BOARD_SIZE, ACTION_SIZE> tree { game, state };

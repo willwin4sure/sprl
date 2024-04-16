@@ -3,6 +3,11 @@
 namespace SPRL {
 
 ConnectFourNetwork::ConnectFourNetwork(std::string path) {
+    if (path == "random") {
+        std::cout << "Random network requested, not loading model." << std::endl;
+        return;
+    }
+
     try {
         auto model = std::make_shared<torch::jit::Module>(torch::jit::load(path));
         model->to(m_device);
