@@ -4,6 +4,10 @@
 #include "../games/GameState.hpp"
 #include "../games/Game.hpp"
 
+#include "../random/Random.hpp"
+
+#include "../constants.hpp"
+
 #include <array>
 #include <cassert>
 #include <cmath>
@@ -194,6 +198,7 @@ public:
 
         m_isExpanded = true;
 
+        int numLegal = 0;
         for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
             if (m_actionMask[action] == 0.0f) {
                 // Illegal action, skip
@@ -201,9 +206,25 @@ public:
             }
 
             m_edgeStatistics.m_childPriors[action] = m_networkPolicy[action];
+            ++numLegal;
+        }
 
-            if (addNoise) {
-                // TODO: add Dirichlet noise to the prior probabilities
+        if (addNoise && m_parent == nullptr) {
+            // Only add noise if you are the root node.
+            std::vector<float> noise (numLegal);
+            GetRandom().Dirichlet(DIRICHLET_ALPHA, noise);
+
+            int readIdx = 0;
+            for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
+                if (m_actionMask[action] == 0.0f) {
+                    // Illegal action, skip
+                    continue;
+                }
+
+                m_edgeStatistics.m_childPriors[action] = (1 - DIRICHLET_EPSILON) * m_edgeStatistics.m_childPriors[action]
+                                                             + DIRICHLET_EPSILON * noise[readIdx];
+                                                        
+                ++readIdx;
             }
         }
     }

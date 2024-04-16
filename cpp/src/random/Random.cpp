@@ -17,6 +17,7 @@
 */
 
 #include "Random.hpp"
+#include "constants.hpp"
 
 #include <atomic>
 
@@ -79,6 +80,11 @@ int Random::SampleCDF(const std::vector<float>& cdf)
 
     float x = cdf.back() * e;
     return std::distance(cdf.begin(), std::lower_bound(cdf.begin(), cdf.end(), x));
+}
+
+Random& GetRandom() {
+    static Random random(SEED, Random::kUniqueStream);
+    return random;
 }
 
 } // namespace SPRL

@@ -106,6 +106,8 @@ private:
     Impl impl_;
 };
 
+Random& GetRandom();
+
 } // namespace SPRL
 
 #endif

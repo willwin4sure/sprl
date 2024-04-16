@@ -120,7 +120,7 @@ void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, int player, int numIters, i
 
             std::cout << "\nAverage values: ";
             for (int i = 0; i < ACTION_SIZE; ++i) {
-                std::cout << values[i] / visits[i] << ' ';
+                std::cout << values[i] / (1 + visits[i]) << ' ';
             }
 
             std::cout << '\n';
@@ -144,28 +144,28 @@ void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, int player, int numIters, i
 }
 
 int main(int argc, char* argv[]) {
-    const std::vector<float> data { 1, 2, 3, 4, 5, 6 };
+    // const std::vector<float> data { 1, 2, 3, 4, 5, 6 };
     
-    npy::npy_data_ptr<float> d {};
-    d.data_ptr = data.data();
-    d.shape = { 2, 3 };
+    // npy::npy_data_ptr<float> d {};
+    // d.data_ptr = data.data();
+    // d.shape = { 2, 3 };
 
-    const std::string path { "./src/interface/out.npy "};
-    npy::write_npy(path, d);
+    // const std::string path { "./src/interface/out.npy "};
+    // npy::write_npy(path, d);
 
 
-    // if (argc != 5) {
-    //     std::cerr << "Usage: ./challenge.exe <player> <numIters> <maxTraversals> <maxQueueSize>" << std::endl;
-    //     return 1;
-    // }
+    if (argc != 5) {
+        std::cerr << "Usage: ./challenge.exe <player> <numIters> <maxTraversals> <maxQueueSize>" << std::endl;
+        return 1;
+    }
 
-    // int player = std::stoi(argv[1]);
-    // int numIters = std::stoi(argv[2]);
-    // int maxTraversals = std::stoi(argv[3]);
-    // int maxQueueSize = std::stoi(argv[4]);
+    int player = std::stoi(argv[1]);
+    int numIters = std::stoi(argv[2]);
+    int maxTraversals = std::stoi(argv[3]);
+    int maxQueueSize = std::stoi(argv[4]);
 
-    // auto game = std::make_unique<SPRL::ConnectFour>();
-    // play(game.get(), player, numIters, maxTraversals, maxQueueSize);
+    auto game = std::make_unique<SPRL::ConnectFour>();
+    play(game.get(), player, numIters, maxTraversals, maxQueueSize);
 
-    // return 0;
+    return 0;
 }
