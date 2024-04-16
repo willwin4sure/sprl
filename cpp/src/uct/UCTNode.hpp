@@ -76,6 +76,13 @@ public:
     }
 
     /**
+     * Returns a readonly reference to the state of the node.
+    */
+    const GameState<BOARD_SIZE>& getState() const {
+        return m_state;
+    }
+
+    /**
      * Gets a reference to the current number of visits to the node.
     */
     int& N() { return m_parentEdgeStatistics->m_numberVisits[m_action]; }

@@ -12,7 +12,7 @@ ConnectFour::State ConnectFour::nextState(const State& state, const ActionIdx ac
     assert(!isTerminal(state));
     assert(actionMask(state)[action] == 1.0f);
 
-    State::Board newBoard = state.getBoard();  // The board that we return, a copy of the original.
+    State::Board newBoard = state.getBoard();  // The board that we return, a copy of the original
 
     const Player player = state.getPlayer();
     const Player newPlayer = 1 - player;
@@ -117,7 +117,7 @@ std::vector<ConnectFour::State> ConnectFour::symmetrizeState(const State& state,
     return symmetrizedStates;
 }
 
-std::vector<ConnectFour::ActionDist> ConnectFour::symmetrizeActionSpace(const ActionDist& actionSpace, const std::vector<Symmetry>& symmetries) const {
+std::vector<ConnectFour::ActionDist> ConnectFour::symmetrizeActionDist(const ActionDist& actionSpace, const std::vector<Symmetry>& symmetries) const {
     std::vector<ActionDist> symmetrizedActionSpaces;
     symmetrizedActionSpaces.reserve(symmetries.size());
 
@@ -133,6 +133,11 @@ std::vector<ConnectFour::ActionDist> ConnectFour::symmetrizeActionSpace(const Ac
                 symmetrizedActionSpace[col] = actionSpace[C4_NUM_COLS - col - 1];
                 symmetrizedActionSpace[C4_NUM_COLS - col - 1] = actionSpace[col];
             }
+            
+            if (C4_NUM_COLS % 2 == 1) {
+                symmetrizedActionSpace[C4_NUM_COLS / 2] = actionSpace[C4_NUM_COLS / 2];
+            }
+
             symmetrizedActionSpaces.push_back(symmetrizedActionSpace);
             break;
 

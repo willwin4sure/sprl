@@ -21,7 +21,7 @@ public:
     int numSymmetries() const override;
     Symmetry inverseSymmetry(const Symmetry& symmetry) const override;
     std::vector<State> symmetrizeState(const State& state, const std::vector<Symmetry>& symmetries) const override;
-    std::vector<ActionDist> symmetrizeActionSpace(const ActionDist& actionSpace, const std::vector<Symmetry>& symmetries) const override;
+    std::vector<ActionDist> symmetrizeActionDist(const ActionDist& actionSpace, const std::vector<Symmetry>& symmetries) const override;
 
     std::string stateToString(const State& state) const override;
 

@@ -78,7 +78,7 @@ public:
     /**
      * Returns a vector of symmetrized action spaces given an action space and a vector of symmetries.
     */
-    virtual std::vector<ActionDist> symmetrizeActionSpace(const ActionDist& actionSpace, const std::vector<Symmetry>& symmetries) const = 0;
+    virtual std::vector<ActionDist> symmetrizeActionDist(const ActionDist& actionSpace, const std::vector<Symmetry>& symmetries) const = 0;
 
     /**
      * Returns a string representation of the game state.

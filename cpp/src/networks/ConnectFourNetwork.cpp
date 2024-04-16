@@ -71,6 +71,7 @@ std::vector<std::pair<SPRL::GameActionDist<7>, SPRL::Value>> ConnectFourNetwork:
         for (int i = 0; i < 7; ++i) {
             sum += policy[i];
         }
+        float norm = 1.0f / sum;
 
         if (sum == 0.0f) {
             for (int i = 0; i < 7; ++i) {
@@ -78,7 +79,7 @@ std::vector<std::pair<SPRL::GameActionDist<7>, SPRL::Value>> ConnectFourNetwork:
             }
         } else {
             for (int i = 0; i < 7; ++i) {
-                policy[i] = policy[i] / sum;
+                policy[i] = policy[i] * norm;
             }
         }
 

@@ -26,8 +26,10 @@ file(GLOB headers
 )
 
 add_executable(challenge src/challenge.cpp ${srcs} ${headers})
+add_executable(selfPlay src/selfPlay.cpp ${srcs} ${headers})
 
 target_link_libraries(challenge "${TORCH_LIBRARIES}")
+target_link_libraries(selfPlay "${TORCH_LIBRARIES}")
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})

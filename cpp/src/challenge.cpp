@@ -144,16 +144,6 @@ void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, int player, int numIters, i
 }
 
 int main(int argc, char* argv[]) {
-    // const std::vector<float> data { 1, 2, 3, 4, 5, 6 };
-    
-    // npy::npy_data_ptr<float> d {};
-    // d.data_ptr = data.data();
-    // d.shape = { 2, 3 };
-
-    // const std::string path { "./src/interface/out.npy "};
-    // npy::write_npy(path, d);
-
-
     if (argc != 5) {
         std::cerr << "Usage: ./challenge.exe <player> <numIters> <maxTraversals> <maxQueueSize>" << std::endl;
         return 1;
