@@ -10,11 +10,14 @@
 #include "games/Game.hpp"
 #include "games/ConnectFour.hpp"
 
-#include "uct/UCTNode.hpp"
-#include "uct/UCTTree.hpp"
+#include "interface/npy.hpp"
 
 #include "networks/Network.hpp"
 #include "networks/ConnectFourNetwork.hpp"
+
+#include "uct/UCTNode.hpp"
+#include "uct/UCTTree.hpp"
+
 
 template <int ACTION_SIZE>
 int getHumanAction(const SPRL::GameActionDist<ACTION_SIZE>& actionSpace) {
@@ -141,18 +144,28 @@ void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, int player, int numIters, i
 }
 
 int main(int argc, char* argv[]) {
-    if (argc != 5) {
-        std::cerr << "Usage: ./challenge.exe <player> <numIters> <maxTraversals> <maxQueueSize>" << std::endl;
-        return 1;
-    }
+    const std::vector<float> data { 1, 2, 3, 4, 5, 6 };
+    
+    npy::npy_data_ptr<float> d {};
+    d.data_ptr = data.data();
+    d.shape = { 2, 3 };
 
-    int player = std::stoi(argv[1]);
-    int numIters = std::stoi(argv[2]);
-    int maxTraversals = std::stoi(argv[3]);
-    int maxQueueSize = std::stoi(argv[4]);
+    const std::string path { "./src/interface/out.npy "};
+    npy::write_npy(path, d);
 
-    auto game = std::make_unique<SPRL::ConnectFour>();
-    play(game.get(), player, numIters, maxTraversals, maxQueueSize);
 
-    return 0;
+    // if (argc != 5) {
+    //     std::cerr << "Usage: ./challenge.exe <player> <numIters> <maxTraversals> <maxQueueSize>" << std::endl;
+    //     return 1;
+    // }
+
+    // int player = std::stoi(argv[1]);
+    // int numIters = std::stoi(argv[2]);
+    // int maxTraversals = std::stoi(argv[3]);
+    // int maxQueueSize = std::stoi(argv[4]);
+
+    // auto game = std::make_unique<SPRL::ConnectFour>();
+    // play(game.get(), player, numIters, maxTraversals, maxQueueSize);
+
+    // return 0;
 }
