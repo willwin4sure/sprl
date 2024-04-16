@@ -35,8 +35,14 @@ def run_self_play(model_path: str, save_path: str, num_games: int, num_iters: in
                     if output:
                         # Ad-hoc code for making the printing correct
                         if "Generating self-play data:" in output:
-                            pbar.update(1)
-                            pbar.set_description(f"Number of states: {output.strip().split(" ")[-1]}")
+                            vals = output.strip().split(" ")
+                            pbar.n = int(vals[-2]) + 1
+                            pbar.refresh()
+                            pbar.set_description(f"Number of states: {vals[-1]}")
+
+                        else:
+                            print()
+                            print(output.strip())
                             
                 _, stderr = process.communicate()
                 if stderr:

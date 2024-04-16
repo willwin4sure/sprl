@@ -197,7 +197,7 @@ runIteration(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game,
             }
         }
         
-        pbar << "Number of States: " << allStates.size();
+        pbar << " " << t << " " << allStates.size();
     }
 
     assert(allStates.size() == allDistributions.size());

@@ -20,15 +20,15 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 ##  Hyperparameters  ##
 #######################
 
-RUN_NAME = "flamingo_mini"
-NUM_ITERS = 20
-NUM_INIT_GAMES = 200
-NUM_GAMES_PER_ITER = 50
+RUN_NAME = "flamingo"
+NUM_ITERS = 100
+NUM_INIT_GAMES = 2500
+NUM_GAMES_PER_ITER = 500
 NUM_PAST_ITERATIONS_TO_TRAIN = 10
-NUM_EPOCHS = 10
+NUM_EPOCHS = 150
 BATCH_SIZE = 1024
-UCT_INIT_ITERATIONS = 1000
-UCT_ITERATIONS = 100  # total number of UCT iterations to run
+UCT_INIT_ITERATIONS = 2500
+UCT_ITERATIONS = 250  # total number of UCT iterations to run
 MAX_TRAVERSALS = 16  # max traversals per batch
 MAX_QUEUE_SIZE = 8  # max NN evals per batch
 
@@ -52,9 +52,9 @@ def train_network(network: ConnectFourNetwork, iteration: int):
         all_distributions.append(distributions)
         all_outcomes.append(outcomes)
     
-    state_tensor = torch.cat(all_states, dim=0)
-    distribution_tensor = torch.cat(all_distributions, dim=0)
-    outcome_tensor = torch.cat(all_outcomes, dim=0).unsqueeze(1)
+    state_tensor = torch.cat(all_states, dim=0).to(device)
+    distribution_tensor = torch.cat(all_distributions, dim=0).to(device)
+    outcome_tensor = torch.cat(all_outcomes, dim=0).unsqueeze(1).to(device)
     
     dataset = TensorDataset(state_tensor, distribution_tensor, outcome_tensor)
     dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
@@ -128,7 +128,7 @@ def train():
         run_self_play(network_path,
                       f"./data/games/{RUN_NAME}/{RUN_NAME}_iteration_{iteration}",
                       num_games, uct_iterations, MAX_TRAVERSALS, MAX_QUEUE_SIZE,
-                      do_print_tqdm=(iteration != 0))
+                      do_print_tqdm=True)
         
         train_network(network, iteration)
         
