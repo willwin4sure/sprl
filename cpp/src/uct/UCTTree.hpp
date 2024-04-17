@@ -90,10 +90,17 @@ public:
     void evaluateAndBackpropLeaves(const std::vector<Node*>& leaves, Network<BOARD_SIZE, ACTION_SIZE>* network) {
         assert(leaves.size() > 0);
 
-        // Assemble a vector of states to pass into the NN
+        // Generate symmetrizations for the states
+        std::vector<Symmetry> symmetries(leaves.size());
+        int numSymmetries = m_game->numSymmetries();
+        for (int i = 0; i < numSymmetries; ++i) {
+            symmetries[i] = GetRandom().UniformInt(0, numSymmetries - 1);
+        }
+
+        // Assemble a vector of states for input into the NN
         std::vector<GameState<BOARD_SIZE>> states;
-        for (Node* leaf : leaves) {
-            states.push_back(leaf->m_state);
+        for (int i = 0; i < static_cast<int>(leaves.size()); ++i) {
+            states.push_back(m_game->symmetrizeState(leaves[i]->m_state, { symmetries[i] })[0]);
         }
 
         // Perform batched evaluation of the states
@@ -103,6 +110,12 @@ public:
             Node* leaf = leaves[i];
             std::pair<std::array<float, ACTION_SIZE>, float> output = outputs[i];
 
+            std::array<float, ACTION_SIZE> policy = output.first;
+            float value = output.second;
+
+            // Undo the symmetrization
+            policy = m_game->symmetrizeActionDist(policy, { m_game->inverseSymmetry(symmetries[i]) })[0];
+
             // Note that the same leaf could occur multiple times in the output.
             // We cannot easily remove duplicates since we still need to remove the virtual losses,
             // but code could be written to optimize this by not passing them all into the 
@@ -110,7 +123,7 @@ public:
 
             if (!leaf->m_isNetworkEvaluated) {
                 // Update the cached network values, making the leaf gray
-                leaf->addNetworkOutput(output.first, output.second);
+                leaf->addNetworkOutput(policy, value);
             }
 
             if (!leaf->m_isExpanded) {

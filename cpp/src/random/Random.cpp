@@ -72,6 +72,11 @@ void Random::Dirichlet(float alpha, std::vector<float>& samples) {
     }
 }
 
+int Random::UniformInt(int a, int b) {
+    std::uniform_int_distribution<int> distribution(a, b);
+    return distribution(impl_);
+}
+
 int Random::SampleCDF(const std::vector<float>& cdf)
 {
     // Take care to handle the case where the first elements in the CDF have zero

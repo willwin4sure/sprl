@@ -50,7 +50,7 @@ public:
 
 
 template <int BOARD_SIZE, int ACTION_SIZE>
-void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, int player, int numIters, int maxTraversals, int maxQueueSize) {
+void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, std::string modelPath, int player, int numIters, int maxTraversals, int maxQueueSize) {
     using State = SPRL::GameState<BOARD_SIZE>;
     using ActionDist = SPRL::GameActionDist<ACTION_SIZE>;
 
@@ -58,7 +58,7 @@ void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, int player, int numIters, i
     std::cout << torch::cuda::is_available() << std::endl;
     std::cout << torch::cuda::cudnn_is_available() << std::endl;
     
-    SPRL::ConnectFourNetwork network { "./data/models/dragon/traced_dragon_iteration_80.pt" };
+    SPRL::ConnectFourNetwork network { modelPath };
 
     State state = game->startState();
     SPRL::UCTTree<BOARD_SIZE, ACTION_SIZE> tree { game, state };
@@ -144,18 +144,19 @@ void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, int player, int numIters, i
 }
 
 int main(int argc, char* argv[]) {
-    if (argc != 5) {
-        std::cerr << "Usage: ./challenge.exe <player> <numIters> <maxTraversals> <maxQueueSize>" << std::endl;
+    if (argc != 6) {
+        std::cerr << "Usage: ./challenge.exe <modelPath> <player> <numIters> <maxTraversals> <maxQueueSize>" << std::endl;
         return 1;
     }
 
-    int player = std::stoi(argv[1]);
-    int numIters = std::stoi(argv[2]);
-    int maxTraversals = std::stoi(argv[3]);
-    int maxQueueSize = std::stoi(argv[4]);
+    std::string modelPath = argv[1];
+    int player = std::stoi(argv[2]);
+    int numIters = std::stoi(argv[3]);
+    int maxTraversals = std::stoi(argv[4]);
+    int maxQueueSize = std::stoi(argv[5]);
 
     auto game = std::make_unique<SPRL::ConnectFour>();
-    play(game.get(), player, numIters, maxTraversals, maxQueueSize);
+    play(game.get(), modelPath, player, numIters, maxTraversals, maxQueueSize);
 
     return 0;
 }

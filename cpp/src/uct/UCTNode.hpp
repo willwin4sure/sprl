@@ -171,9 +171,12 @@ public:
 
         if (m_children[action] == nullptr) {
             // Child doesn't exist, so we create it.
-            // TODO: Add initialization type options (currently, ZERO INIT)
             m_children[action] = std::make_unique<UCTNode<BOARD_SIZE, ACTION_SIZE>>(
                 this, action, m_game, m_game->nextState(m_state, action));
+
+            if (m_isNetworkEvaluated) {
+                m_edgeStatistics.m_totalValues[action] = m_networkValue;           
+            }
         }
 
         return m_children[action].get();

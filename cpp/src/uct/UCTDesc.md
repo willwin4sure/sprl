@@ -31,6 +31,10 @@ For example:
 * We implement **subtree re-use**, which allows the network
 to capitalize on work from previous moves.
 
+* We **symmetrize** the inputs into the network by choosing a
+random symmetric game state. We also leverage symmetry to
+increase the amount of training data for the neural network.
+
 * We also batch neural network evaluation using the technique
 of **virtual losses**. Since the leaf selection is deterministic,
 we pretend we lose on the way down to repeatedly sample leaves,
