@@ -26,10 +26,10 @@ from src.policies.uct_policy import UCTPolicy
 if __name__ == "__main__":
     connect4 = ConnectK()
 
-    network1 = torch.load("data/models/elephant_mini/elephant_mini_iteration_1.pt")
+    network1 = torch.load("data/models/flamingo/flamingo_iteration_9.pt")
     network_policy1 = NetworkPolicy(network1, symmetrize=True)
     uct_policy1 = UCTPolicy(
-        network_policy1, num_iters=1000, c=1.0, train=False) # , init_type="zero")
+        network_policy1, num_iters=10000, c=1.0, train=False) # , init_type="zero")
     policy_agent1 = PolicyAgent(uct_policy1, 0.5)
 
     # network2 = torch.load(

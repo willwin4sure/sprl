@@ -11,7 +11,7 @@ from src.evaluator.play import play
 from src.games.connect_k import ConnectK
 from src.interface.tracer import trace_model
 from src.interface.run_self_play import run_self_play
-from src.networks.connect_four_network import ConnectFourNetwork
+from src.networks.new_connect_four_network import NewConnectFourNetwork
 from src.policies.network_policy import NetworkPolicy
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -23,19 +23,19 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 RUN_NAME = "flamingo"
 NUM_ITERS = 100
 NUM_INIT_GAMES = 2500
-NUM_GAMES_PER_ITER = 500
+NUM_GAMES_PER_ITER = 1000
 NUM_PAST_ITERATIONS_TO_TRAIN = 10
 NUM_EPOCHS = 150
 BATCH_SIZE = 1024
-UCT_INIT_ITERATIONS = 2500
-UCT_ITERATIONS = 250  # total number of UCT iterations to run
+UCT_INIT_ITERATIONS = 10000
+UCT_ITERATIONS = 300  # total number of UCT iterations to run
 MAX_TRAVERSALS = 16  # max traversals per batch
 MAX_QUEUE_SIZE = 8  # max NN evals per batch
 
 os.makedirs(f"data/games/{RUN_NAME}", exist_ok=True)
 os.makedirs(f"data/models/{RUN_NAME}", exist_ok=True)
 
-def train_network(network: ConnectFourNetwork, iteration: int):
+def train_network(network: NewConnectFourNetwork, iteration: int):
     """
     Train a network on the games generated from self-play.
     """
@@ -111,7 +111,7 @@ def train_network(network: ConnectFourNetwork, iteration: int):
 
 def train():
     game = ConnectK()
-    network = ConnectFourNetwork()
+    network = NewConnectFourNetwork(2, 64)
     network_policy = NetworkPolicy(network, symmetrize=True)
     network_agent = PolicyAgent(network_policy, 0.1)
     random_agent = RandomAgent()
