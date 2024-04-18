@@ -31,9 +31,10 @@ std::vector<std::pair<SPRL::GameActionDist<7>, SPRL::Value>> ConnectFourNetwork:
 
     m_numEvals += numStates;
 
-    auto input = torch::zeros({numStates, 2, 6, 7}).to(m_device);
+    auto input = torch::zeros({numStates, 3, 6, 7}).to(m_device);
 
     for (int b = 0; b < numStates; ++b) {
+        // Stone bitmask channels for current player and opponent player
         for (int i = 0; i < 6; ++i) {
             for (int j = 0; j < 7; ++j) {
                 if (states[b].getBoard()[i * 7 + j] == states[b].getPlayer()) {
@@ -43,9 +44,16 @@ std::vector<std::pair<SPRL::GameActionDist<7>, SPRL::Value>> ConnectFourNetwork:
                 }
             }
         }
+
+        // Color channel for which player you are
+        for (int i = 0; i < 6; ++i) {
+            for (int j = 0; j < 7; ++j) {
+                input[b][2][i][j] = ((states[b].getPlayer() == 0) ? 1.0f : 0.0f);
+            }
+        }
     }
 
-    auto output = m_model->forward({input}).toTuple();
+    auto output = m_model->forward({ input }).toTuple();
 
     auto policyOutput = output->elements()[0].toTensor();
     auto valueOutput = output->elements()[1].toTensor();
@@ -76,13 +84,14 @@ std::vector<std::pair<SPRL::GameActionDist<7>, SPRL::Value>> ConnectFourNetwork:
         for (int i = 0; i < 7; ++i) {
             sum += policy[i];
         }
-        float norm = 1.0f / sum;
 
         if (sum == 0.0f) {
+            float uniform = 1.0f / 7.0f;
             for (int i = 0; i < 7; ++i) {
-                policy[i] = 1.0f / 7.0f;
+                policy[i] = uniform;
             }
         } else {
+            float norm = 1.0f / sum;
             for (int i = 0; i < 7; ++i) {
                 policy[i] = policy[i] * norm;
             }

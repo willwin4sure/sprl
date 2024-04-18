@@ -46,7 +46,10 @@ selfPlay(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game,
          SPRL::Network<BOARD_SIZE, ACTION_SIZE>* network,
          int numIters,
          int maxTraversals,
-         int maxQueueSize) {
+         int maxQueueSize,
+         bool addNoise = true,
+         bool symmetrizeNetwork = true,
+         bool symmetrizeData = true) {
 
     using State = SPRL::GameState<BOARD_SIZE>;
     using ActionDist = SPRL::GameActionDist<ACTION_SIZE>;
@@ -61,15 +64,19 @@ selfPlay(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game,
     }
 
     State state = game->startState();
-    SPRL::UCTTree<BOARD_SIZE, ACTION_SIZE> tree{game, state};
+    SPRL::UCTTree<BOARD_SIZE, ACTION_SIZE> tree { game, state, addNoise, symmetrizeNetwork };
 
     int moveCount = 0;
 
     while (!game->isTerminal(state)) {
-        // Symmetrize the state and add to data
-        std::vector<State> symmetrizedStates = game->symmetrizeState(state, symmetries);
-        states.reserve(states.size() + symmetrizedStates.size());
-        states.insert(states.end(), symmetrizedStates.begin(), symmetrizedStates.end());
+        if (symmetrizeData) {
+            // Symmetrize the state and add to data
+            std::vector<State> symmetrizedStates = game->symmetrizeState(state, symmetries);
+            states.reserve(states.size() + symmetrizedStates.size());
+            states.insert(states.end(), symmetrizedStates.begin(), symmetrizedStates.end());
+        } else {
+            states.push_back(state);
+        }
 
         ActionDist actionMask = game->actionMask(state);
 
@@ -142,10 +149,14 @@ selfPlay(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game,
             }
         }
 
-        // Symmetrize the distributions and add to data
-        std::vector<ActionDist> symmetrizedDists = game->symmetrizeActionDist(pdf, symmetries);
-        distributions.reserve(distributions.size() + symmetrizedDists.size());
-        distributions.insert(distributions.end(), symmetrizedDists.begin(), symmetrizedDists.end());
+        if (symmetrizeData) {
+            // Symmetrize the distributions and add to data
+            std::vector<ActionDist> symmetrizedDists = game->symmetrizeActionDist(pdf, symmetries);
+            distributions.reserve(distributions.size() + symmetrizedDists.size());
+            distributions.insert(distributions.end(), symmetrizedDists.begin(), symmetrizedDists.end());
+        } else {
+            distributions.push_back(pdf);
+        }
 
         // Sample from the CDF
         int action = SPRL::GetRandom().SampleCDF(cdf);
@@ -249,11 +260,17 @@ int main(int argc, char *argv[]) {
                 }
             }
         }
+
+        for (int row = 0; row < 6; ++row) {
+            for (int col = 0; col < 7; ++col) {
+                embeddedStates.push_back((state.getPlayer() == 0) ? 1.0f : 0.0f);
+            }
+        }
     }
 
     npy::npy_data_ptr<float> stateData {};
     stateData.data_ptr = embeddedStates.data();
-    stateData.shape = { static_cast<unsigned long>(states.size()), 2, 6, 7 };
+    stateData.shape = { static_cast<unsigned long>(states.size()), 3, 6, 7 };
 
     npy::write_npy(savePath + "_states.npy", stateData);
 
