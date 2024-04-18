@@ -41,8 +41,7 @@ class NewConnectFourNetwork(Network):
         ])
 
         self.policy_conv = torch.nn.Conv2d(num_channels, 2, kernel_size=1)
-        self.policy_fc1 = torch.nn.Linear(2 * 6 * 7, num_channels)
-        self.policy_fc2 = torch.nn.Linear(num_channels, 7)
+        self.policy_fc = torch.nn.Linear(2 * 6 * 7, 7)
 
         self.value_conv = torch.nn.Conv2d(num_channels, 1, kernel_size=1)
         self.value_fc1 = torch.nn.Linear(1 * 6 * 7, num_channels)
@@ -65,8 +64,7 @@ class NewConnectFourNetwork(Network):
 
         policy = torch.nn.functional.relu(self.policy_conv(x))
         policy = policy.view(-1, 2 * 6 * 7)
-        policy = torch.nn.functional.relu(self.policy_fc1(policy))
-        policy = self.policy_fc2(policy)
+        policy = self.policy_fc(policy)
 
         value = torch.nn.functional.relu(self.value_conv(x))
         value = value.view(-1, 1 * 6 * 7)
