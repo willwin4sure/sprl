@@ -69,7 +69,7 @@ void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, std::string modelPath, int 
     }
 
     State state = game->startState();
-    SPRL::UCTTree<BOARD_SIZE, ACTION_SIZE> tree { game, state };
+    SPRL::UCTTree<BOARD_SIZE, ACTION_SIZE> tree { game, state, false };
 
     Timer t{};
 

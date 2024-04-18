@@ -19,9 +19,9 @@ public:
     using Node = UCTNode<BOARD_SIZE, ACTION_SIZE>;
 
     // Constructor for the tree.
-    UCTTree(Game<BOARD_SIZE, ACTION_SIZE>* game, const GameState<BOARD_SIZE>& state)
+    UCTTree(Game<BOARD_SIZE, ACTION_SIZE>* game, const GameState<BOARD_SIZE>& state, bool addNoise = true)
         : m_edgeStatistics {},
-          m_game { game },
+          m_game { game }, m_addNoise { addNoise },
           m_root { std::make_unique<Node>(&m_edgeStatistics, game, state) } {}
 
 
@@ -63,7 +63,7 @@ public:
 
             } else if (leaf->m_isNetworkEvaluated) {
                 // Gray case: expand the node to active and backpropagate the network value estimate
-                leaf->expand();
+                leaf->expand(m_addNoise);
 
                 backup(leaf, leaf->m_networkValue);
                 continue;
@@ -128,7 +128,7 @@ public:
 
             if (!leaf->m_isExpanded) {
                 // Expand the node, making the leaf active
-                leaf->expand();
+                leaf->expand(m_addNoise);
             }
             
             // Backpropagate the network value estimate
@@ -162,7 +162,7 @@ public:
                 leaf->addNetworkOutput(policy, value);
             }
 
-            leaf->expand();
+            leaf->expand(m_addNoise);
 
             valueEstimate = leaf->m_networkValue;
         }
@@ -277,6 +277,8 @@ private:
             }
         }
     }
+
+    bool m_addNoise { true };
 
     /// Edge statistics of a virtual "parent" of the root, for accessing N() at the root.
     Node::EdgeStatistics m_edgeStatistics {};
