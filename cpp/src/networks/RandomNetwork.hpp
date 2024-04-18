@@ -14,6 +14,8 @@ public:
         SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game,
         const std::vector<SPRL::GameState<BOARD_SIZE>>& states) override {
 
+        m_numEvals += states.size();
+
         // Return a uniform distribution and a value of 0 for everything
         std::vector<std::pair<SPRL::GameActionDist<ACTION_SIZE>, SPRL::Value>> results;
         results.reserve(states.size());
@@ -29,6 +31,13 @@ public:
 
         return results;
     }
+
+    int getNumEvals() override {
+        return m_numEvals;
+    }
+
+private:
+    int m_numEvals { 0 };
 };
 
 } // namespace SPRL

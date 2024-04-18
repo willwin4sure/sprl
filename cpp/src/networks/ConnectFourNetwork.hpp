@@ -20,10 +20,13 @@ public:
         SPRL::Game<42, 7>* game,
         const std::vector<SPRL::GameState<42>>& states) override;
 
-    /// Tracks the number of evaluations made by the network, summed over batches.
-    int m_numEvals { 0 };
+    int getNumEvals() override {
+        return m_numEvals;
+    }    
 
 private:
+    int m_numEvals { 0 };
+
     torch::Device m_device { torch::kCPU };
     std::shared_ptr<torch::jit::script::Module> m_model;
 };

@@ -17,6 +17,11 @@ public:
     */
     virtual std::vector<std::pair<GameActionDist<ACTION_SIZE>, Value>> evaluate(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game,
                                                                                 const std::vector<GameState<BOARD_SIZE>>& states) = 0;
+
+    /**
+     * Returns the number of evaluations made by the network, summed over batches.
+    */
+    virtual int getNumEvals() = 0;
 };
 
 } // namespace SPRL

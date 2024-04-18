@@ -14,6 +14,7 @@
 
 #include "networks/Network.hpp"
 #include "networks/ConnectFourNetwork.hpp"
+#include "networks/RandomNetwork.hpp"
 
 #include "uct/UCTNode.hpp"
 #include "uct/UCTTree.hpp"
@@ -53,12 +54,19 @@ template <int BOARD_SIZE, int ACTION_SIZE>
 void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, std::string modelPath, int player, int numIters, int maxTraversals, int maxQueueSize) {
     using State = SPRL::GameState<BOARD_SIZE>;
     using ActionDist = SPRL::GameActionDist<ACTION_SIZE>;
-
-    std::cout << "CUDA available: ";
-    std::cout << torch::cuda::is_available() << std::endl;
-    std::cout << torch::cuda::cudnn_is_available() << std::endl;
     
-    SPRL::ConnectFourNetwork network { modelPath };
+    SPRL::Network<42, 7>* network;
+
+    SPRL::RandomNetwork<42, 7> randomNetwork {};
+    SPRL::ConnectFourNetwork neuralNetwork { modelPath };
+
+    if (modelPath == "random") {
+        std::cout << "Using random network..." << std::endl;
+        network = &randomNetwork;
+    } else {
+        std::cout << "Using traced PyTorch network..." << std::endl;
+        network = &neuralNetwork;
+    }
 
     State state = game->startState();
     SPRL::UCTTree<BOARD_SIZE, ACTION_SIZE> tree { game, state };
@@ -89,15 +97,15 @@ void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, std::string modelPath, int 
                 // tree.searchIteration(&network);
                 // ++iters;
 
-                auto [leaves, iter] = tree.searchAndGetLeaves(maxTraversals, maxQueueSize, &network);
+                auto [leaves, iter] = tree.searchAndGetLeaves(maxTraversals, maxQueueSize, network);
                 if (leaves.size() > 0) {
-                    tree.evaluateAndBackpropLeaves(leaves, &network);
+                    tree.evaluateAndBackpropLeaves(leaves, network);
                 }
                 iters += iter;
             }
             std::cout << "Time taken: " << t.elapsed() << "s\n";
             totalTime += t.elapsed();
-            std::cout << "Total number of evaluations: " << network.m_numEvals << '\n';
+            std::cout << "Total number of evaluations: " << network->getNumEvals() << '\n';
             
             auto priors = tree.getRoot()->getEdgeStatistics()->m_childPriors;
             auto values = tree.getRoot()->getEdgeStatistics()->m_totalValues;
