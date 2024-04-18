@@ -19,9 +19,8 @@ public:
     using Node = UCTNode<BOARD_SIZE, ACTION_SIZE>;
 
     // Constructor for the tree.
-    UCTTree(Game<BOARD_SIZE, ACTION_SIZE>* game, const GameState<BOARD_SIZE>& state, bool addNoise = true)
-        : m_edgeStatistics {},
-          m_game { game }, m_addNoise { addNoise },
+    UCTTree(Game<BOARD_SIZE, ACTION_SIZE>* game, const GameState<BOARD_SIZE>& state, bool addNoise = true, bool symmetrize = true)
+        : m_addNoise { addNoise }, m_symmetrize { symmetrize }, m_edgeStatistics {}, m_game { game }, 
           m_root { std::make_unique<Node>(&m_edgeStatistics, game, state) } {}
 
 
@@ -88,25 +87,30 @@ public:
      * Inputs must be leaves that are all empty, as in the return value from searchAndGetLeaves.
     */
     void evaluateAndBackpropLeaves(const std::vector<Node*>& leaves, Network<BOARD_SIZE, ACTION_SIZE>* network) {
-        assert(leaves.size() > 0);
+        int numLeaves = leaves.size();
 
-        // Generate symmetrizations for the states
-        std::vector<Symmetry> symmetries(leaves.size());
-        int numSymmetries = m_game->numSymmetries();
-        for (int i = 0; i < numSymmetries; ++i) {
-            symmetries[i] = GetRandom().UniformInt(0, numSymmetries - 1);
-        }
+        assert(numLeaves > 0);
 
         // Assemble a vector of states for input into the NN
         std::vector<GameState<BOARD_SIZE>> states;
-        for (int i = 0; i < static_cast<int>(leaves.size()); ++i) {
-            states.push_back(m_game->symmetrizeState(leaves[i]->m_state, { symmetries[i] })[0]);
+        for (int i = 0; i < numLeaves; ++i) {
+            states.push_back(leaves[i]->m_state);
+        }
+
+        // Generate symmetrizations for the states, if necessary
+        std::vector<Symmetry> symmetries(numLeaves, 0);
+        if (m_symmetrize) {
+            int numSymmetries = m_game->numSymmetries();
+            for (int i = 0; i < numLeaves; ++i) {
+                symmetries[i] = GetRandom().UniformInt(0, numSymmetries - 1);
+                states[i] = m_game->symmetrizeState(states[i], { symmetries[i] })[0];
+            }
         }
 
         // Perform batched evaluation of the states
         std::vector<std::pair<std::array<float, ACTION_SIZE>, float>> outputs = network->evaluate(m_game, states);
 
-        for (int i = 0; i < leaves.size(); ++i) {
+        for (int i = 0; i < numLeaves; ++i) {
             Node* leaf = leaves[i];
             std::pair<std::array<float, ACTION_SIZE>, float> output = outputs[i];
 
@@ -114,7 +118,9 @@ public:
             float value = output.second;
 
             // Undo the symmetrization
-            policy = m_game->symmetrizeActionDist(policy, { m_game->inverseSymmetry(symmetries[i]) })[0];
+            if (m_symmetrize) {
+                policy = m_game->symmetrizeActionDist(policy, { m_game->inverseSymmetry(symmetries[i]) })[0];
+            }
 
             // Note that the same leaf could occur multiple times in the output.
             // We cannot easily remove duplicates since we still need to remove the virtual losses,
@@ -279,6 +285,8 @@ private:
     }
 
     bool m_addNoise { true };
+
+    bool m_symmetrize { true };
 
     /// Edge statistics of a virtual "parent" of the root, for accessing N() at the root.
     Node::EdgeStatistics m_edgeStatistics {};
