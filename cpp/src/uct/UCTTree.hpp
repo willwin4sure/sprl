@@ -20,7 +20,7 @@ public:
 
     // Constructor for the tree.
     UCTTree(Game<BOARD_SIZE, ACTION_SIZE>* game, const GameState<BOARD_SIZE>& state, bool addNoise = true, bool symmetrize = true)
-        : m_addNoise { addNoise }, m_symmetrize { symmetrize }, m_edgeStatistics {}, m_game { game }, 
+        : m_addNoise { addNoise }, m_symmetrizeNetwork { symmetrize }, m_edgeStatistics {}, m_game { game }, 
           m_root { std::make_unique<Node>(&m_edgeStatistics, game, state) } {}
 
 
@@ -99,7 +99,7 @@ public:
 
         // Generate symmetrizations for the states, if necessary
         std::vector<Symmetry> symmetries(numLeaves, 0);
-        if (m_symmetrize) {
+        if (m_symmetrizeNetwork) {
             int numSymmetries = m_game->numSymmetries();
             for (int i = 0; i < numLeaves; ++i) {
                 symmetries[i] = GetRandom().UniformInt(0, numSymmetries - 1);
@@ -118,7 +118,7 @@ public:
             float value = output.second;
 
             // Undo the symmetrization
-            if (m_symmetrize) {
+            if (m_symmetrizeNetwork) {
                 policy = m_game->symmetrizeActionDist(policy, { m_game->inverseSymmetry(symmetries[i]) })[0];
             }
 
@@ -286,7 +286,7 @@ private:
 
     bool m_addNoise { true };
 
-    bool m_symmetrize { true };
+    bool m_symmetrizeNetwork { true };
 
     /// Edge statistics of a virtual "parent" of the root, for accessing N() at the root.
     Node::EdgeStatistics m_edgeStatistics {};

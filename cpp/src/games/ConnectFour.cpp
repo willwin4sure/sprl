@@ -117,28 +117,29 @@ std::vector<ConnectFour::State> ConnectFour::symmetrizeState(const State& state,
     return symmetrizedStates;
 }
 
-std::vector<ConnectFour::ActionDist> ConnectFour::symmetrizeActionDist(const ActionDist& actionSpace, const std::vector<Symmetry>& symmetries) const {
-    std::vector<ActionDist> symmetrizedActionSpaces;
-    symmetrizedActionSpaces.reserve(symmetries.size());
+std::vector<ConnectFour::ActionDist> ConnectFour::symmetrizeActionDist(const ActionDist& actionDist, const std::vector<Symmetry>& symmetries) const {
+    std::vector<ActionDist> symmetrizedActionDists;
+    symmetrizedActionDists.reserve(symmetries.size());
 
     for (const Symmetry& symmetry : symmetries) {
-        ActionDist symmetrizedActionSpace {};
+        ActionDist symmetrizedActionDist {};
         switch (symmetry) {
         case 0:
-            symmetrizedActionSpaces.push_back(actionSpace);
+            symmetrizedActionDist = actionDist;
+            symmetrizedActionDists.push_back(symmetrizedActionDist);
             break;
 
         case 1:
             for (int col = 0; col < C4_NUM_COLS / 2; col++) {
-                symmetrizedActionSpace[col] = actionSpace[C4_NUM_COLS - col - 1];
-                symmetrizedActionSpace[C4_NUM_COLS - col - 1] = actionSpace[col];
+                symmetrizedActionDist[col] = actionDist[C4_NUM_COLS - col - 1];
+                symmetrizedActionDist[C4_NUM_COLS - col - 1] = actionDist[col];
             }
             
             if (C4_NUM_COLS % 2 == 1) {
-                symmetrizedActionSpace[C4_NUM_COLS / 2] = actionSpace[C4_NUM_COLS / 2];
+                symmetrizedActionDist[C4_NUM_COLS / 2] = actionDist[C4_NUM_COLS / 2];
             }
 
-            symmetrizedActionSpaces.push_back(symmetrizedActionSpace);
+            symmetrizedActionDists.push_back(symmetrizedActionDist);
             break;
 
         default:
@@ -146,7 +147,7 @@ std::vector<ConnectFour::ActionDist> ConnectFour::symmetrizeActionDist(const Act
         }
     }
 
-    return symmetrizedActionSpaces;
+    return symmetrizedActionDists;
 }
 
 

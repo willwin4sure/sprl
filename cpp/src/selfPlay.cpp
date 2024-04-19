@@ -249,14 +249,24 @@ int main(int argc, char *argv[]) {
 
     std::vector<float> embeddedStates;
     for (const SPRL::GameState<42>& state : states) {
-        for (int player = 0; player < 2; ++player) {
-            for (int row = 0; row < 6; ++row) {
-                for (int col = 0; col < 7; ++col) {
-                    if (state.getBoard()[row * 7 + col] == player) {
-                        embeddedStates.push_back(1.0f);
-                    } else {
-                        embeddedStates.push_back(0.0f);
-                    }
+        int player = state.getPlayer();
+
+        for (int row = 0; row < 6; ++row) {
+            for (int col = 0; col < 7; ++col) {
+                if (state.getBoard()[row * 7 + col] == player) {
+                    embeddedStates.push_back(1.0f);
+                } else {
+                    embeddedStates.push_back(0.0f);
+                }
+            }
+        }
+
+        for (int row = 0; row < 6; ++row) {
+            for (int col = 0; col < 7; ++col) {
+                if (state.getBoard()[row * 7 + col] == 1 - player) {
+                    embeddedStates.push_back(1.0f);
+                } else {
+                    embeddedStates.push_back(0.0f);
                 }
             }
         }
