@@ -263,7 +263,7 @@ int main(int argc, char *argv[]) {
 
         for (int row = 0; row < 6; ++row) {
             for (int col = 0; col < 7; ++col) {
-                if (state.getBoard()[row * 7 + col] == 1 - player) {
+                if (state.getBoard()[row * 7 + col] == (1 - player)) {
                     embeddedStates.push_back(1.0f);
                 } else {
                     embeddedStates.push_back(0.0f);

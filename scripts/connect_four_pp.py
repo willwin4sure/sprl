@@ -20,21 +20,22 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 ##  Hyperparameters  ##
 #######################
 
-RUN_NAME = "flamingo_reset_mini"
+RUN_NAME = "flamingo"
 
-NUM_ITERS = 50
-NUM_GAMES_PER_ITER = 50
-UCT_ITERATIONS = 64
+NUM_ITERS = 200
+NUM_GAMES_PER_ITER = 500
+UCT_ITERATIONS = 512
 MAX_TRAVERSALS = 8
 MAX_QUEUE_SIZE = 4
 
-INIT_NUM_GAMES = 250
-INIT_UCT_ITERATIONS = 8192
+INIT_NUM_GAMES = 2500
+INIT_UCT_ITERATIONS = 32768
 INIT_MAX_TRAVERSALS = 1
 INIT_MAX_QUEUE_SIZE = 1
 
-NUM_PAST_ITERS_TO_TRAIN = 10
-MAX_EPOCHS = 20
+NUM_PAST_ITERS_TO_TRAIN = 20
+MAX_GROUPS = 5
+EPOCHS_PER_GROUP = 20
 BATCH_SIZE = 1024
 
 
@@ -46,6 +47,8 @@ def train_network(network: NewConnectFourNetwork, iteration: int):
     """
     Train a network on the games generated from self-play.
     """
+    network.to(device)
+
     all_states = []
     all_distributions = []
     all_outcomes = []
@@ -88,86 +91,93 @@ def train_network(network: NewConnectFourNetwork, iteration: int):
     best_val_loss = float("inf")
     best_epoch = 0
 
-    with tqdm(range(MAX_EPOCHS)) as pbar:
-        for epoch in pbar:
-            train_total_policy_loss = 0.0
-            train_total_value_loss = 0.0
-            train_num_batches = 0
+    for group in range(MAX_GROUPS):
+        with tqdm(range(EPOCHS_PER_GROUP)) as pbar:
+            for epoch in pbar:
+                train_total_policy_loss = 0.0
+                train_total_value_loss = 0.0
+                train_num_batches = 0
 
-            for batch_state, batch_policy, batch_value, batch_timestamp in train_dataloader:
-                policy_pred, value_pred = network(batch_state)
+                for batch_state, batch_policy, batch_value, batch_timestamp in train_dataloader:
+                    policy_pred, value_pred = network(batch_state)
+                    
+                    # Softmax the policy prediction (network returns logits)
+                    policy_pred = torch.softmax(policy_pred, dim=1)
+
+                    # Weighted NLL loss by timestamp
+                    policy_loss = torch.sum(-torch.sum(batch_policy * torch.log(policy_pred), dim=1, keepdim=True) * batch_timestamp) / torch.sum(batch_timestamp)
+
+                    # Weighted MSE loss by timestamp
+                    value_loss = torch.sum((batch_value - value_pred) ** 2 * batch_timestamp) / torch.sum(batch_timestamp)
+
+                    loss = policy_loss + value_loss
+
+                    optimizer.zero_grad()
+                    loss.backward()
+                    optimizer.step()
+
+                    train_total_policy_loss += policy_loss.item()
+                    train_total_value_loss += value_loss.item()
+                    train_num_batches += 1
+
+                val_total_policy_loss = 0.0
+                val_total_value_loss = 0.0
+                val_num_batches = 0
+
+                for batch_state, batch_policy, batch_value, batch_timestamp in val_dataloader:
+                    policy_pred, value_pred = network(batch_state)
+                    
+                    # Softmax the policy prediction (network returns logits)
+                    policy_pred = torch.softmax(policy_pred, dim=1)
+
+                    # Weighted NLL loss by timestamp
+                    policy_loss = torch.sum(-torch.sum(batch_policy * torch.log(policy_pred), dim=1, keepdim=True) * batch_timestamp) / torch.sum(batch_timestamp)
+
+                    # Weighted MSE loss by timestamp
+                    value_loss = torch.sum((batch_value - value_pred) ** 2 * batch_timestamp) / torch.sum(batch_timestamp)
+
+                    val_total_policy_loss += policy_loss.item()
+                    val_total_value_loss += value_loss.item()
+                    val_num_batches += 1
+
+                train_average_policy_loss = train_total_policy_loss / train_num_batches
+                train_average_value_loss = train_total_value_loss / train_num_batches
+
+                val_average_policy_loss = val_total_policy_loss / val_num_batches
+                val_average_value_loss = val_total_value_loss / val_num_batches
+
+                val_loss = val_average_policy_loss + val_average_value_loss
                 
-                # Softmax the policy prediction (network returns logits)
-                policy_pred = torch.softmax(policy_pred, dim=1)
+                if val_loss < best_val_loss:
+                    # If it is the best validation loss we've seen so far, save the model
+                    best_val_loss = val_loss
+                    best_epoch = epoch + group * EPOCHS_PER_GROUP
 
-                # Weighted NLL loss by timestamp
-                policy_loss = torch.sum(-torch.sum(batch_policy * torch.log(policy_pred), dim=1, keepdim=True) * batch_timestamp) / torch.sum(batch_timestamp)
+                    network.to("cpu")
+                    torch.save(network, f"./data/models/{RUN_NAME}/{RUN_NAME}_iteration_{iteration}.pt")
+                    network.to(device)
 
-                # Weighted MSE loss by timestamp
-                value_loss = torch.sum((batch_value - value_pred) ** 2 * batch_timestamp) / torch.sum(batch_timestamp)
+                if epoch == 0:
+                    train_init_policy_loss = train_average_policy_loss
+                    train_init_value_loss = train_average_value_loss
 
-                loss = policy_loss + value_loss
+                    val_init_policy_loss = val_average_policy_loss
+                    val_init_value_loss = val_average_value_loss
 
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-
-                train_total_policy_loss += policy_loss.item()
-                train_total_value_loss += value_loss.item()
-                train_num_batches += 1
-
-            val_total_policy_loss = 0.0
-            val_total_value_loss = 0.0
-            val_num_batches = 0
-
-            for batch_state, batch_policy, batch_value, batch_timestamp in val_dataloader:
-                policy_pred, value_pred = network(batch_state)
+                pbar.set_description(
+                    f"Tr Pol: {train_init_policy_loss:.4f} -> {train_average_policy_loss:.4f}, Tr Val: {train_init_value_loss:.4f} -> {train_average_value_loss:.4f}, Val Pol: {val_init_policy_loss:.4f} -> {val_average_policy_loss:.4f}, Val Val: {val_init_value_loss:.4f} -> {val_average_value_loss:.4f}")
                 
-                # Softmax the policy prediction (network returns logits)
-                policy_pred = torch.softmax(policy_pred, dim=1)
-
-                # Weighted NLL loss by timestamp
-                policy_loss = torch.sum(-torch.sum(batch_policy * torch.log(policy_pred), dim=1, keepdim=True) * batch_timestamp) / torch.sum(batch_timestamp)
-
-                # Weighted MSE loss by timestamp
-                value_loss = torch.sum((batch_value - value_pred) ** 2 * batch_timestamp) / torch.sum(batch_timestamp)
-
-                val_total_policy_loss += policy_loss.item()
-                val_total_value_loss += value_loss.item()
-                val_num_batches += 1
-
-            train_average_policy_loss = train_total_policy_loss / train_num_batches
-            train_average_value_loss = train_total_value_loss / train_num_batches
-
-            val_average_policy_loss = val_total_policy_loss / val_num_batches
-            val_average_value_loss = val_total_value_loss / val_num_batches
-
-            val_loss = val_average_policy_loss + val_average_value_loss
-            
-            if val_loss < best_val_loss:
-                # If it is the best validation loss we've seen so far, save the model
-                best_val_loss = val_loss
-                best_epoch = epoch
-
-                network.to("cpu")
-                torch.save(network, f"./data/models/{RUN_NAME}/{RUN_NAME}_iteration_{iteration}.pt")
-                network.to(device)
-
-            if epoch == 0:
-                train_init_policy_loss = train_average_policy_loss
-                train_init_value_loss = train_average_value_loss
-
-                val_init_policy_loss = val_average_policy_loss
-                val_init_value_loss = val_average_value_loss
-
-            pbar.set_description(
-                f"Tr Pol: {train_init_policy_loss:.4f} -> {train_average_policy_loss:.4f}, Tr Val: {train_init_value_loss:.4f} -> {train_average_value_loss:.4f}, Val Pol: {val_init_policy_loss:.4f} -> {val_average_policy_loss:.4f}, Val Val: {val_init_value_loss:.4f} -> {val_average_value_loss:.4f}")
+            # If the best epoch is among the last EPOCHS_PER_GROUP / 4 epochs, don't break, might get more from training
+            if best_epoch < (group + 1) * EPOCHS_PER_GROUP - EPOCHS_PER_GROUP // 4:
+                break
 
     print(f"The best model was at epoch {best_epoch}.")
     
     trace_model(f"./data/models/{RUN_NAME}/{RUN_NAME}_iteration_{iteration}.pt",
                 torch.randn(1, 3, 6, 7),
                 f"./data/models/{RUN_NAME}/traced_{RUN_NAME}_iteration_{iteration}.pt")
+    
+    network.to("cpu")
     
 
 def train():
@@ -176,11 +186,11 @@ def train():
     
     for iteration in range(NUM_ITERS):
         print(f"Iteration {iteration}...")
-        
-        network = NewConnectFourNetwork(2, 64).to(device)
+
+        network = NewConnectFourNetwork(2, 64)
         network_policy = NetworkPolicy(network, symmetrize=True)
         network_agent = PolicyAgent(network_policy, 0.0)
-        
+                
         network_path = "random" if iteration == 0 \
             else f"./data/models/{RUN_NAME}/traced_{RUN_NAME}_iteration_{iteration - 1}.pt"
             
