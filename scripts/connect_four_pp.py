@@ -20,27 +20,29 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 ##  Hyperparameters  ##
 #######################
 
-RUN_NAME = "flamingo"
+RUN_NAME = "flamingo_reset_mini"
 
-NUM_ITERS = 500
-NUM_GAMES_PER_ITER = 200
-UCT_ITERATIONS = 256
-MAX_TRAVERSALS = 16
-MAX_QUEUE_SIZE = 8
+NUM_ITERS = 50
+NUM_GAMES_PER_ITER = 50
+UCT_ITERATIONS = 64
+MAX_TRAVERSALS = 8
+MAX_QUEUE_SIZE = 4
 
-INIT_NUM_GAMES = 2000
-INIT_UCT_ITERATIONS = 16384
+INIT_NUM_GAMES = 250
+INIT_UCT_ITERATIONS = 8192
 INIT_MAX_TRAVERSALS = 1
 INIT_MAX_QUEUE_SIZE = 1
 
-MAX_EPOCHS = 25
+NUM_PAST_ITERS_TO_TRAIN = 10
+MAX_EPOCHS = 20
 BATCH_SIZE = 1024
 
 
 os.makedirs(f"data/games/{RUN_NAME}", exist_ok=True)
 os.makedirs(f"data/models/{RUN_NAME}", exist_ok=True)
 
-def train_network(iteration: int):
+
+def train_network(network: NewConnectFourNetwork, iteration: int):
     """
     Train a network on the games generated from self-play.
     """
@@ -49,11 +51,14 @@ def train_network(iteration: int):
     all_outcomes = []
     all_timestamps = []
     
-    for i in range(0, iteration + 1):
+    timestamp = 1
+    for i in range(max(0, iteration - NUM_PAST_ITERS_TO_TRAIN), iteration + 1):
         states = torch.Tensor(np.load(f"./data/games/{RUN_NAME}/{RUN_NAME}_iteration_{i}_states.npy"))
         distributions = torch.Tensor(np.load(f"./data/games/{RUN_NAME}/{RUN_NAME}_iteration_{i}_distributions.npy"))
         outcomes = torch.Tensor(np.load(f"./data/games/{RUN_NAME}/{RUN_NAME}_iteration_{i}_outcomes.npy"))
-        timestamps = torch.Tensor([i + 1 for _ in range(states.shape[0])])
+        timestamps = torch.Tensor([timestamp for _ in range(states.shape[0])])
+        
+        timestamp += 1
         
         all_states.append(states)
         all_distributions.append(distributions)
@@ -78,9 +83,6 @@ def train_network(iteration: int):
     
     lr = 1e-3
     
-    network = NewConnectFourNetwork(3, 64)
-    network.to(device)
-
     optimizer = torch.optim.AdamW(network.parameters(), lr=lr)
 
     best_val_loss = float("inf")
@@ -95,13 +97,13 @@ def train_network(iteration: int):
             for batch_state, batch_policy, batch_value, batch_timestamp in train_dataloader:
                 policy_pred, value_pred = network(batch_state)
                 
-                # softmax the policy prediction
+                # Softmax the policy prediction (network returns logits)
                 policy_pred = torch.softmax(policy_pred, dim=1)
 
-                # weighted NLL loss by timestamp
+                # Weighted NLL loss by timestamp
                 policy_loss = torch.sum(-torch.sum(batch_policy * torch.log(policy_pred), dim=1, keepdim=True) * batch_timestamp) / torch.sum(batch_timestamp)
 
-                # weighted MSE loss by timestamp
+                # Weighted MSE loss by timestamp
                 value_loss = torch.sum((batch_value - value_pred) ** 2 * batch_timestamp) / torch.sum(batch_timestamp)
 
                 loss = policy_loss + value_loss
@@ -121,13 +123,13 @@ def train_network(iteration: int):
             for batch_state, batch_policy, batch_value, batch_timestamp in val_dataloader:
                 policy_pred, value_pred = network(batch_state)
                 
-                # softmax the policy prediction
+                # Softmax the policy prediction (network returns logits)
                 policy_pred = torch.softmax(policy_pred, dim=1)
 
-                # weighted NLL loss by timestamp
+                # Weighted NLL loss by timestamp
                 policy_loss = torch.sum(-torch.sum(batch_policy * torch.log(policy_pred), dim=1, keepdim=True) * batch_timestamp) / torch.sum(batch_timestamp)
 
-                # weighted MSE loss by timestamp
+                # Weighted MSE loss by timestamp
                 value_loss = torch.sum((batch_value - value_pred) ** 2 * batch_timestamp) / torch.sum(batch_timestamp)
 
                 val_total_policy_loss += policy_loss.item()
@@ -140,8 +142,11 @@ def train_network(iteration: int):
             val_average_policy_loss = val_total_policy_loss / val_num_batches
             val_average_value_loss = val_total_value_loss / val_num_batches
 
-            if val_average_policy_loss + val_average_value_loss < best_val_loss:
-                best_val_loss = val_average_policy_loss + val_average_value_loss
+            val_loss = val_average_policy_loss + val_average_value_loss
+            
+            if val_loss < best_val_loss:
+                # If it is the best validation loss we've seen so far, save the model
+                best_val_loss = val_loss
                 best_epoch = epoch
 
                 network.to("cpu")
@@ -156,12 +161,12 @@ def train_network(iteration: int):
                 val_init_value_loss = val_average_value_loss
 
             pbar.set_description(
-                f"Train Policy: {train_init_policy_loss:.6f} -> {train_average_policy_loss:.6f}, Train Value: {train_init_value_loss:.6f} -> {train_average_value_loss:.6f}, Val Policy: {val_init_policy_loss:.6f} -> {val_average_policy_loss:.6f}, Val Value: {val_init_value_loss:.6f} -> {val_average_value_loss:.6f}")
+                f"Tr Pol: {train_init_policy_loss:.4f} -> {train_average_policy_loss:.4f}, Tr Val: {train_init_value_loss:.4f} -> {train_average_value_loss:.4f}, Val Pol: {val_init_policy_loss:.4f} -> {val_average_policy_loss:.4f}, Val Val: {val_init_value_loss:.4f} -> {val_average_value_loss:.4f}")
 
     print(f"The best model was at epoch {best_epoch}.")
     
     trace_model(f"./data/models/{RUN_NAME}/{RUN_NAME}_iteration_{iteration}.pt",
-                torch.randn(1, 2, 6, 7),
+                torch.randn(1, 3, 6, 7),
                 f"./data/models/{RUN_NAME}/traced_{RUN_NAME}_iteration_{iteration}.pt")
     
 
@@ -171,6 +176,10 @@ def train():
     
     for iteration in range(NUM_ITERS):
         print(f"Iteration {iteration}...")
+        
+        network = NewConnectFourNetwork(2, 64).to(device)
+        network_policy = NetworkPolicy(network, symmetrize=True)
+        network_agent = PolicyAgent(network_policy, 0.0)
         
         network_path = "random" if iteration == 0 \
             else f"./data/models/{RUN_NAME}/traced_{RUN_NAME}_iteration_{iteration - 1}.pt"
@@ -185,13 +194,8 @@ def train():
                       num_games, uct_iterations, max_traversals, max_queue_size,
                       do_print_tqdm=True)
         
-        train_network(iteration)
+        train_network(network, iteration)
         
-        network = torch.load(f"./data/models/{RUN_NAME}/{RUN_NAME}_iteration_{iteration}.pt")
-
-        network_policy = NetworkPolicy(network, symmetrize=True)
-        network_agent = PolicyAgent(network_policy, 0.1)
-
         random_agent = RandomAgent()
 
         network_wins = 0

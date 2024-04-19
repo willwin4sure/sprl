@@ -32,7 +32,7 @@ class NewConnectFourNetwork(Network):
     def __init__(self, num_blocks: int, num_channels: int):
         super(NewConnectFourNetwork, self).__init__()
 
-        self.conv = torch.nn.Conv2d(2, num_channels, kernel_size=3, stride=1, padding=1)
+        self.conv = torch.nn.Conv2d(3, num_channels, kernel_size=3, stride=1, padding=1)
         self.bn = torch.nn.BatchNorm2d(num_channels)
 
         self.residual_blocks = torch.nn.ModuleList([
@@ -52,7 +52,7 @@ class NewConnectFourNetwork(Network):
         Runs the forward pass of the network.
 
         Args:
-            x (torch.Tensor): (B, C=2, H=6, W=7), as from embed
+            x (torch.Tensor): (B, C=3, H=6, W=7), as from embed
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor]: (B, 7), (B, 1)
@@ -80,10 +80,13 @@ class NewConnectFourNetwork(Network):
         The tensor has two channels of size 6 x 7, where the first
         channel represents a bitmask of the current player's stones,
         and the second channel represents a bitmask of the opponent's stones.
+        It also has a third color channel representing the current player
+        (1 for first player, 0 for second player).
         """
         player_stones = torch.tensor(state.board == state.player, dtype=torch.float32).view(1, 1, 6, 7)
         opponent_stones = torch.tensor(state.board == (1 - state.player), dtype=torch.float32).view(1, 1, 6, 7)
+        color_channel = torch.tensor([1 - state.player for _ in range(6 * 7)]).view(1, 1, 6, 7)
 
-        output = torch.cat([player_stones, opponent_stones], dim=1)  # (B=1, C=2, H=6, W=7)
-        
+        output = torch.cat([player_stones, opponent_stones, color_channel], dim=1)  # (1, 3, 6, 7)
+
         return output
