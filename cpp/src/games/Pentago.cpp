@@ -1,6 +1,7 @@
 #include "Pentago.hpp"
 
 #include <cassert>
+#include <iostream>
 
 namespace SPRL {
 
@@ -9,18 +10,21 @@ Pentago::State Pentago::startState() const {
 }
 
 Pentago::Action Pentago::actionIdxToAction(const ActionIdx actionIdx) const {
+    assert(actionIdx >= 0);
+    assert(actionIdx < PENTAGO_NUM_ACTIONS);
+
     const Pentago::Action action =  {
-        actionIdx / (PENTAGO_BOARD_SIZE * PENTAGO_NUM_QUADRANTS),
-        (actionIdx / PENTAGO_BOARD_SIZE) % 4,
-        actionIdx % PENTAGO_BOARD_SIZE
+        static_cast<int8_t>(actionIdx / (PENTAGO_BOARD_SIZE * PENTAGO_NUM_QUADRANTS)),
+        static_cast<int8_t>((actionIdx / PENTAGO_BOARD_SIZE) % 4),
+        static_cast<int8_t>(actionIdx % PENTAGO_BOARD_SIZE)
     };
     return action;
 }
 
 ActionIdx Pentago::actionToActionIdx(const Pentago::Action& action) const {
-    return action.rotDirection * PENTAGO_NUM_ACTIONS / PENTAGO_NUM_ROT_DIRECTIONS
-            + action.rotQuadrant * PENTAGO_NUM_ACTIONS / (PENTAGO_NUM_ROT_DIRECTIONS * PENTAGO_NUM_QUADRANTS)
-            + action.boardIdx;
+    return action.rotDirection * PENTAGO_BOARD_SIZE * PENTAGO_NUM_QUADRANTS
+         + action.rotQuadrant * PENTAGO_BOARD_SIZE
+         + action.boardIdx;
 }
 
 Pentago::State Pentago::nextState(const State& state, const ActionIdx actionIdx) const {
@@ -49,10 +53,10 @@ Pentago::State Pentago::nextState(const State& state, const ActionIdx actionIdx)
     30 31 32    33 34 35
     */
 
-   // Some of the most heinous code you've ever seen
-   int subboardTopLeft = -1;
-   switch(action.rotQuadrant)
-   {
+    // Some of the most heinous code you've ever seen
+    int subboardTopLeft = -1;
+    switch(action.rotQuadrant)
+    {
     case 0:
         subboardTopLeft = 0;
         break;
@@ -67,12 +71,12 @@ Pentago::State Pentago::nextState(const State& state, const ActionIdx actionIdx)
         break;
     default:
         assert(false);
-   }
+    }
 
-   switch(action.rotDirection)
-   {
-    case 0: //clockwise
-        Piece temp = newBoard[subboardTopLeft];
+    Piece temp = newBoard[subboardTopLeft];
+    std::cout << static_cast<int>(action.rotDirection) << std::endl;
+    switch (action.rotDirection) {
+    case 0: // clockwise
         newBoard[subboardTopLeft] = newBoard[subboardTopLeft + 12];
         newBoard[subboardTopLeft + 12] = newBoard[subboardTopLeft + 14];
         newBoard[subboardTopLeft + 14] = newBoard[subboardTopLeft + 2];
@@ -83,8 +87,9 @@ Pentago::State Pentago::nextState(const State& state, const ActionIdx actionIdx)
         newBoard[subboardTopLeft + 6] = newBoard[subboardTopLeft + 13];
         newBoard[subboardTopLeft + 13] = newBoard[subboardTopLeft + 8];
         newBoard[subboardTopLeft + 8] = temp;
+
+        break;
     case 1: // counterclockwise
-        Piece temp = newBoard[subboardTopLeft];
         newBoard[subboardTopLeft] = newBoard[subboardTopLeft + 2];
         newBoard[subboardTopLeft + 2] = newBoard[subboardTopLeft + 14];
         newBoard[subboardTopLeft + 14] = newBoard[subboardTopLeft + 12];
@@ -95,9 +100,11 @@ Pentago::State Pentago::nextState(const State& state, const ActionIdx actionIdx)
         newBoard[subboardTopLeft + 8] = newBoard[subboardTopLeft + 13];
         newBoard[subboardTopLeft + 13] = newBoard[subboardTopLeft + 6];
         newBoard[subboardTopLeft + 6] = temp;
+
+        break;
     default:
         assert(false);
-   }
+    }
 
     // Check if the move wins the game
     Player winner = checkWin(newBoard) ? player : -1;

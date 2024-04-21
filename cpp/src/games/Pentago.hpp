@@ -13,7 +13,7 @@ constexpr int PENTAGO_BOARD_SIZE = PENTAGO_BOARD_WIDTH * PENTAGO_BOARD_WIDTH;
 constexpr int PENTAGO_NUM_ACTIONS = PENTAGO_BOARD_SIZE * PENTAGO_NUM_QUADRANTS * PENTAGO_NUM_ROT_DIRECTIONS;
 
 /**
- * Implementation of the classic Connect Four game.
+ * Implementation of the game Pentago.
 */
 class Pentago : public Game<PENTAGO_BOARD_SIZE, PENTAGO_NUM_ACTIONS> {
 public:
@@ -34,9 +34,9 @@ private:
 
     static constexpr Piece emptySquare = -1;
     struct Action {
-        uint8_t rotDirection; // 0 cw, 1 ccw
-        uint8_t rotQuadrant; // 0 top left, 1 top right, 2 bot left, 3 bot right
-        uint8_t boardIdx; // index of piece on board
+        int8_t rotDirection; // 0 cw, 1 ccw
+        int8_t rotQuadrant; // 0 top left, 1 top right, 2 bot left, 3 bot right
+        int8_t boardIdx; // index of piece on board
     };
     Action actionIdxToAction(const ActionIdx actionIdx) const;
     ActionIdx actionToActionIdx(const Action& action) const;
