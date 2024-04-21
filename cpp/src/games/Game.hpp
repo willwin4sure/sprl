@@ -8,7 +8,7 @@
 namespace SPRL {
 
 /// Type alias for the action index.
-using ActionIdx = int8_t;
+using ActionIdx = int16_t;
 
 /// Type alias for the symmetry index.
 using Symmetry = int8_t;
