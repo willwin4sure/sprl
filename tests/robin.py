@@ -48,6 +48,8 @@ def win_statistics(win_matrix):
 def handle_master(results_path, num_games, num_workers):
     import time
 
+    import matplotlib.pyplot as plt
+
     print("I am responsible for checking the results periodically and writing them all to a big file.")
     results_file = f"{results_path}.txt"
     os.makedirs(os.path.dirname(results_file), exist_ok=True)
@@ -98,6 +100,38 @@ def handle_master(results_path, num_games, num_workers):
             f.write(win_statistics(win_matrix))
             f.write(
                 f"\n\nTotal games played: {total_games} / {num_games * len(players) * (len(players) - 1)}")
+
+        # Now, matplotlib a heatmap win matrix. This should be a 1920 x 1080 image.
+        fig, ax = plt.subplots()
+        im = ax.imshow(total_scores, cmap="viridis")
+
+        # We want to show all ticks...
+        ax.set_xticks(range(len(players)))
+        ax.set_yticks(range(len(players)))
+        # ... and label them with the respective list entries
+        ax.set_xticklabels(players)
+        ax.set_yticklabels(players)
+
+        # Rotate the tick labels and set their alignment.
+        plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
+                 rotation_mode="anchor")
+
+        # Loop over data dimensions and create text annotations.
+        if len(players) <= 5:  # Else, the boxes are too small.
+            for i in range(len(players)):
+                for j in range(len(players)):
+                    text = ax.text(j, i, total_scores[i][j],
+                                   ha="center", va="center", color="w", fontsize=10)
+
+        ax.set_title("Total scores of players")
+        fig.tight_layout()
+        # colorbar
+        cbar = ax.figure.colorbar(im, ax=ax)
+        cbar.ax.set_ylabel("Scores", rotation=-90, va="bottom")
+
+        plt.savefig(results_path + ".png", dpi=300)
+        plt.close()
+
         if total_games >= num_games * len(players) * (len(players) - 1):
             break
 
@@ -135,19 +169,19 @@ if __name__ == "__main__":
                                        c=1.0, train=False, init_type="zero"), temperature=0.5)
         players.update({f"dr_{i}": dragon})
 
-    for i in [0, 10, 20, 30, 40, 50, 60, 70]:
-        elephant_net = NetworkPolicy(torch.load(
-            f"data/models/elephant/elephant_iteration_{i}.pt"))
-        elephant = PolicyAgent(UCTPolicy(elephant_net, num_iters=1000,
-                                         c=1.0, train=False, init_type="equal"), temperature=0.5)
-        players.update({f"el_{i}": elephant})
+    # for i in [20, 30]:
+    #     elephant_net = NetworkPolicy(torch.load(
+    #         f"data/models/elephant/elephant_iteration_{i}.pt"))
+    #     elephant = PolicyAgent(UCTPolicy(elephant_net, num_iters=1000,
+    #                                      c=1.0, train=False, init_type="equal"), temperature=0.5)
+    #     players.update({f"el_{i}": elephant})
 
-    for i in [0, 10, 20, 30, 40, 50]:
-        electron_net = NetworkPolicy(torch.load(
-            f"data/models/electron/electron_iteration_{i}.pt"))
-        electron = PolicyAgent(UCTPolicy(electron_net, num_iters=1000,
-                                         c=1.0, train=False, init_type="offset"), temperature=0.5)
-        players.update({f"e^-_{i}": electron})
+    # for i in [40, 50]:
+    #     electron_net = NetworkPolicy(torch.load(
+    #         f"data/models/electron/electron_iteration_{i}.pt"))
+    #     electron = PolicyAgent(UCTPolicy(electron_net, num_iters=1000,
+    #                                      c=1.0, train=False, init_type="offset"), temperature=0.5)
+    #     players.update({f"e^-_{i}": electron})
 
     for i in []:
         electron_no_offset_net = NetworkPolicy(torch.load(
@@ -163,6 +197,28 @@ if __name__ == "__main__":
                                                             c=1.0, train=False, init_type="zero"), temperature=0.5)
         players.update(
             {f"neno_{i}": negative_electron_no_offset})
+
+    for i in [0, 10, 20, 30, 40]:
+        flamingo_mini_net = NetworkPolicy(torch.load(
+            f"data/models/flamingo_mini/flamingo_mini_iteration_{i}.pt"))
+        flamingo_mini = PolicyAgent(UCTPolicy(flamingo_mini_net, num_iters=1000,
+                                              c=1.0, train=False, init_type="equal"), temperature=0.5)
+        players.update({f"fm_{i}": flamingo_mini})
+
+    for i in [0, 10, 20, 30, 40]:
+        flamingo_reset_mini_net = NetworkPolicy(torch.load(
+            f"data/models/flamingo_reset_mini/flamingo_reset_mini_iteration_{i}.pt"))
+        flamingo_reset_mini = PolicyAgent(UCTPolicy(flamingo_reset_mini_net, num_iters=1000,
+                                                    c=1.0, train=False, init_type="equal"), temperature=0.5)
+        players.update(
+            {f"frm_{i}": flamingo_reset_mini})
+
+    for i in [0, 5, 10, 15, 20, 25]:
+        flamingo_net = NetworkPolicy(torch.load(
+            f"data/models/flamingo/flamingo_iteration_{i}.pt"))
+        flamingo = PolicyAgent(UCTPolicy(flamingo_net, num_iters=1000,
+                                         c=1.0, train=False, init_type="equal"), temperature=0.5)
+        players.update({f"fl_{i}": flamingo})
 
     # play a round robin tournament among the players.
 
