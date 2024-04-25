@@ -68,7 +68,7 @@ selfPlay(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game,
 
     int moveCount = 0;
 
-    while (!game->isTerminal(state)) {
+    while (!state.isTerminal()) {
         if (symmetrizeData) {
             // Symmetrize the state and add to data
             std::vector<State> symmetrizedStates = game->symmetrizeState(state, symmetries);

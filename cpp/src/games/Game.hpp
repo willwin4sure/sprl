@@ -44,11 +44,6 @@ public:
     virtual State nextState(const State& state, const ActionIdx action) const = 0;
 
     /**
-     * Returns True if the game is over, False otherwise.
-    */
-    virtual bool isTerminal(const State& state) const = 0;
-
-    /**
      * Returns a mask of valid actions for the current state.
      * 
      * Should work even if state is terminal, but the mask must be all zeros in that case.

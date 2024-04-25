@@ -9,7 +9,7 @@ ConnectFour::State ConnectFour::startState() const {
 }
 
 ConnectFour::State ConnectFour::nextState(const State& state, const ActionIdx action) const {
-    assert(!isTerminal(state));
+    assert(!state.isTerminal());
     assert(actionMask(state)[action] == 1.0f);
 
     State::Board newBoard = state.getBoard();  // The board that we return, a copy of the original
@@ -33,23 +33,16 @@ ConnectFour::State ConnectFour::nextState(const State& state, const ActionIdx ac
     // Check if the move wins the game
     Player winner = checkWin(newBoard, row, col, piece) ? player : -1;
 
-    return State { newBoard, newPlayer, winner };
-}
-
-bool ConnectFour::isTerminal(const State& state) const {
-    if (state.getWinner() != -1) {
-        return true;
-    }
-
-    const State::Board& board = state.getBoard();
+    // See if the game has ended in a draw
+    bool boardFilled = true;
     for (int col = 0; col < C4_NUM_COLS; col++) {
-        // Check if there is an empty space in the top row
-        if (board[col] == -1) {
-            return false;
+        if (newBoard[col] == -1) {
+            boardFilled = false;
+            break;
         }
     }
 
-    return true;
+    return State { newBoard, newPlayer, winner, (winner != -1) || boardFilled };
 }
 
 ConnectFour::ActionDist ConnectFour::actionMask(const State& state) const {
@@ -95,19 +88,21 @@ std::vector<ConnectFour::State> ConnectFour::symmetrizeState(const State& state,
 
     for (const Symmetry& symmetry : symmetries) {
         switch (symmetry) {
-        case 0:
+        case 0: {
             symmetrizedStates.push_back(state);
             break;
+        }
 
-        case 1:
+        case 1: {
             State::Board board = state.getBoard(); // Copy of the board
             for (int row = 0; row < C4_NUM_ROWS; row++) {
                 for (int col = 0; col < C4_NUM_COLS / 2; col++) {
                     std::swap(board[row * C4_NUM_COLS + col], board[row * C4_NUM_COLS + C4_NUM_COLS - col - 1]);
                 }
             }
-            symmetrizedStates.push_back(State { board, state.getPlayer(), state.getWinner() });
+            symmetrizedStates.push_back(State { board, state.getPlayer(), state.getWinner(), state.isTerminal() });
             break;
+        }
 
         default:
             assert(false);
@@ -265,11 +260,7 @@ bool ConnectFour::checkWin(const State::Board& board, const int piece_row, const
         col--;
     }
 
-    if (anti_diag_count >= 4) {
-        return true;
-    }
-
-    return false;
+    return anti_diag_count >= 4;
 }
 
 } // namespace SPRL

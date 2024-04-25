@@ -10,12 +10,13 @@ constexpr int C4_NUM_COLS = 7;
 
 /**
  * Implementation of the classic Connect Four game.
+ * 
+ * See https://en.wikipedia.org/wiki/Connect_Four for details.
 */
 class ConnectFour : public Game<C4_NUM_ROWS * C4_NUM_COLS, C4_NUM_COLS> {
 public:
     State startState() const override;
     State nextState(const State& state, const ActionIdx action) const override;
-    bool isTerminal(const State& state) const override;
     ActionDist actionMask(const State& state) const override;
     std::pair<Value, Value> rewards(const State& state) const override;
     int numSymmetries() const override;

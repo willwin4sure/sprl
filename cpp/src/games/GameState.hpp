@@ -31,15 +31,15 @@ public:
     /**
      * Constructs a new game state with an empty board, player 0 to move, no winner.
     */
-    GameState() : m_board {}, m_player { 0 }, m_winner { -1 } {
+    GameState() : m_board {}, m_player { 0 }, m_winner { -1 }, m_isTerminal { false } {
         m_board.fill(-1);  // empty board
     }
 
     /**
      * Constructs a new game state with the given board, player to move, and winner.
     */
-    GameState(const Board& board, Player player, Player winner)
-        : m_board { board }, m_player { player }, m_winner { winner } {}
+    GameState(const Board& board, Player player, Player winner, bool isTerminal)
+        : m_board { board }, m_player { player }, m_winner { winner }, m_isTerminal { isTerminal } {}
 
     /**
      * Returns a readonly reference to the underlying board.
@@ -62,10 +62,18 @@ public:
         return m_winner;
     }
 
+    /**
+     * Returns whether the state is terminal.
+    */
+    bool isTerminal() const {
+        return m_isTerminal;
+    }
+
 private:
     Board m_board {};
     Player m_player {};
     Player m_winner {};
+    bool m_isTerminal {};
 };
 
 } // namespace SPRL

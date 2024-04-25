@@ -52,7 +52,7 @@ public:
     UCTNode(EdgeStatistics* edgeStats, Game<BOARD_SIZE, ACTION_SIZE>* game, const GameState<BOARD_SIZE>& state)
         : m_parent { nullptr }, m_action { 0 }, m_game { game }, m_state { state } {
 
-        m_isTerminal = game->isTerminal(state);
+        m_isTerminal = state.isTerminal();
         m_actionMask = game->actionMask(state);
 
         m_parentEdgeStatistics = edgeStats;
@@ -62,7 +62,7 @@ public:
     UCTNode(UCTNode* parent, ActionIdx action, Game<BOARD_SIZE, ACTION_SIZE>* game, const GameState<BOARD_SIZE>& state)
         : m_parent { parent }, m_action { action }, m_game { game }, m_state { state } {
 
-        m_isTerminal = game->isTerminal(state);
+        m_isTerminal = state.isTerminal();
         m_actionMask = game->actionMask(state);
 
         m_parentEdgeStatistics = &parent->m_edgeStatistics;

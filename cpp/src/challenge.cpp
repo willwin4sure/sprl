@@ -76,7 +76,7 @@ void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, std::string modelPath, int 
     float totalTime = 0.0f;
 
     int moves = 0;
-    while (!game->isTerminal(state)) {
+    while (!state.isTerminal()) {
         std::cout << game->stateToString(state) << '\n';
 
         ActionDist actionMask = game->actionMask(state);

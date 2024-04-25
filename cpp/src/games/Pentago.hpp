@@ -5,21 +5,21 @@
 
 namespace SPRL {
 
-constexpr int PENTAGO_BOARD_WIDTH = 6;
-constexpr int PENTAGO_QUADRANT_WIDTH = PENTAGO_BOARD_WIDTH / 2;
-constexpr int PENTAGO_NUM_QUADRANTS = 4;
-constexpr int PENTAGO_NUM_ROT_DIRECTIONS = 2;
-constexpr int PENTAGO_BOARD_SIZE = PENTAGO_BOARD_WIDTH * PENTAGO_BOARD_WIDTH;
-constexpr int PENTAGO_NUM_ACTIONS = PENTAGO_BOARD_SIZE * PENTAGO_NUM_QUADRANTS * PENTAGO_NUM_ROT_DIRECTIONS;
+constexpr int PTG_BOARD_WIDTH = 6;  // code does not generalize beyond this case
+constexpr int PTG_NUM_QUADRS = 4;
+constexpr int PTG_NUM_ROT_DIRS = 2;
+constexpr int PTG_BOARD_SIZE = PTG_BOARD_WIDTH * PTG_BOARD_WIDTH;
+constexpr int PTG_NUM_ACTIONS = PTG_BOARD_SIZE * PTG_NUM_QUADRS * PTG_NUM_ROT_DIRS;
 
 /**
  * Implementation of the game Pentago.
+ * 
+ * See https://en.m.wikipedia.org/wiki/Pentago for details.
 */
-class Pentago : public Game<PENTAGO_BOARD_SIZE, PENTAGO_NUM_ACTIONS> {
+class Pentago : public Game<PTG_BOARD_SIZE, PTG_NUM_ACTIONS> {
 public:
     State startState() const override;
     State nextState(const State& state, const ActionIdx actionIdx) const override;
-    bool isTerminal(const State& state) const override;
     ActionDist actionMask(const State& state) const override;
     std::pair<Value, Value> rewards(const State& state) const override;
     int numSymmetries() const override;
@@ -30,16 +30,35 @@ public:
     std::string stateToString(const State& state) const override;
 
 private:
-    bool checkWin(const State::Board& board) const;
+    enum class RotationDirection : int8_t {
+        clockwise = 0,
+        counterClockwise = 1
+    };
+
+    enum class RotationQuadrant : int8_t {
+        topLeft = 0,
+        topRight = 1,
+        bottomLeft = 2,
+        bottomRight = 3
+    };
 
     static constexpr Piece emptySquare = -1;
+
     struct Action {
-        int8_t rotDirection; // 0 cw, 1 ccw
-        int8_t rotQuadrant; // 0 top left, 1 top right, 2 bot left, 3 bot right
-        int8_t boardIdx; // index of piece on board
+        RotationDirection rotDirection;
+        RotationQuadrant rotQuadrant;
+        int8_t boardIdx; // index of piece on board, in interval [0, PTG_BOARD_SIZE)
     };
+
     Action actionIdxToAction(const ActionIdx actionIdx) const;
     ActionIdx actionToActionIdx(const Action& action) const;
+
+    bool checkPlacementWin(const State::Board& board, int row, int col, const Piece piece) const;
+    std::pair<bool, bool> checkWin(const State::Board& board) const;
+
+    State symmetrizeSingleState(const State& state, Symmetry symmetry) const;
+    Action symmetrizeSingleAction(const Action& action, Symmetry symmetry) const;
+    ActionDist symmetrizeSingleActionDist(const ActionDist& actionSpace, Symmetry symmetry) const;
 };
 
 } // namespace SPRL
