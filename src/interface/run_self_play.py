@@ -8,7 +8,7 @@ to generate self-play data.
 from tqdm import tqdm
 import subprocess
 
-EXECUTABLE_PATH = "./cpp/build/Release/selfPlay.exe"
+EXECUTABLE_PATH = "./cpp/build/selfPlay"
 
 def run_self_play(model_path: str, save_path: str, num_games: int, num_iters: int, max_traversals: int, max_queue_size: int, do_print_tqdm: bool):
     """
