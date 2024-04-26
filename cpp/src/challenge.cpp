@@ -9,12 +9,14 @@
 #include "games/GameState.hpp"
 #include "games/Game.hpp"
 #include "games/ConnectFour.hpp"
+#include "games/Pentago.hpp"
 
 #include "interface/npy.hpp"
 
 #include "networks/Network.hpp"
 #include "networks/ConnectFourNetwork.hpp"
 #include "networks/RandomNetwork.hpp"
+#include "networks/PentagoHeuristic.hpp"
 
 #include "uct/UCTNode.hpp"
 #include "uct/UCTTree.hpp"
@@ -49,24 +51,28 @@ public:
     }
 };
 
+int getPentagoAction(SPRL::Pentago::ActionDist& actionSpace) {
+    int action = -1;
+    while (action < 0 || action >= actionSpace.size() || actionSpace[action] != 1.0f) {
+        std::cout << "Enter a square, followed by a quadrant, then a rotation (e.g. C5 0 1): ";
+        char file, rank;
+        int quadrant, rotation;
+        std::cin >> file >> rank >> quadrant >> rotation;
+        
+        int boardIdx = (file - 'A') + (rank - '0') * 6;
+        action = boardIdx + quadrant * 36 + rotation * 36 * 4;
+    }
+
+    return action;
+}
 
 template <int BOARD_SIZE, int ACTION_SIZE>
-void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, std::string modelPath, int player, int numIters, int maxTraversals, int maxQueueSize) {
+void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game,
+          SPRL::Network<BOARD_SIZE, ACTION_SIZE>* network,
+          std::string modelPath, int player, int numIters, int maxTraversals, int maxQueueSize) {
+
     using State = SPRL::GameState<BOARD_SIZE>;
     using ActionDist = SPRL::GameActionDist<ACTION_SIZE>;
-    
-    SPRL::Network<42, 7>* network;
-
-    SPRL::RandomNetwork<42, 7> randomNetwork {};
-    SPRL::ConnectFourNetwork neuralNetwork { modelPath };
-
-    if (modelPath == "random") {
-        std::cout << "Using random network..." << std::endl;
-        network = &randomNetwork;
-    } else {
-        std::cout << "Using traced PyTorch network..." << std::endl;
-        network = &neuralNetwork;
-    }
 
     State state = game->startState();
     SPRL::UCTTree<BOARD_SIZE, ACTION_SIZE> tree { game, state, false };
@@ -88,7 +94,7 @@ void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, std::string modelPath, int 
 
         int action;
         if (moves % 2 == player) {
-            action = getHumanAction(actionMask);
+            action = getPentagoAction(actionMask);
         } else {
             // SPRL::UCTTree<BOARD_SIZE, ACTION_SIZE> tree { game, state };
             t.reset();
@@ -163,8 +169,24 @@ int main(int argc, char* argv[]) {
     int maxTraversals = std::stoi(argv[4]);
     int maxQueueSize = std::stoi(argv[5]);
 
-    auto game = std::make_unique<SPRL::ConnectFour>();
-    play(game.get(), modelPath, player, numIters, maxTraversals, maxQueueSize);
+    auto game = std::make_unique<SPRL::Pentago>();
+
+    SPRL::Network<36, 288>* network;
+
+    SPRL::PentagoHeuristic pentagoHeuristic {};
+
+    network = &pentagoHeuristic;
+    // SPRL::ConnectFourNetwork neuralNetwork { modelPath };
+
+    // if (modelPath == "random") {
+    //     std::cout << "Using random network..." << std::endl;
+    //     network = &randomNetwork;
+    // } else {
+    //     std::cout << "Using traced PyTorch network..." << std::endl;
+    //     network = &neuralNetwork;
+    // }
+
+    play(game.get(), network, modelPath, player, numIters, maxTraversals, maxQueueSize);
 
     return 0;
 }
