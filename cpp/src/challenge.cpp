@@ -88,7 +88,7 @@ void play(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game, std::string modelPath, int 
 
         int action;
         if (moves % 2 == player) {
-            action = getHumanAction(actionMask);
+            action = getHumanAction<ACTION_SIZE>(actionMask);
         } else {
             // SPRL::UCTTree<BOARD_SIZE, ACTION_SIZE> tree { game, state };
             t.reset();
