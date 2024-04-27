@@ -13,7 +13,8 @@ public:
 
     ActionIdx act(Game<PTG_BOARD_SIZE, PTG_NUM_ACTIONS>* game,
                   const State& state,
-                  const ActionDist& actionMask) const override;
+                  const ActionDist& actionMask,
+                  bool verbose = false) const override;
 };
 
 } // namespace SPRL

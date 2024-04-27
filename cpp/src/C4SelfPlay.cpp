@@ -219,7 +219,7 @@ runIteration(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game,
 
 int main(int argc, char *argv[]) {
     if (argc != 7) {
-        std::cerr << "Usage: ./selfPlay.exe <model_path> <save_path> <numGames> <numIters> <maxTraversals> <maxQueueSize>" << std::endl;
+        std::cerr << "Usage: ./C4SelfPlay.exe <model_path> <save_path> <numGames> <numIters> <maxTraversals> <maxQueueSize>" << std::endl;
         return 1;
     }
 

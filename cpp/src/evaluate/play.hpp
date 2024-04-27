@@ -38,7 +38,7 @@ namespace SPRL {
 */
 template <int BOARD_SIZE, int ACTION_SIZE>
 int playGame(Game<BOARD_SIZE, ACTION_SIZE>* game,
-             GameState<BOARD_SIZE> state,
+             GameState<BOARD_SIZE> initialState,
              std::array<Agent<BOARD_SIZE, ACTION_SIZE>*, 2> agents,
              bool verbose = false) {
 
@@ -47,6 +47,8 @@ int playGame(Game<BOARD_SIZE, ACTION_SIZE>* game,
 
     float totalTime = 0.0f;
     Timer t {};
+
+    GameState<BOARD_SIZE> state = initialState;
 
     while (!state.isTerminal()) {
         ActionDist actionMask = game->actionMask(state);
@@ -84,6 +86,8 @@ int playGame(Game<BOARD_SIZE, ACTION_SIZE>* game,
         std::cout << "The rewards are " << game->rewards(state).first << " and " << game->rewards(state).second << '\n';
         std::cout << "Total time taken: " << totalTime << "s\n";
     }
+
+    return state.getWinner();
 }
 
 } // namespace SPRL

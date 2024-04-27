@@ -6,7 +6,8 @@ namespace SPRL {
 
 ActionIdx HumanPentagoAgent::act(Game<PTG_BOARD_SIZE, PTG_NUM_ACTIONS>* game,
                                   const State& state,
-                                  const ActionDist& actionMask) const {
+                                  const ActionDist& actionMask,
+                                  bool verbose) const {
 
     while (true) {
         ActionIdx action {};

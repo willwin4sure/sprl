@@ -24,7 +24,8 @@ public:
 
     ActionIdx act(Game<BOARD_SIZE, ACTION_SIZE>* game,
                   const State& state,
-                  const ActionDist& actionMask) const override {
+                  const ActionDist& actionMask,
+                  bool verbose = false) const override {
         
         int iters = 0;
         while (iters < m_numIters) {
@@ -41,27 +42,29 @@ public:
         auto values = m_tree->getRoot()->getEdgeStatistics()->m_totalValues;
         auto visits = m_tree->getRoot()->getEdgeStatistics()->m_numberVisits;
 
-        std::cout << "Priors: ";
-        for (const auto& prior : priors) {
-            std::cout << prior << ' ';
-        }
+        if (verbose) {
+            std::cout << "Priors: ";
+            for (const auto& prior : priors) {
+                std::cout << prior << ' ';
+            }
 
-        std::cout << "\nValues: ";
-        for (const auto& value : values) {
-            std::cout << value << ' ';
-        }
+            std::cout << "\nValues: ";
+            for (const auto& value : values) {
+                std::cout << value << ' ';
+            }
 
-        std::cout << "\nVisits: ";
-        for (const auto& visit : visits) {
-            std::cout << visit << ' ';
-        }
+            std::cout << "\nVisits: ";
+            for (const auto& visit : visits) {
+                std::cout << visit << ' ';
+            }
 
-        std::cout << "\nAverage values: ";
-        for (int i = 0; i < ACTION_SIZE; ++i) {
-            std::cout << values[i] / (1 + visits[i]) << ' ';
-        }
+            std::cout << "\nAverage values: ";
+            for (int i = 0; i < ACTION_SIZE; ++i) {
+                std::cout << values[i] / (1 + visits[i]) << ' ';
+            }
 
-        std::cout << '\n';
+            std::cout << '\n';
+        }
 
         // sample action with most visits
         ActionIdx action = std::distance(visits.begin(), std::max_element(visits.begin(), visits.end()));

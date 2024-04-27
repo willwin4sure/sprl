@@ -24,7 +24,8 @@ public:
     */
     virtual ActionIdx act(Game<BOARD_SIZE, ACTION_SIZE>* game,
                           const State& state,
-                          const ActionDist& actionMask) const = 0;
+                          const ActionDist& actionMask,
+                          bool verbose = false) const = 0;
 
     /**
      * Processes an opponent's action if necessary to update state.

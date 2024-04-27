@@ -23,6 +23,7 @@
 #include "networks/ConnectFourNetwork.hpp"
 #include "networks/RandomNetwork.hpp"
 #include "networks/PentagoHeuristic.hpp"
+#include "networks/PentagoNetwork.hpp"
 
 #include "uct/UCTNode.hpp"
 #include "uct/UCTTree.hpp"
@@ -30,7 +31,7 @@
 
 int main(int argc, char* argv[]) {
     if (argc != 6) {
-        std::cerr << "Usage: ./challenge.exe <modelPath> <player> <numIters> <maxTraversals> <maxQueueSize>" << std::endl;
+        std::cerr << "Usage: ./Challenge.exe <modelPath> <player> <numIters> <maxTraversals> <maxQueueSize>" << std::endl;
         return 1;
     }
 
@@ -40,12 +41,12 @@ int main(int argc, char* argv[]) {
     int maxTraversals = std::stoi(argv[4]);
     int maxQueueSize = std::stoi(argv[5]);
 
-    auto game = std::make_unique<SPRL::ConnectFour>();
+    auto game = std::make_unique<SPRL::Pentago>();
 
-    SPRL::Network<42, 7>* network;
+    SPRL::Network<36, 288>* network;
 
-    SPRL::RandomNetwork<42, 7> randomNetwork {};
-    SPRL::ConnectFourNetwork neuralNetwork { modelPath };
+    SPRL::RandomNetwork<36, 288> randomNetwork {};
+    SPRL::PentagoNetwork neuralNetwork { modelPath };
 
     if (modelPath == "random") {
         std::cout << "Using random network..." << std::endl;
@@ -55,14 +56,14 @@ int main(int argc, char* argv[]) {
         network = &neuralNetwork;
     }
 
-    SPRL::GameState<42> state = game->startState();
+    SPRL::GameState<36> state = game->startState();
 
-    SPRL::UCTTree<42, 7> tree { game.get(), state, false }; 
-    SPRL::UCTNetworkAgent<42, 7> networkAgent { network, &tree, numIters, maxTraversals, maxQueueSize };
+    SPRL::UCTTree<36, 288> tree { game.get(), state, false }; 
+    SPRL::UCTNetworkAgent<36, 288> networkAgent { network, &tree, numIters, maxTraversals, maxQueueSize };
 
-    SPRL::HumanAgent<42, 7> humanAgent {};
+    SPRL::HumanPentagoAgent humanAgent {};
 
-    std::array<SPRL::Agent<42, 7>*, 2> agents;
+    std::array<SPRL::Agent<36, 288>*, 2> agents;
 
     if (player == 0) {
         agents = { &humanAgent, &networkAgent };

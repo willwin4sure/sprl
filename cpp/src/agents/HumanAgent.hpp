@@ -18,7 +18,8 @@ public:
 
     ActionIdx act(Game<BOARD_SIZE, ACTION_SIZE>* game,
                   const State& state,
-                  const ActionDist& actionMask) const override {
+                  const ActionDist& actionMask,
+                  bool verbose = false) const override {
 
         while (true) {
             ActionIdx action {};
