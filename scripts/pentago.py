@@ -16,18 +16,18 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 ##  Hyperparameters  ##
 #######################
 
-NUM_ITERS = 20
+NUM_ITERS = 100
 EXEC_PATH = "./cpp/build/Release/PTGSelfPlay.exe"
 
 # Parameters for self-play iteration
-NUM_GAMES_PER_ITER = 50
-UCT_ITERATIONS = 64
+NUM_GAMES_PER_ITER = 500
+UCT_ITERATIONS = 256
 MAX_TRAVERSALS = 8
 MAX_QUEUE_SIZE = 4
 
 # Seed games at iteration 0
-INIT_NUM_GAMES = 250
-INIT_UCT_ITERATIONS = 256
+INIT_NUM_GAMES = 500
+INIT_UCT_ITERATIONS = 32768
 INIT_MAX_TRAVERSALS = 1
 INIT_MAX_QUEUE_SIZE = 1
 
@@ -35,12 +35,12 @@ INIT_MAX_QUEUE_SIZE = 1
 MODEL_NUM_BLOCKS = 2
 MODEL_NUM_CHANNELS = 64
 RESET_NETWORK = True
-NUM_PAST_ITERS_TO_TRAIN = 20
-MAX_GROUPS = 5
-EPOCHS_PER_GROUP = 10
+NUM_PAST_ITERS_TO_TRAIN = 100
+MAX_GROUPS = 10
+EPOCHS_PER_GROUP = 20
 BATCH_SIZE = 1024
 
-RUN_NAME = f"horse_mini"
+RUN_NAME = f"horse"
 
 
 os.makedirs(f"data/games/{RUN_NAME}", exist_ok=True)
@@ -198,7 +198,7 @@ def train_network(network: PentagoNetwork, iteration: int):
     print(f"The best model was at epoch {best_epoch}.")
     
     trace_model(f"./data/models/{RUN_NAME}/{RUN_NAME}_iteration_{iteration}.pt",
-                torch.randn(1, 3, 6, 7),
+                torch.randn(1, 3, 6, 6),
                 f"./data/models/{RUN_NAME}/traced_{RUN_NAME}_iteration_{iteration}.pt")
     
     network.to("cpu")
