@@ -8,11 +8,10 @@ to generate self-play data.
 from tqdm import tqdm
 import subprocess
 
-EXECUTABLE_PATH = "./cpp/build/selfPlay"
-
-def run_self_play(model_path: str, save_path: str, num_games: int, num_iters: int, max_traversals: int, max_queue_size: int, do_print_tqdm: bool):
+def run_self_play(exec_path: str, model_path: str, save_path: str, num_games: int, num_iters: int, max_traversals: int, max_queue_size: int, do_print_tqdm: bool):
     """
     Args:
+        exec_path (str): path to the compiled cpp executable, e.g. something like "/build/Release/C4SelfPlay.exe"
         model_path (str): path to the traced version of the PyTorch model, or "random" for a uniform policy
         save_path (str): save path for the data
         num_games (int): number of games to play
@@ -20,7 +19,7 @@ def run_self_play(model_path: str, save_path: str, num_games: int, num_iters: in
         max_traversals (int): maximum number of traversals per batch
         max_queue_size (int): maximum number of NN evals per batch
     """
-    process = subprocess.Popen([EXECUTABLE_PATH, model_path, save_path,
+    process = subprocess.Popen([exec_path, model_path, save_path,
                                 str(num_games), str(num_iters), str(max_traversals), str(max_queue_size)],
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 

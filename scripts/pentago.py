@@ -6,14 +6,9 @@ from tqdm import tqdm
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 
-from src.agents.policy_agent import PolicyAgent
-from src.agents.random_agent import RandomAgent
-from src.evaluator.play import play
-from src.games.connect_k import ConnectK
 from src.interface.tracer import trace_model
 from src.interface.run_self_play import run_self_play
-from src.networks.new_connect_four_network import NewConnectFourNetwork
-from src.policies.network_policy import NetworkPolicy
+from src.networks.pentago_network import PentagoNetwork
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -21,31 +16,31 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 ##  Hyperparameters  ##
 #######################
 
-NUM_ITERS = 100
-EXEC_PATH = "./build/Release/C4SelfPlay.exe"
+NUM_ITERS = 20
+EXEC_PATH = "./cpp/build/Release/PTGSelfPlay.exe"
 
 # Parameters for self-play iteration
-NUM_GAMES_PER_ITER = 500
-UCT_ITERATIONS = 512
+NUM_GAMES_PER_ITER = 50
+UCT_ITERATIONS = 64
 MAX_TRAVERSALS = 8
 MAX_QUEUE_SIZE = 4
 
 # Seed games at iteration 0
-INIT_NUM_GAMES = 2500
-INIT_UCT_ITERATIONS = 32768
+INIT_NUM_GAMES = 250
+INIT_UCT_ITERATIONS = 256
 INIT_MAX_TRAVERSALS = 1
 INIT_MAX_QUEUE_SIZE = 1
 
 # Parameters for network and training
 MODEL_NUM_BLOCKS = 2
 MODEL_NUM_CHANNELS = 64
-RESET_NETWORK = False
+RESET_NETWORK = True
 NUM_PAST_ITERS_TO_TRAIN = 20
 MAX_GROUPS = 5
-EPOCHS_PER_GROUP = 20
+EPOCHS_PER_GROUP = 10
 BATCH_SIZE = 1024
 
-RUN_NAME = f"gorilla_{random.randint(0,1000000000)}"
+RUN_NAME = f"horse_mini"
 
 
 os.makedirs(f"data/games/{RUN_NAME}", exist_ok=True)
@@ -72,7 +67,7 @@ with open(f"./data/configs/{RUN_NAME}_config.txt", "w") as f:
     f.write(f"BATCH_SIZE = {BATCH_SIZE}\n")
 
 
-def train_network(network: NewConnectFourNetwork, iteration: int):
+def train_network(network: PentagoNetwork, iteration: int):
     """
     Train a network on the games generated from self-play.
     """
@@ -210,16 +205,13 @@ def train_network(network: NewConnectFourNetwork, iteration: int):
     
 
 def train():
-
-    game = ConnectK()
-    
-    network = NewConnectFourNetwork(MODEL_NUM_BLOCKS, MODEL_NUM_CHANNELS)
+    network = PentagoNetwork(MODEL_NUM_BLOCKS, MODEL_NUM_CHANNELS)
 
     for iteration in range(NUM_ITERS):
         print(f"Iteration {iteration}...")
 
         if RESET_NETWORK:
-            network = NewConnectFourNetwork(MODEL_NUM_BLOCKS, MODEL_NUM_CHANNELS)
+            network = PentagoNetwork(MODEL_NUM_BLOCKS, MODEL_NUM_CHANNELS)
 
         # network_policy = NetworkPolicy(network, symmetrize=True)
         # network_agent = PolicyAgent(network_policy, 0.0)
@@ -238,25 +230,6 @@ def train():
                       do_print_tqdm=True)
         
         train_network(network, iteration)
-        
-        # random_agent = RandomAgent()
-
-        # network_wins = 0
-
-        # with tqdm(total=100) as pbar:
-        #     for _ in range(50):
-        #         winner = play(game, (network_agent, random_agent))
-        #         if winner == 0:
-        #             network_wins += 1
-        #         pbar.update(1)
-        #         pbar.set_description(f"Network wins: {network_wins}")
-
-        #     for _ in range(50):
-        #         winner = play(game, (random_agent, network_agent))
-        #         if winner == 1:
-        #             network_wins += 1
-        #         pbar.update(1)
-        #         pbar.set_description(f"Network wins: {network_wins}")
             
 
 if __name__ == "__main__":
