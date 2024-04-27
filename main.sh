@@ -4,4 +4,4 @@
 cd ~/sprl
 module load anaconda/2023a-pytorch
 
-python scripts/connect_four.py
+python scripts/connect_four_pp.py

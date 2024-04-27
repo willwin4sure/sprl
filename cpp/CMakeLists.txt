@@ -25,13 +25,13 @@ file(GLOB headers
     ${src_dir}/*/*.hpp
 )
 
-add_executable(challenge src/challenge.cpp ${srcs} ${headers})
-add_executable(selfPlay src/selfPlay.cpp ${srcs} ${headers})
-add_executable(testGame src/testGame.cpp ${srcs} ${headers})
+add_executable(Challenge src/Challenge.cpp ${srcs} ${headers})
+add_executable(C4SelfPlay src/C4SelfPlay.cpp ${srcs} ${headers})
+add_executable(TestGame src/TestGame.cpp ${srcs} ${headers})
 
-target_link_libraries(challenge "${TORCH_LIBRARIES}")
-target_link_libraries(selfPlay "${TORCH_LIBRARIES}")
-target_link_libraries(testGame "${TORCH_LIBRARIES}")
+target_link_libraries(Challenge "${TORCH_LIBRARIES}")
+target_link_libraries(C4SelfPlay "${TORCH_LIBRARIES}")
+target_link_libraries(TestGame "${TORCH_LIBRARIES}")
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})

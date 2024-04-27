@@ -1,5 +1,6 @@
 import os
 
+import random
 import numpy as np
 from tqdm import tqdm
 import torch
@@ -20,27 +21,54 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 ##  Hyperparameters  ##
 #######################
 
-RUN_NAME = "flamingo"
+NUM_ITERS = 100
 
-NUM_ITERS = 200
+# Parameters for self-play iteration
 NUM_GAMES_PER_ITER = 500
 UCT_ITERATIONS = 512
 MAX_TRAVERSALS = 8
 MAX_QUEUE_SIZE = 4
 
+# Seed games at iteration 0
 INIT_NUM_GAMES = 2500
 INIT_UCT_ITERATIONS = 32768
 INIT_MAX_TRAVERSALS = 1
 INIT_MAX_QUEUE_SIZE = 1
 
+# Parameters for network and training
+MODEL_NUM_BLOCKS = 2
+MODEL_NUM_CHANNELS = 64
+RESET_NETWORK = False
 NUM_PAST_ITERS_TO_TRAIN = 20
 MAX_GROUPS = 5
 EPOCHS_PER_GROUP = 20
 BATCH_SIZE = 1024
 
+RUN_NAME = f"gorilla_{random.randint(0,1000000000)}"
+
 
 os.makedirs(f"data/games/{RUN_NAME}", exist_ok=True)
 os.makedirs(f"data/models/{RUN_NAME}", exist_ok=True)
+os.makedirs(f"data/configs", exist_ok=True)
+
+
+with open(f"./data/configs/{RUN_NAME}_config.txt", "w") as f:
+    f.write(f"NUM_ITERS = {NUM_ITERS}\n")
+    f.write(f"NUM_GAMES_PER_ITER = {NUM_GAMES_PER_ITER}\n")
+    f.write(f"UCT_ITERATIONS = {UCT_ITERATIONS}\n")
+    f.write(f"MAX_TRAVERSALS = {MAX_TRAVERSALS}\n")
+    f.write(f"MAX_QUEUE_SIZE = {MAX_QUEUE_SIZE}\n")
+    f.write(f"INIT_NUM_GAMES = {INIT_NUM_GAMES}\n")
+    f.write(f"INIT_UCT_ITERATIONS = {INIT_UCT_ITERATIONS}\n")
+    f.write(f"INIT_MAX_TRAVERSALS = {INIT_MAX_TRAVERSALS}\n")
+    f.write(f"INIT_MAX_QUEUE_SIZE = {INIT_MAX_QUEUE_SIZE}\n")
+    f.write(f"MODEL_NUM_BLOCKS = {MODEL_NUM_BLOCKS}\n")
+    f.write(f"MODEL_NUM_CHANNELS = {MODEL_NUM_CHANNELS}\n")
+    f.write(f"RESET_NETWORK = {RESET_NETWORK}\n")
+    f.write(f"NUM_PAST_ITERS_TO_TRAIN = {NUM_PAST_ITERS_TO_TRAIN}\n")
+    f.write(f"MAX_GROUPS = {MAX_GROUPS}\n")
+    f.write(f"EPOCHS_PER_GROUP = {EPOCHS_PER_GROUP}\n")
+    f.write(f"BATCH_SIZE = {BATCH_SIZE}\n")
 
 
 def train_network(network: NewConnectFourNetwork, iteration: int):
@@ -184,12 +212,16 @@ def train():
 
     game = ConnectK()
     
+    network = NewConnectFourNetwork(MODEL_NUM_BLOCKS, MODEL_NUM_CHANNELS)
+
     for iteration in range(NUM_ITERS):
         print(f"Iteration {iteration}...")
 
-        network = NewConnectFourNetwork(2, 64)
-        network_policy = NetworkPolicy(network, symmetrize=True)
-        network_agent = PolicyAgent(network_policy, 0.0)
+        if RESET_NETWORK:
+            network = NewConnectFourNetwork(MODEL_NUM_BLOCKS, MODEL_NUM_CHANNELS)
+
+        # network_policy = NetworkPolicy(network, symmetrize=True)
+        # network_agent = PolicyAgent(network_policy, 0.0)
                 
         network_path = "random" if iteration == 0 \
             else f"./data/models/{RUN_NAME}/traced_{RUN_NAME}_iteration_{iteration - 1}.pt"
@@ -206,24 +238,24 @@ def train():
         
         train_network(network, iteration)
         
-        random_agent = RandomAgent()
+        # random_agent = RandomAgent()
 
-        network_wins = 0
+        # network_wins = 0
 
-        with tqdm(total=100) as pbar:
-            for _ in range(50):
-                winner = play(game, (network_agent, random_agent))
-                if winner == 0:
-                    network_wins += 1
-                pbar.update(1)
-                pbar.set_description(f"Network wins: {network_wins}")
+        # with tqdm(total=100) as pbar:
+        #     for _ in range(50):
+        #         winner = play(game, (network_agent, random_agent))
+        #         if winner == 0:
+        #             network_wins += 1
+        #         pbar.update(1)
+        #         pbar.set_description(f"Network wins: {network_wins}")
 
-            for _ in range(50):
-                winner = play(game, (random_agent, network_agent))
-                if winner == 1:
-                    network_wins += 1
-                pbar.update(1)
-                pbar.set_description(f"Network wins: {network_wins}")
+        #     for _ in range(50):
+        #         winner = play(game, (random_agent, network_agent))
+        #         if winner == 1:
+        #             network_wins += 1
+        #         pbar.update(1)
+        #         pbar.set_description(f"Network wins: {network_wins}")
             
 
 if __name__ == "__main__":
