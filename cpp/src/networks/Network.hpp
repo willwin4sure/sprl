@@ -12,6 +12,8 @@ namespace SPRL {
 template <int BOARD_SIZE, int ACTION_SIZE>
 class Network {
 public:
+    virtual ~Network() = default;
+
     /**
      * Returns a pair of the action distribution and the value estimate for the given state.
     */
