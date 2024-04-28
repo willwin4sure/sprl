@@ -71,7 +71,7 @@ int playGame(Game<BOARD_SIZE, ACTION_SIZE>* game,
         agents[1 - state.getPlayer()]->opponentAct(action);
 
         if (verbose) {
-            std::cout << "Player " << state.getPlayer() << " chose action " << action << '\n';
+            std::cout << "Player " << static_cast<int>(state.getPlayer()) << " chose action " << action << '\n';
             std::cout << "Time taken: " << t.elapsed() << "s\n";
         }
 

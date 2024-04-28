@@ -96,9 +96,17 @@ int main(int argc, char* argv[]) {
         int winner = SPRL::playGame(game.get(), game->startState(), agents, false);
 
         if (winner == 0) {
-            numWins0++;
+            if (t % 2 == 0) {
+                numWins0++;
+            } else {
+                numWins1++;
+            }
         } else if (winner == 1) {
-            numWins1++;
+            if (t % 2 == 0) {
+                numWins1++;
+            } else {
+                numWins0++;
+            }
         }
 
         pbar << "Player 0 wins: " << numWins0 << ", Player 1 wins: " << numWins1 << ", Draws: " << t + 1 - numWins0 - numWins1;
