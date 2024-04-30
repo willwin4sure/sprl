@@ -33,13 +33,16 @@ def run_self_play(exec_path: str, model_path: str, save_path: str, num_games: in
                     
                     if output:
                         # Ad-hoc code for making the printing correct
-                        if "Generating self-play data:" in output:
+                        if "Generating self-play data: " in output:
+                            # Syncing up with the internal C++ tqdm.
                             vals = output.strip().split(" ")
+
                             pbar.n = int(vals[-2]) + 1
                             pbar.refresh()
                             pbar.set_description(f"Number of states: {vals[-1]}")
 
                         else:
+                            # Printing any other output.
                             print()
                             print(output.strip())
                             
