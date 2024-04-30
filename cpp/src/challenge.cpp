@@ -28,6 +28,8 @@
 #include "uct/UCTNode.hpp"
 #include "uct/UCTTree.hpp"
 
+constexpr int BOARD_SIZE = 36;
+constexpr int ACTION_SIZE = 288;
 
 int main(int argc, char* argv[]) {
     if (argc != 6) {
@@ -43,9 +45,9 @@ int main(int argc, char* argv[]) {
 
     auto game = std::make_unique<SPRL::Pentago>();
 
-    SPRL::Network<36, 288>* network;
+    SPRL::Network<BOARD_SIZE, ACTION_SIZE>* network;
 
-    SPRL::RandomNetwork<36, 288> randomNetwork {};
+    SPRL::RandomNetwork<BOARD_SIZE, ACTION_SIZE> randomNetwork {};
     SPRL::PentagoNetwork neuralNetwork { modelPath };
 
     if (modelPath == "random") {
@@ -56,14 +58,14 @@ int main(int argc, char* argv[]) {
         network = &neuralNetwork;
     }
 
-    SPRL::GameState<36> state = game->startState();
+    SPRL::GameState<BOARD_SIZE> state = game->startState();
 
-    SPRL::UCTTree<36, 288> tree { game.get(), state, false }; 
-    SPRL::UCTNetworkAgent<36, 288> networkAgent { network, &tree, numIters, maxTraversals, maxQueueSize };
+    SPRL::UCTTree<BOARD_SIZE, ACTION_SIZE> tree { game.get(), state, false }; 
+    SPRL::UCTNetworkAgent<BOARD_SIZE, ACTION_SIZE> networkAgent { network, &tree, numIters, maxTraversals, maxQueueSize };
 
     SPRL::HumanPentagoAgent humanAgent {};
 
-    std::array<SPRL::Agent<36, 288>*, 2> agents;
+    std::array<SPRL::Agent<BOARD_SIZE, ACTION_SIZE>*, 2> agents;
 
     if (player == 0) {
         agents = { &humanAgent, &networkAgent };

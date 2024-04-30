@@ -3,22 +3,22 @@
 namespace SPRL {
 
 
-std::vector<std::pair<SPRL::GameActionDist<PTG_NUM_ACTIONS>, SPRL::Value>> PentagoHeuristic::evaluate(
-    SPRL::Game<PTG_BOARD_SIZE, PTG_NUM_ACTIONS>* game,
-    const std::vector<SPRL::GameState<PTG_BOARD_SIZE>>& states) {
+std::vector<std::pair<GameActionDist<PTG_NUM_ACTIONS>, Value>> PentagoHeuristic::evaluate(
+    const std::vector<GameState<PTG_BOARD_SIZE>>& states,
+    const std::vector<GameActionDist<PTG_NUM_ACTIONS>>& masks) {
 
     int numStates = states.size();
     m_numEvals += numStates;
     
-    std::vector<std::pair<SPRL::GameActionDist<PTG_NUM_ACTIONS>, SPRL::Value>> results;
+    std::vector<std::pair<GameActionDist<PTG_NUM_ACTIONS>, Value>> results;
     results.reserve(numStates);
 
-    SPRL::GameActionDist<PTG_NUM_ACTIONS> uniformDist;
+    GameActionDist<PTG_NUM_ACTIONS> uniformDist;
     for (int i = 0; i < PTG_NUM_ACTIONS; ++i) {
         uniformDist[i] = 1.0f / PTG_NUM_ACTIONS;
     }
 
-    for (const SPRL::GameState<PTG_BOARD_SIZE>& state : states) {
+    for (const GameState<PTG_BOARD_SIZE>& state : states) {
         static constexpr std::array<float, 36> squareValues = {
             0.01, 0.02, 0.02, 0.02, 0.02, 0.01,
             0.02, 0.04, 0.03, 0.03, 0.04, 0.02,

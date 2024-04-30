@@ -91,10 +91,15 @@ public:
 
         assert(numLeaves > 0);
 
-        // Assemble a vector of states for input into the NN
+        // Assemble a vector of states and masks for input into the NN
         std::vector<GameState<BOARD_SIZE>> states;
+        std::vector<GameActionDist<ACTION_SIZE>> masks;
+        states.reserve(numLeaves);
+        masks.reserve(numLeaves);
+
         for (int i = 0; i < numLeaves; ++i) {
             states.push_back(leaves[i]->m_state);
+            masks.push_back(leaves[i]->m_actionMask);
         }
 
         // Generate symmetrizations for the states, if necessary
@@ -108,7 +113,7 @@ public:
         }
 
         // Perform batched evaluation of the states
-        std::vector<std::pair<std::array<float, ACTION_SIZE>, float>> outputs = network->evaluate(m_game, states);
+        std::vector<std::pair<std::array<float, ACTION_SIZE>, float>> outputs = network->evaluate(states, masks);
 
         for (int i = 0; i < numLeaves; ++i) {
             Node* leaf = leaves[i];

@@ -6,26 +6,41 @@
 namespace SPRL {
 
 template <int BOARD_SIZE, int ACTION_SIZE> 
-class RandomNetwork : public SPRL::Network<BOARD_SIZE, ACTION_SIZE> {
+class RandomNetwork : public Network<BOARD_SIZE, ACTION_SIZE> {
 public:
     RandomNetwork() {}
 
-    std::vector<std::pair<SPRL::GameActionDist<ACTION_SIZE>, SPRL::Value>> evaluate(
-        SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game,
-        const std::vector<SPRL::GameState<BOARD_SIZE>>& states) override {
+    std::vector<std::pair<GameActionDist<ACTION_SIZE>, Value>> evaluate(
+        const std::vector<GameState<BOARD_SIZE>>& states,
+        const std::vector<GameActionDist<ACTION_SIZE>>& masks) override {
 
-        m_numEvals += states.size();
+        int numStates = states.size();
+
+        m_numEvals += numStates;
 
         // Return a uniform distribution and a value of 0 for everything
-        std::vector<std::pair<SPRL::GameActionDist<ACTION_SIZE>, SPRL::Value>> results;
-        results.reserve(states.size());
+        std::vector<std::pair<GameActionDist<ACTION_SIZE>, Value>> results;
+        results.reserve(numStates);
 
-        SPRL::GameActionDist<ACTION_SIZE> uniformDist;
-        for (int i = 0; i < ACTION_SIZE; ++i) {
-            uniformDist[i] = 1.0f / ACTION_SIZE;
-        }
+        for (int b = 0; b < numStates; ++b) {
+            int numLegal = 0;
+            for (int i = 0; i < ACTION_SIZE; ++i) {
+                if (masks[0][i] == 1.0f) {
+                    ++numLegal;
+                }
+            }
 
-        for (const SPRL::GameState<BOARD_SIZE>& state : states) {
+            float uniform = 1.0f / numLegal;
+
+            GameActionDist<ACTION_SIZE> uniformDist;
+            for (int i = 0; i < ACTION_SIZE; ++i) {
+                if (masks[0][i] == 1.0f) {
+                    uniformDist[i] = uniform;
+                } else {
+                    uniformDist[i] = 0.0f;
+                }
+            }
+
             results.push_back({ uniformDist, 0.0f });
         }
 

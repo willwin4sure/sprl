@@ -7,13 +7,13 @@
 
 namespace SPRL {
 
-class PentagoHeuristic : public SPRL::Network<PTG_BOARD_SIZE, PTG_NUM_ACTIONS> {
+class PentagoHeuristic : public Network<PTG_BOARD_SIZE, PTG_NUM_ACTIONS> {
 public:
     PentagoHeuristic() = default;
 
-    std::vector<std::pair<SPRL::GameActionDist<PTG_NUM_ACTIONS>, SPRL::Value>> evaluate(
-        SPRL::Game<PTG_BOARD_SIZE, PTG_NUM_ACTIONS>* game,
-        const std::vector<SPRL::GameState<PTG_BOARD_SIZE>>& states) override;
+    std::vector<std::pair<GameActionDist<PTG_NUM_ACTIONS>, Value>> evaluate(
+        const std::vector<GameState<PTG_BOARD_SIZE>>& states,
+        const std::vector<GameActionDist<PTG_NUM_ACTIONS>>& masks) override;
 
     int getNumEvals() override {
         return m_numEvals;

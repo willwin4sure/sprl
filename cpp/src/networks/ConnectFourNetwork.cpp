@@ -4,7 +4,7 @@ namespace SPRL {
 
 ConnectFourNetwork::ConnectFourNetwork(std::string path) {
     if (path == "random") {
-        std::cout << "Random network requested, not loading model." << std::endl;
+        // Requested random network instead, not going to load anything.
         return;
     }
 
@@ -13,16 +13,14 @@ ConnectFourNetwork::ConnectFourNetwork(std::string path) {
         model->to(m_device);
         m_model = model;
 
-        std::cout << "Connect Four Network loaded successfully." << std::endl;
-
     } catch (const c10::Error& e) {
         std::cerr << "Error loading the model: " << e.what() << std::endl;
     }
 }
 
-std::vector<std::pair<SPRL::GameActionDist<7>, SPRL::Value>> ConnectFourNetwork::evaluate(
-    SPRL::Game<42, 7>* game,
-    const std::vector<SPRL::GameState<42>>& states) {
+std::vector<std::pair<GameActionDist<7>, Value>> ConnectFourNetwork::evaluate(
+    const std::vector<GameState<42>>& states,
+    const std::vector<GameActionDist<7>>& masks) {
     
     torch::NoGradGuard no_grad;
     m_model->eval();
@@ -58,7 +56,7 @@ std::vector<std::pair<SPRL::GameActionDist<7>, SPRL::Value>> ConnectFourNetwork:
     auto policyOutput = output->elements()[0].toTensor();
     auto valueOutput = output->elements()[1].toTensor();
 
-    std::vector<std::pair<SPRL::GameActionDist<7>, SPRL::Value>> results;
+    std::vector<std::pair<GameActionDist<7>, Value>> results;
     results.reserve(numStates);
 
     for (int b = 0; b < numStates; ++b) {
@@ -73,30 +71,41 @@ std::vector<std::pair<SPRL::GameActionDist<7>, SPRL::Value>> ConnectFourNetwork:
         }
 
         // Mask out illegal actions
-        auto actionMask = game->actionMask(states[b]);
+        int numLegal = 0;
         for (int i = 0; i < 7; ++i) {
-            if (actionMask[i] == 0.0f) {
+            if (masks[b][i] == 0.0f) {
                 policy[i] = 0.0f;
+            } else {
+                ++numLegal;
             }
         }
 
+        // Compute the new sum
         float sum = 0.0f;
         for (int i = 0; i < 7; ++i) {
             sum += policy[i];
         }
 
         if (sum == 0.0f) {
-            float uniform = 1.0f / 7.0f;
+            // If somehow the sum is zero, uniform over legal actions
+            float uniform = 1.0f / numLegal;
             for (int i = 0; i < 7; ++i) {
-                policy[i] = uniform;
+                if (masks[b][i] == 0.0f) {
+                    policy[i] = 0.0f;
+                } else {
+                    policy[i] = uniform;
+                }
             }
+
         } else {
+            // Otherwise normalize the policy
             float norm = 1.0f / sum;
             for (int i = 0; i < 7; ++i) {
                 policy[i] = policy[i] * norm;
             }
         }
 
+        // Append the policy and value to the results
         results.push_back({ policy, valueOutput[b].item<float>() });
     }
 

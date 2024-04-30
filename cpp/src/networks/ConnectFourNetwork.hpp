@@ -8,7 +8,7 @@
 
 namespace SPRL {
 
-class ConnectFourNetwork : public SPRL::Network<42, 7> {
+class ConnectFourNetwork : public Network<42, 7> {
 public:
     ConnectFourNetwork(std::string path);
 
@@ -16,9 +16,9 @@ public:
      * Implementation of evaluate for Connect Four, including
      * the proper embedding of the game state.
     */
-    std::vector<std::pair<SPRL::GameActionDist<7>, SPRL::Value>> evaluate(
-        SPRL::Game<42, 7>* game,
-        const std::vector<SPRL::GameState<42>>& states) override;
+    std::vector<std::pair<GameActionDist<7>, Value>> evaluate(
+        const std::vector<GameState<42>>& states,
+        const std::vector<GameActionDist<7>>& masks) override;
 
     int getNumEvals() override {
         return m_numEvals;
