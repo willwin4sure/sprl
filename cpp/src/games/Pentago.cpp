@@ -345,7 +345,7 @@ Pentago::Action Pentago::symmetrizeSingleAction(const Action& action, Symmetry s
         Action newAction = {
             static_cast<RotationDirection>(1 - static_cast<int>(action.rotDirection)),
             static_cast<RotationQuadrant>(vertReflection[static_cast<int>(action.rotQuadrant)]),
-            PTG_BOARD_WIDTH * (action.boardIdx / PTG_BOARD_WIDTH) + (PTG_BOARD_WIDTH - 1 - (action.boardIdx % PTG_BOARD_WIDTH))
+            static_cast<int8_t>(PTG_BOARD_WIDTH * (action.boardIdx / PTG_BOARD_WIDTH) + (PTG_BOARD_WIDTH - 1 - (action.boardIdx % PTG_BOARD_WIDTH)))
         };
 
         // then perform rotation by reusing the code above

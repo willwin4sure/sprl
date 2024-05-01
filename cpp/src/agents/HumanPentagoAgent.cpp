@@ -1,6 +1,7 @@
 #include "HumanPentagoAgent.hpp"
 
 #include <iostream>
+#include <limits>
 
 namespace SPRL {
 
