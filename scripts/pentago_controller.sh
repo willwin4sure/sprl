@@ -7,4 +7,5 @@ cd ~/sprl
 echo "controller thread"
 
 python scripts/pentago_controller.py
+
 echo "done"

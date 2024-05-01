@@ -13,8 +13,6 @@ PentagoNetwork::PentagoNetwork(std::string path) {
         model->to(m_device);
         m_model = model;
 
-        std::cout << "Pentago Network loaded successfully." << std::endl;
-
     } catch (const c10::Error& e) {
         std::cerr << "Error loading the model: " << e.what() << std::endl;
     }

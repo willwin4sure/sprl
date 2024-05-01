@@ -8,7 +8,7 @@ import time
 from tqdm import tqdm
 import numpy as np
 import torch
-from torch.utils.data import DataLoader, TensorDataset
+from torch.utils.data import DataLoader, TensorDataset, random_split
 
 from src.interface.tracer import trace_model
 from src.networks.pentago_network import PentagoNetwork
@@ -17,6 +17,7 @@ from src.pentago_constants import (
     NUM_ITERS,
 
     NUM_WORKER_TASKS,
+    NUM_GROUPS,
 
     NUM_GAMES_PER_WORKER,
     UCT_ITERATIONS,
@@ -50,7 +51,7 @@ def collate_data(iteration: int):
     new_timestamps = []
 
     for task_id in range(NUM_WORKER_TASKS):
-        group = task_id // (NUM_WORKER_TASKS // 4)
+        group = task_id // (NUM_WORKER_TASKS // NUM_GROUPS)
 
         thread_save_path = f"data/games/{RUN_NAME}/{group}/{task_id}"
 
@@ -61,15 +62,21 @@ def collate_data(iteration: int):
             print(f"Spinning on data from task {task_id} in group {group} for iteration {iteration}...")
             time.sleep(5)
 
+        time.sleep(5)
+
         states = torch.Tensor(np.load(f"{thread_save_path}/{RUN_NAME}_iteration_{iteration}_states.npy"))
         distributions = torch.Tensor(np.load(f"{thread_save_path}/{RUN_NAME}_iteration_{iteration}_distributions.npy"))
         outcomes = torch.Tensor(np.load(f"{thread_save_path}/{RUN_NAME}_iteration_{iteration}_outcomes.npy"))
-        timestamps = torch.Tensor([iteration if LINEAR_WEIGHTING else 1 for _ in range(states.shape[0])])
+        timestamps = torch.Tensor([iteration + 1 if LINEAR_WEIGHTING else 1 for _ in range(states.shape[0])])
+
+        assert states.shape[0] == distributions.shape[0] == outcomes.shape[0] == timestamps.shape[0]
 
         new_states.append(states)
         new_distributions.append(distributions)
         new_outcomes.append(outcomes)
         new_timestamps.append(timestamps)
+
+    print(f"Total samples for iteration {iteration}: {sum([s.shape[0] for s in new_states])}")
 
     return new_states, new_distributions, new_outcomes, new_timestamps
 
@@ -84,7 +91,7 @@ def train_network(network: PentagoNetwork, iteration: int, state_tensor, distrib
     train_size = int(0.9 * num_samples)
     val_size = num_samples - train_size
 
-    train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
+    train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
     
     # Create data loaders for training and testing sets
     train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
@@ -104,7 +111,7 @@ def train_network(network: PentagoNetwork, iteration: int, state_tensor, distrib
 
                 for batch_state, batch_policy, batch_value, batch_timestamp in train_dataloader:
                     policy_pred, value_pred = network(batch_state)
-                    
+
                     # Softmax the policy prediction (network returns logits)
                     policy_pred = torch.softmax(policy_pred, dim=1)
 
@@ -237,6 +244,8 @@ def main():
         distribution_tensor = torch.cat(all_distributions, dim=0).to(device)
         outcome_tensor = torch.cat(all_outcomes, dim=0).unsqueeze(1).to(device)
         timestamp_tensor = torch.cat(all_timestamps, dim=0).unsqueeze(1).to(device)
+
+        assert state_tensor.shape[0] == distribution_tensor.shape[0] == outcome_tensor.shape[0] == timestamp_tensor.shape[0]
 
         train_network(network, iteration, state_tensor, distribution_tensor, outcome_tensor, timestamp_tensor)
 

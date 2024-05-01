@@ -13,6 +13,7 @@ from src.pentago_constants import (
     EXEC_PATH,
 
     NUM_WORKER_TASKS,
+    NUM_GROUPS,
 
     NUM_GAMES_PER_WORKER,
     UCT_ITERATIONS,
@@ -41,12 +42,14 @@ def wait_model_path(iteration: int) -> str:
     Gets the model path, when the model is actually ready.
     """
 
-    if iteration == 0:
+    if iteration == -1:
         return "random"
     
     while not os.path.exists(f"data/models/{RUN_NAME}/traced_{RUN_NAME}_iteration_{iteration}.pt"):
         print(f"Spinning on traced model from iteration {iteration}...")
         time.sleep(5)
+
+    time.sleep(5)
     
     return f"data/models/{RUN_NAME}/traced_{RUN_NAME}_iteration_{iteration}.pt"
 
@@ -59,7 +62,7 @@ def main():
 
     assert num_tasks == NUM_WORKER_TASKS
 
-    my_group = my_task_id // (num_tasks // 4)
+    my_group = my_task_id // (num_tasks // NUM_GROUPS)
 
     print(f"I am worker {my_task_id} in group {my_group}.")
 
@@ -69,7 +72,7 @@ def main():
     for iteration in range(NUM_ITERS):
         print(f"Iteration {iteration}...")
 
-        network_path = wait_model_path(iteration)
+        network_path = wait_model_path(iteration - 1)
         num_games = INIT_NUM_GAMES_PER_WORKER if iteration == 0 else NUM_GAMES_PER_WORKER
         uct_iterations = INIT_UCT_ITERATIONS if iteration == 0 else UCT_ITERATIONS
         max_traversals = INIT_MAX_TRAVERSALS if iteration == 0 else MAX_TRAVERSALS
