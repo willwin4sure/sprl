@@ -65,7 +65,7 @@ int playGame(Game<BOARD_SIZE, ACTION_SIZE>* game,
         ActionIdx action;
 
         t.reset();
-        action = agents[state.getPlayer()]->act(game, state, actionMask);
+        action = agents[state.getPlayer()]->act(game, state, actionMask, verbose);
         totalTime += t.elapsed();
 
         agents[1 - state.getPlayer()]->opponentAct(action);
