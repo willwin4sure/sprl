@@ -18,6 +18,7 @@ from src.pentago_constants import (
 
     NUM_WORKER_TASKS,
     NUM_GROUPS,
+    WORKER_TIME_TO_KILL,
 
     NUM_GAMES_PER_WORKER,
     UCT_ITERATIONS,
@@ -44,37 +45,60 @@ from src.pentago_constants import (
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-def collate_data(iteration: int):
+def collate_data(iteration: int, live_workers: set):
     new_states = []
     new_distributions = []
     new_outcomes = []
     new_timestamps = []
 
-    for task_id in range(NUM_WORKER_TASKS):
-        group = task_id // (NUM_WORKER_TASKS // NUM_GROUPS)
+    start_time = None
 
-        thread_save_path = f"data/games/{RUN_NAME}/{group}/{task_id}"
+    while True:
+        finished_workers = set()
 
-        while not (os.path.exists(f"{thread_save_path}/{RUN_NAME}_iteration_{iteration}_states.npy") and
-                   os.path.exists(f"{thread_save_path}/{RUN_NAME}_iteration_{iteration}_distributions.npy") and
-                   os.path.exists(f"{thread_save_path}/{RUN_NAME}_iteration_{iteration}_outcomes.npy")):
+        for task_id in live_workers:
+            group = task_id // (NUM_WORKER_TASKS // NUM_GROUPS)
+
+            thread_save_path = f"data/games/{RUN_NAME}/{group}/{task_id}"
+
+            if (os.path.exists(f"{thread_save_path}/{RUN_NAME}_iteration_{iteration}_states.npy") and
+                os.path.exists(f"{thread_save_path}/{RUN_NAME}_iteration_{iteration}_distributions.npy") and
+                os.path.exists(f"{thread_save_path}/{RUN_NAME}_iteration_{iteration}_outcomes.npy")):
+                
+                # Worker has finished collecting its data
+                finished_workers.add(task_id)
+
+                states = torch.Tensor(np.load(f"{thread_save_path}/{RUN_NAME}_iteration_{iteration}_states.npy"))
+                distributions = torch.Tensor(np.load(f"{thread_save_path}/{RUN_NAME}_iteration_{iteration}_distributions.npy"))
+                outcomes = torch.Tensor(np.load(f"{thread_save_path}/{RUN_NAME}_iteration_{iteration}_outcomes.npy"))
+                timestamps = torch.Tensor([iteration + 1 if LINEAR_WEIGHTING else 1 for _ in range(states.shape[0])])
+
+                assert states.shape[0] == distributions.shape[0] == outcomes.shape[0] == timestamps.shape[0]
+
+                new_states.append(states)
+                new_distributions.append(distributions)
+                new_outcomes.append(outcomes)
+                new_timestamps.append(timestamps)
+
+        if start_time is None and len(live_workers) > len(finished_workers) > len(live_workers) // 2:
+            # Over half of the workers have finished, start a timer after which we will kill the rest
+            print(f"Over half of the workers have finished. Starting timer to kill the rest.")
+            start_time = time.time()
+
+        if start_time is not None and time.time() - start_time > WORKER_TIME_TO_KILL:
+            # Kill the remaining workers after time has expired
+            for task_id in live_workers - finished_workers:
+                live_workers.remove(task_id)
             
-            print(f"Spinning on data from task {task_id} in group {group} for iteration {iteration}...")
-            time.sleep(5)
+            print(f"Killing unfinished workers: {len(live_workers)} left.")
+            break
 
+        if len(finished_workers) == len(live_workers):
+            # All workers have finished
+            break
+
+        print(f"Spinning on workers to finish... {len(finished_workers)} / {len(live_workers)} are complete.")
         time.sleep(5)
-
-        states = torch.Tensor(np.load(f"{thread_save_path}/{RUN_NAME}_iteration_{iteration}_states.npy"))
-        distributions = torch.Tensor(np.load(f"{thread_save_path}/{RUN_NAME}_iteration_{iteration}_distributions.npy"))
-        outcomes = torch.Tensor(np.load(f"{thread_save_path}/{RUN_NAME}_iteration_{iteration}_outcomes.npy"))
-        timestamps = torch.Tensor([iteration + 1 if LINEAR_WEIGHTING else 1 for _ in range(states.shape[0])])
-
-        assert states.shape[0] == distributions.shape[0] == outcomes.shape[0] == timestamps.shape[0]
-
-        new_states.append(states)
-        new_distributions.append(distributions)
-        new_outcomes.append(outcomes)
-        new_timestamps.append(timestamps)
 
     print(f"Total samples for iteration {iteration}: {sum([s.shape[0] for s in new_states])}")
 
@@ -191,7 +215,7 @@ def train_network(network: PentagoNetwork, iteration: int, state_tensor, distrib
     network.to("cpu")
 
 def main():
-    print("I am the controller.")
+    print(f"I am the controller. I have access to {device}.")
 
     # Create the necessary directories
     os.makedirs(f"data/games/{RUN_NAME}", exist_ok=True)
@@ -201,7 +225,9 @@ def main():
     # Write the config of the run to a file
     with open(f"./data/configs/{RUN_NAME}_config.txt", "w") as f:
         f.write(f"NUM_ITERS = {NUM_ITERS}\n")
+        f.write(f"NUM_GROUPS = {NUM_GROUPS}\n")
         f.write(f"NUM_WORKER_TASKS = {NUM_WORKER_TASKS}\n")
+        f.write(f"WORKER_TIME_TO_KILL = {WORKER_TIME_TO_KILL}\n")
         f.write(f"NUM_GAMES_PER_WORKER = {NUM_GAMES_PER_WORKER}\n")
         f.write(f"UCT_ITERATIONS = {UCT_ITERATIONS}\n")
         f.write(f"MAX_TRAVERSALS = {MAX_TRAVERSALS}\n")
@@ -227,13 +253,15 @@ def main():
 
     network = PentagoNetwork(MODEL_NUM_BLOCKS, MODEL_NUM_CHANNELS)
 
+    live_workers = set(range(NUM_WORKER_TASKS))
+
     for iteration in range(NUM_ITERS):
         print(f"Iteration {iteration}...")
 
         if RESET_NETWORK:
             network = PentagoNetwork(MODEL_NUM_BLOCKS, MODEL_NUM_CHANNELS)
 
-        new_states, new_distributions, new_outcomes, new_timestamps = collate_data(iteration)
+        new_states, new_distributions, new_outcomes, new_timestamps = collate_data(iteration, live_workers)
 
         all_states.extend(new_states)
         all_distributions.extend(new_distributions)

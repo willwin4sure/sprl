@@ -3,6 +3,7 @@ EXEC_PATH = "./cpp/build/Release/PTGSelfPlay.exe"
 
 NUM_GROUPS = 2
 NUM_WORKER_TASKS = 2
+WORKER_TIME_TO_KILL = 30
 
 # Parameters for each self-play iteration
 NUM_GAMES_PER_WORKER = 10
