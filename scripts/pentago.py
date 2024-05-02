@@ -1,3 +1,10 @@
+"""
+pentago.py
+
+Script to run Pentago training on a single machine.
+See pentago.sh for distributed Supercloud version.
+"""
+
 import os
 
 import random
