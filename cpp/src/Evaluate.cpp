@@ -73,7 +73,6 @@ int main(int argc, char* argv[]) {
     int numWins1 = 0;
 
     auto pbar = tq::trange(numGames);
-    pbar.set_prefix("Generating self-play data: ");
 
     for (int t : pbar) {
         SPRL::GameState<36> state0 = game->startState();
