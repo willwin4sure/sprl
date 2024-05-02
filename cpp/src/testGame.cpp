@@ -8,6 +8,10 @@
 #include "games/ConnectFour.hpp"
 #include "games/Pentago.hpp"
 
+#include "random/Random.hpp"
+
+#include "tqdm/tqdm.hpp"
+
 int getPentagoAction(SPRL::Pentago::ActionDist& actionSpace) {
     int action = -1;
     while (action < 0 || action >= actionSpace.size() || actionSpace[action] != 1.0f) {
@@ -39,45 +43,98 @@ void testGame(SPRL::Game<BOARD_SIZE, ACTION_SIZE>* game) {
     using State = SPRL::GameState<BOARD_SIZE>;
     using ActionDist = SPRL::GameActionDist<ACTION_SIZE>;
     
-    State state = game->startState();
+    SPRL::Symmetry symmetry = static_cast<int8_t>(SPRL::GetRandom().UniformInt(0, game->numSymmetries() - 1));
 
-    while (!state.isTerminal()) {
-        std::cout << game->stateToString(state) << '\n';
+    State state0 = game->startState();
+    State state1 = game->symmetrizeState(game->startState(), {symmetry})[0];
 
-        ActionDist actionMask = game->actionMask(state);
+    while (!state0.isTerminal()) {
+        // std::cout << game->stateToString(state0) << '\n';
+        // std::cout << game->stateToString(state1) << '\n';
 
-        for (int symmetry = 0; symmetry < 8; ++symmetry) {
-            int8_t sym = static_cast<int8_t>(symmetry);
-            ActionDist symmetrizedActionMask = game->symmetrizeActionDist(actionMask, {sym})[0];
-            ActionDist symmetrizedActionMask2 = game->actionMask(game->symmetrizeState(state, {sym})[0]);
+        ActionDist actionMask = game->actionMask(state0);
 
-            // Assert they are the same
-            for (int i = 0; i < ACTION_SIZE; ++i) {
-                assert(symmetrizedActionMask[i] == symmetrizedActionMask2[i]);
+        int numLegal = 0;
+        for (int i = 0; i < ACTION_SIZE; ++i) {
+            if (actionMask[i] == 1.0f) {
+                numLegal++;
             }
         }
 
-        std::cout << "Action mask: ";
-        for (auto& action : actionMask) {
-            std::cout << action << ' ';
+        int spike = SPRL::GetRandom().UniformInt(0, numLegal - 1);
+
+        ActionDist actionValues;
+        actionValues.fill(0.0f);
+
+        int write = 0;
+        for (int i = 0; i < ACTION_SIZE; ++i) {
+            if (actionMask[i] == 1.0f) {
+                if (write == spike) {
+                    actionValues[i] = 1.0f;
+                    break;
+                }
+                write++;
+            }
         }
-        std::cout << '\n';
 
-        int action = getPentagoAction(actionMask);
+        // Pick maximum as action
+        SPRL::ActionIdx action0 = std::distance(actionValues.begin(),
+            std::max_element(actionValues.begin(), actionValues.end()));
 
-        state = game->nextState(state, action);
+        ActionDist symmetrizedActionValues = game->symmetrizeActionDist(actionValues, {symmetry})[0];
+        SPRL::ActionIdx action1 = std::distance(symmetrizedActionValues.begin(),
+            std::max_element(symmetrizedActionValues.begin(), symmetrizedActionValues.end()));
+
+        // assert that inverse symmetrizing equals original
+        ActionDist inverseSymmetrizedActionValues = game->symmetrizeActionDist(symmetrizedActionValues, {game->inverseSymmetry(symmetry)})[0];
+        for (int i = 0; i < ACTION_SIZE; ++i) {
+            assert(actionValues[i] == inverseSymmetrizedActionValues[i]);
+        }
+
+        state0 = game->nextState(state0, action0);
+        state1 = game->nextState(state1, action1);
+
+        SPRL::GameBoard<BOARD_SIZE> board0 = state0.getBoard();
+        SPRL::GameBoard<BOARD_SIZE> board1 = game->symmetrizeState(state1, {game->inverseSymmetry(symmetry)})[0].getBoard();
+
+        for (int i = 0; i < BOARD_SIZE; ++i) {
+            if (board0[i] != board1[i]) {
+                std::cout << "Error: " << i << " " << static_cast<int>(board0[i]) << " " << static_cast<int>(board1[i]) << '\n';
+
+                // print out the game states and actions
+                std::cout << game->stateToString(state0) << '\n';
+                std::cout << game->stateToString(state1) << '\n';
+                std::cout << game->stateToString(game->symmetrizeState(state1, {game->inverseSymmetry(symmetry)})[0]) << '\n';
+
+                std::cout << "Action: " << static_cast<int>(action0) << " " << static_cast<int>(action1) << '\n';
+
+                // print out the action values
+                for (int i = 0; i < ACTION_SIZE; ++i) {
+                    std::cout << i << " " << actionValues[i] << " " << symmetrizedActionValues[i] << '\n';
+                }
+
+                assert(false);
+            }
+
+        }
     }
 
-    std::cout << "Game over!" << '\n';
-    std::cout << game->stateToString(state) << '\n';
+    // std::cout << "Game over!" << '\n';
+    // std::cout << game->stateToString(state0) << '\n';
+    // std::cout << game->stateToString(state1) << '\n';
 
-    std::cout << "The winner is Player " << static_cast<int>(state.getWinner()) << '\n';
-    std::cout << "The rewards are " << game->rewards(state).first << " and " << game->rewards(state).second << '\n';
+    // std::cout << "The winner is Player " << static_cast<int>(state0.getWinner()) << '\n';
+    // std::cout << "The rewards are " << game->rewards(state0).first << " and " << game->rewards(state0).second << '\n';
 }
 
 int main(int argc, char* argv[]) {
     auto game = std::make_unique<SPRL::Pentago>();
-    testGame(game.get());
+    auto pbar = tq::trange(1000000);
+    for (int t : pbar) {
+        testGame(game.get());
+    }
+
+    // std::cout << static_cast<int>(game->actionToActionIdx(game->symmetrizeSingleAction(game->actionIdxToAction(83), 5))) << std::endl;
 
     return 0;
 }

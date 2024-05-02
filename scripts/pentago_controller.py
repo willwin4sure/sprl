@@ -98,7 +98,7 @@ def collate_data(iteration: int, live_workers: set):
             break
 
         print(f"Spinning on workers to finish... {len(finished_workers)} / {len(live_workers)} are complete.")
-        time.sleep(5)
+        time.sleep(10)
 
     print(f"Total samples for iteration {iteration}: {sum([s.shape[0] for s in new_states])}")
 
@@ -274,6 +274,8 @@ def main():
         timestamp_tensor = torch.cat(all_timestamps, dim=0).unsqueeze(1).to(device)
 
         assert state_tensor.shape[0] == distribution_tensor.shape[0] == outcome_tensor.shape[0] == timestamp_tensor.shape[0]
+
+        print(f"Training network on {state_tensor.shape[0]} samples...")
 
         train_network(network, iteration, state_tensor, distribution_tensor, outcome_tensor, timestamp_tensor)
 
