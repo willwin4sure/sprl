@@ -3,7 +3,7 @@
 module load anaconda/2023a-pytorch
 
 # Initialize and Load Modules
-cd ~/sprl
+cd ~/running_sims/sprl
 
 echo "My task ID: " $LLSUB_RANK
 echo "Number of Tasks: " $LLSUB_SIZE
