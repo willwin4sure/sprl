@@ -178,6 +178,8 @@ std::pair<Value, Value> Pentago::rewards(const State& state) const {
 
 int Pentago::numSymmetries() const {
     // Symmetry group is dihedral D_4: we have four rotations and four reflected rotations
+    //
+    // Mapping:
     //     0: identity
     //     1: single 90 deg cw rotation
     //     2: full 180 deg rotation
@@ -342,10 +344,16 @@ Pentago::Action Pentago::symmetrizeSingleAction(const Action& action, Symmetry s
 
     case 4: case 5: case 6: case 7: {
         // first perform reflection across vertical axis
+        int row = action.boardIdx / PTG_BOARD_WIDTH;
+        int col = action.boardIdx % PTG_BOARD_WIDTH;
+
+        int newRow = row;
+        int newCol = PTG_BOARD_WIDTH - 1 - col;
+
         Action newAction = {
             static_cast<RotationDirection>(1 - static_cast<int>(action.rotDirection)),
             static_cast<RotationQuadrant>(vertReflection[static_cast<int>(action.rotQuadrant)]),
-            PTG_BOARD_WIDTH * (action.boardIdx / PTG_BOARD_WIDTH) + (PTG_BOARD_WIDTH - 1 - (action.boardIdx % PTG_BOARD_WIDTH))
+            static_cast<int8_t>(newRow * PTG_BOARD_WIDTH + newCol)
         };
 
         // then perform rotation by reusing the code above
@@ -377,10 +385,6 @@ Pentago::ActionDist Pentago::symmetrizeSingleActionDist(const ActionDist& action
                 newActionDist[newActionIdx] = actionDist[actionIdx];
             }
         }
-    }
-
-    for (int i = 0; i < PTG_NUM_ACTIONS; ++i) {
-        assert(newActionDist[i] != -1.0f);
     }
 
     return newActionDist;
@@ -431,6 +435,36 @@ std::string Pentago::stateToString(const State& state) const {
     }
 
     return str;
+}
+
+Pentago::State Pentago::stringToState(const std::string& str) const {
+    State::Board board;
+    board.fill(emptySquare);
+
+    int row = 0;
+    int col = 0;
+
+    int numO = 0;
+    int numX = 0;
+
+    for (char c : str) {
+        if (c == 'O') {
+            board[row * PTG_BOARD_WIDTH + col] = 0;
+            col++;
+            numO++;
+        } else if (c == 'X') {
+            board[row * PTG_BOARD_WIDTH + col] = 1;
+            col++;
+            numX++;
+        } else if (c == '.') {
+            col++;
+        } else if (c == '\n') {
+            row++;
+            col = 0;
+        }
+    }
+
+    return State { board, ((numO > numX) ? 1 : 0), -1, false };
 }
 
 /**

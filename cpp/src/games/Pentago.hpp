@@ -28,6 +28,7 @@ public:
     std::vector<ActionDist> symmetrizeActionDist(const ActionDist& actionSpace, const std::vector<Symmetry>& symmetries) const override;
 
     std::string stateToString(const State& state) const override;
+    State stringToState(const std::string& str) const; /* TODO: make this override */
 
 private:
     enum class RotationDirection : int8_t {
