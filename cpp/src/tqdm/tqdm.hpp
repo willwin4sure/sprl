@@ -3,7 +3,7 @@
 /*
  * Provides functionality for tqdm progress bars in C++.
  * 
- * Taken wtih thanks from https://github.com/mraggi/tqdm-cpp.
+ * Taken with thanks from https://github.com/mraggi/tqdm-cpp.
  * 
  * Copyright (c) 2018-2019 <Miguel Raggi> <mraggi@gmail.com>
  * 
