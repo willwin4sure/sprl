@@ -38,8 +38,7 @@ from src.pentago_constants import (
     MAX_GROUPS,
     EPOCHS_PER_GROUP,
     BATCH_SIZE,
-    INIT_LR,
-    LR_DECAY,
+    LR,
 
     RUN_NAME,
 )
@@ -124,8 +123,7 @@ def train_network(network: PentagoNetwork, iteration: int, state_tensor, distrib
     train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     val_dataloader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=True)
     
-    optimizer = torch.optim.AdamW(network.parameters(), lr=INIT_LR)
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=LR_DECAY)
+    optimizer = torch.optim.AdamW(network.parameters(), lr=LR)
 
     best_val_loss = float("inf")
     best_epoch = 0
@@ -162,8 +160,6 @@ def train_network(network: PentagoNetwork, iteration: int, state_tensor, distrib
                     train_total_policy_loss += policy_loss.item()
                     train_total_value_loss += value_loss.item()
                     train_num_batches += 1
-
-                scheduler.step()
 
                 network.eval()
 
@@ -227,7 +223,7 @@ def train_network(network: PentagoNetwork, iteration: int, state_tensor, distrib
     network.to("cpu")
 
 def main():
-    print(f"I am the controller. I have access to {device}.")
+    print(f"I have access to {device}.")
 
     # Create the necessary directories
     os.makedirs(f"data/games/{RUN_NAME}", exist_ok=True)
@@ -258,8 +254,7 @@ def main():
         f.write(f"MAX_GROUPS = {MAX_GROUPS}\n")
         f.write(f"EPOCHS_PER_GROUP = {EPOCHS_PER_GROUP}\n")
         f.write(f"BATCH_SIZE = {BATCH_SIZE}\n")
-        f.write(f"INIT_LR = {INIT_LR}\n")
-        f.write(f"LR_DECAY = {LR_DECAY}\n")
+        f.write(f"LR = {LR}\n")
 
     print(f"Wrote configuration file at ./data/configs/{RUN_NAME}_config.txt.")
 
