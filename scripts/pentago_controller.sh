@@ -6,6 +6,6 @@ module load anaconda/2023a-pytorch
 cd ~/running_sims/sprl
 echo "controller thread"
 
-python scripts/pentago_controller.py
+python ./scripts/pentago_controller.py
 
 echo "done"

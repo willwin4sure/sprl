@@ -53,15 +53,16 @@ def collate_data(iteration: int, live_workers: set):
 
     start_time = None
 
-    while True:
-        finished_workers = set()
+    finished_workers = set()
 
+    while True:
         for task_id in live_workers:
             group = task_id // (NUM_WORKER_TASKS // NUM_GROUPS)
 
             thread_save_path = f"data/games/{RUN_NAME}/{group}/{task_id}"
 
-            if (os.path.exists(f"{thread_save_path}/{RUN_NAME}_iteration_{iteration}_states.npy") and
+            if (not task_id in finished_workers and
+                os.path.exists(f"{thread_save_path}/{RUN_NAME}_iteration_{iteration}_states.npy") and
                 os.path.exists(f"{thread_save_path}/{RUN_NAME}_iteration_{iteration}_distributions.npy") and
                 os.path.exists(f"{thread_save_path}/{RUN_NAME}_iteration_{iteration}_outcomes.npy")):
                 
