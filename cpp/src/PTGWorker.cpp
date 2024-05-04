@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
     // Log who I am.
     std::cout << "Task " << myTaskId << " of " << numTasks << ", in group " << myGroup << "." << std::endl;
 
-    std::string runName = "kangaroo";
+    std::string runName = "kangaroo_prime";
     std::string saveDir = "data/games/" + runName + "/" + std::to_string(myGroup) + "/" + std::to_string(myTaskId);
 
     // Make the directory if it doesn't exist.

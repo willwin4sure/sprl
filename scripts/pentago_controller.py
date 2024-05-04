@@ -135,6 +135,8 @@ def train_network(network: PentagoNetwork, iteration: int, state_tensor, distrib
     for group in range(MAX_GROUPS):
         with tqdm(range(EPOCHS_PER_GROUP)) as pbar:
             for epoch in pbar:
+                network.train()
+                
                 train_total_policy_loss = 0.0
                 train_total_value_loss = 0.0
                 train_num_batches = 0
@@ -162,6 +164,8 @@ def train_network(network: PentagoNetwork, iteration: int, state_tensor, distrib
                     train_num_batches += 1
 
                 scheduler.step()
+
+                network.eval()
 
                 val_total_policy_loss = 0.0
                 val_total_value_loss = 0.0
@@ -230,6 +234,8 @@ def main():
     os.makedirs(f"data/models/{RUN_NAME}", exist_ok=True)
     os.makedirs(f"data/configs", exist_ok=True)
 
+    print(f"Created necessary directories for {RUN_NAME}.")
+
     # Write the config of the run to a file
     with open(f"./data/configs/{RUN_NAME}_config.txt", "w") as f:
         f.write(f"NUM_ITERS = {NUM_ITERS}\n")
@@ -254,6 +260,8 @@ def main():
         f.write(f"BATCH_SIZE = {BATCH_SIZE}\n")
         f.write(f"INIT_LR = {INIT_LR}\n")
         f.write(f"LR_DECAY = {LR_DECAY}\n")
+
+    print(f"Wrote configuration file at ./data/configs/{RUN_NAME}_config.txt.")
 
     all_states = []
     all_distributions = []

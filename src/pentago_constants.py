@@ -30,4 +30,4 @@ BATCH_SIZE = 1024
 INIT_LR = 0.1
 LR_DECAY = 0.9
 
-RUN_NAME = f"kangaroo"
+RUN_NAME = f"kangaroo_prime"
