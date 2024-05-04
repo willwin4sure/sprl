@@ -38,7 +38,8 @@ from src.pentago_constants import (
     MAX_GROUPS,
     EPOCHS_PER_GROUP,
     BATCH_SIZE,
-    LR,
+    INIT_LR,
+    LR_DECAY,
 
     RUN_NAME,
 )
@@ -61,6 +62,7 @@ def collate_data(iteration: int, live_workers: set):
 
             thread_save_path = f"data/games/{RUN_NAME}/{group}/{task_id}"
 
+            # Check if the worker is unfinished and has saved its data
             if (not task_id in finished_workers and
                 os.path.exists(f"{thread_save_path}/{RUN_NAME}_iteration_{iteration}_states.npy") and
                 os.path.exists(f"{thread_save_path}/{RUN_NAME}_iteration_{iteration}_distributions.npy") and
@@ -122,10 +124,13 @@ def train_network(network: PentagoNetwork, iteration: int, state_tensor, distrib
     train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     val_dataloader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=True)
     
-    optimizer = torch.optim.AdamW(network.parameters(), lr=LR)
+    optimizer = torch.optim.AdamW(network.parameters(), lr=INIT_LR)
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=LR_DECAY)
 
     best_val_loss = float("inf")
     best_epoch = 0
+
+    EPS = 1e-8
 
     for group in range(MAX_GROUPS):
         with tqdm(range(EPOCHS_PER_GROUP)) as pbar:
@@ -141,7 +146,7 @@ def train_network(network: PentagoNetwork, iteration: int, state_tensor, distrib
                     policy_pred = torch.softmax(policy_pred, dim=1)
 
                     # Weighted NLL loss by timestamp
-                    policy_loss = torch.sum(-torch.sum(batch_policy * torch.log(policy_pred), dim=1, keepdim=True) * batch_timestamp) / torch.sum(batch_timestamp)
+                    policy_loss = torch.sum(-torch.sum(batch_policy * torch.log(policy_pred + EPS), dim=1, keepdim=True) * batch_timestamp) / torch.sum(batch_timestamp)
 
                     # Weighted MSE loss by timestamp
                     value_loss = torch.sum((batch_value - value_pred) ** 2 * batch_timestamp) / torch.sum(batch_timestamp)
@@ -156,6 +161,8 @@ def train_network(network: PentagoNetwork, iteration: int, state_tensor, distrib
                     train_total_value_loss += value_loss.item()
                     train_num_batches += 1
 
+                scheduler.step()
+
                 val_total_policy_loss = 0.0
                 val_total_value_loss = 0.0
                 val_num_batches = 0
@@ -167,7 +174,7 @@ def train_network(network: PentagoNetwork, iteration: int, state_tensor, distrib
                     policy_pred = torch.softmax(policy_pred, dim=1)
 
                     # Weighted NLL loss by timestamp
-                    policy_loss = torch.sum(-torch.sum(batch_policy * torch.log(policy_pred), dim=1, keepdim=True) * batch_timestamp) / torch.sum(batch_timestamp)
+                    policy_loss = torch.sum(-torch.sum(batch_policy * torch.log(policy_pred + EPS), dim=1, keepdim=True) * batch_timestamp) / torch.sum(batch_timestamp)
 
                     # Weighted MSE loss by timestamp
                     value_loss = torch.sum((batch_value - value_pred) ** 2 * batch_timestamp) / torch.sum(batch_timestamp)
@@ -245,7 +252,8 @@ def main():
         f.write(f"MAX_GROUPS = {MAX_GROUPS}\n")
         f.write(f"EPOCHS_PER_GROUP = {EPOCHS_PER_GROUP}\n")
         f.write(f"BATCH_SIZE = {BATCH_SIZE}\n")
-        f.write(f"LR = {LR}\n")
+        f.write(f"INIT_LR = {INIT_LR}\n")
+        f.write(f"LR_DECAY = {LR_DECAY}\n")
 
     all_states = []
     all_distributions = []
