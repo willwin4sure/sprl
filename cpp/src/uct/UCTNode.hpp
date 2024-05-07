@@ -49,8 +49,8 @@ public:
     };
 
     // Constructor for parent node.
-    UCTNode(EdgeStatistics* edgeStats, Game<BOARD_SIZE, ACTION_SIZE>* game, const GameState<BOARD_SIZE>& state)
-        : m_parent { nullptr }, m_action { 0 }, m_game { game }, m_state { state } {
+    UCTNode(EdgeStatistics* edgeStats, Game<BOARD_SIZE, ACTION_SIZE>* game, const GameState<BOARD_SIZE>& state, bool useParentQ = true)
+        : m_parent { nullptr }, m_action { 0 }, m_game { game }, m_state { state }, m_useParentQ{ useParentQ } {
 
         m_isTerminal = state.isTerminal();
         m_actionMask = game->actionMask(state);
@@ -59,8 +59,8 @@ public:
     }
 
     // Constructor for child nodes.
-    UCTNode(UCTNode* parent, ActionIdx action, Game<BOARD_SIZE, ACTION_SIZE>* game, const GameState<BOARD_SIZE>& state)
-        : m_parent { parent }, m_action { action }, m_game { game }, m_state { state } {
+    UCTNode(UCTNode* parent, ActionIdx action, Game<BOARD_SIZE, ACTION_SIZE>* game, const GameState<BOARD_SIZE>& state, bool useParentQ = true)
+        : m_parent { parent }, m_action { action }, m_game { game }, m_state { state }, m_useParentQ{ useParentQ } {
 
         m_isTerminal = state.isTerminal();
         m_actionMask = game->actionMask(state);
@@ -172,11 +172,11 @@ public:
         if (m_children[action] == nullptr) {
             // Child doesn't exist, so we create it.
             m_children[action] = std::make_unique<UCTNode<BOARD_SIZE, ACTION_SIZE>>(
-                this, action, m_game, m_game->nextState(m_state, action));
+                this, action, m_game, m_game->nextState(m_state, action), m_useParentQ);
 
             // Parent Q-initialization
             if (m_isNetworkEvaluated) {
-                m_edgeStatistics.m_totalValues[action] = m_networkValue;           
+                m_edgeStatistics.m_totalValues[action] = m_useParentQ ? m_networkValue : 0f;           
             }
         }
 
@@ -274,6 +274,9 @@ private:
 
     /// Current state of the game.
     GameState<BOARD_SIZE> m_state;
+
+    // Whether to use parent Q-initialization.
+    bool m_useParentQ;
 
     /// Action mask for legal moves from the current position.
     GameActionDist<ACTION_SIZE> m_actionMask;
