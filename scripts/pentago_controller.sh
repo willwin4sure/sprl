@@ -3,9 +3,10 @@
 module load anaconda/2023a-pytorch
 
 # Initialize and Load Modules
-cd ~/sprl
-echo "controller thread"
+cd ~/running_sims/sprl
 
-python scripts/pentago_controller.py
+echo "I am the controller process."
 
-echo "done"
+python ./scripts/pentago_controller.py
+
+echo "Done."

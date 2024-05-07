@@ -53,15 +53,17 @@ def collate_data(iteration: int, live_workers: set):
 
     start_time = None
 
-    while True:
-        finished_workers = set()
+    finished_workers = set()
 
+    while True:
         for task_id in live_workers:
             group = task_id // (NUM_WORKER_TASKS // NUM_GROUPS)
 
             thread_save_path = f"data/games/{RUN_NAME}/{group}/{task_id}"
 
-            if (os.path.exists(f"{thread_save_path}/{RUN_NAME}_iteration_{iteration}_states.npy") and
+            # Check if the worker is unfinished and has saved its data
+            if (not task_id in finished_workers and
+                os.path.exists(f"{thread_save_path}/{RUN_NAME}_iteration_{iteration}_states.npy") and
                 os.path.exists(f"{thread_save_path}/{RUN_NAME}_iteration_{iteration}_distributions.npy") and
                 os.path.exists(f"{thread_save_path}/{RUN_NAME}_iteration_{iteration}_outcomes.npy")):
                 
@@ -98,7 +100,7 @@ def collate_data(iteration: int, live_workers: set):
             break
 
         print(f"Spinning on workers to finish... {len(finished_workers)} / {len(live_workers)} are complete.")
-        time.sleep(5)
+        time.sleep(10)
 
     print(f"Total samples for iteration {iteration}: {sum([s.shape[0] for s in new_states])}")
 
@@ -126,9 +128,13 @@ def train_network(network: PentagoNetwork, iteration: int, state_tensor, distrib
     best_val_loss = float("inf")
     best_epoch = 0
 
+    EPS = 1e-8
+
     for group in range(MAX_GROUPS):
         with tqdm(range(EPOCHS_PER_GROUP)) as pbar:
             for epoch in pbar:
+                network.train()
+                
                 train_total_policy_loss = 0.0
                 train_total_value_loss = 0.0
                 train_num_batches = 0
@@ -140,7 +146,7 @@ def train_network(network: PentagoNetwork, iteration: int, state_tensor, distrib
                     policy_pred = torch.softmax(policy_pred, dim=1)
 
                     # Weighted NLL loss by timestamp
-                    policy_loss = torch.sum(-torch.sum(batch_policy * torch.log(policy_pred), dim=1, keepdim=True) * batch_timestamp) / torch.sum(batch_timestamp)
+                    policy_loss = torch.sum(-torch.sum(batch_policy * torch.log(policy_pred + EPS), dim=1, keepdim=True) * batch_timestamp) / torch.sum(batch_timestamp)
 
                     # Weighted MSE loss by timestamp
                     value_loss = torch.sum((batch_value - value_pred) ** 2 * batch_timestamp) / torch.sum(batch_timestamp)
@@ -155,6 +161,8 @@ def train_network(network: PentagoNetwork, iteration: int, state_tensor, distrib
                     train_total_value_loss += value_loss.item()
                     train_num_batches += 1
 
+                network.eval()
+
                 val_total_policy_loss = 0.0
                 val_total_value_loss = 0.0
                 val_num_batches = 0
@@ -166,7 +174,7 @@ def train_network(network: PentagoNetwork, iteration: int, state_tensor, distrib
                     policy_pred = torch.softmax(policy_pred, dim=1)
 
                     # Weighted NLL loss by timestamp
-                    policy_loss = torch.sum(-torch.sum(batch_policy * torch.log(policy_pred), dim=1, keepdim=True) * batch_timestamp) / torch.sum(batch_timestamp)
+                    policy_loss = torch.sum(-torch.sum(batch_policy * torch.log(policy_pred + EPS), dim=1, keepdim=True) * batch_timestamp) / torch.sum(batch_timestamp)
 
                     # Weighted MSE loss by timestamp
                     value_loss = torch.sum((batch_value - value_pred) ** 2 * batch_timestamp) / torch.sum(batch_timestamp)
@@ -215,12 +223,14 @@ def train_network(network: PentagoNetwork, iteration: int, state_tensor, distrib
     network.to("cpu")
 
 def main():
-    print(f"I am the controller. I have access to {device}.")
+    print(f"I have access to {device}.")
 
     # Create the necessary directories
     os.makedirs(f"data/games/{RUN_NAME}", exist_ok=True)
     os.makedirs(f"data/models/{RUN_NAME}", exist_ok=True)
     os.makedirs(f"data/configs", exist_ok=True)
+
+    print(f"Created necessary directories for {RUN_NAME}.")
 
     # Write the config of the run to a file
     with open(f"./data/configs/{RUN_NAME}_config.txt", "w") as f:
@@ -245,6 +255,8 @@ def main():
         f.write(f"EPOCHS_PER_GROUP = {EPOCHS_PER_GROUP}\n")
         f.write(f"BATCH_SIZE = {BATCH_SIZE}\n")
         f.write(f"LR = {LR}\n")
+
+    print(f"Wrote configuration file at ./data/configs/{RUN_NAME}_config.txt.")
 
     all_states = []
     all_distributions = []
@@ -274,6 +286,8 @@ def main():
         timestamp_tensor = torch.cat(all_timestamps, dim=0).unsqueeze(1).to(device)
 
         assert state_tensor.shape[0] == distribution_tensor.shape[0] == outcome_tensor.shape[0] == timestamp_tensor.shape[0]
+
+        print(f"Training network on {state_tensor.shape[0]} samples...")
 
         train_network(network, iteration, state_tensor, distribution_tensor, outcome_tensor, timestamp_tensor)
 

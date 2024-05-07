@@ -48,7 +48,7 @@ MAX_GROUPS = 10
 EPOCHS_PER_GROUP = 20
 BATCH_SIZE = 1024
 
-RUN_NAME = f"iguana"
+RUN_NAME = f"iguana_retry"
 
 
 os.makedirs(f"data/games/{RUN_NAME}", exist_ok=True)

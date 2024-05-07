@@ -3,11 +3,12 @@
 module load anaconda/2023a-pytorch
 
 # Initialize and Load Modules
-cd ~/sprl
+cd ~/running_sims/sprl
 
+echo "I am a worker process."
 echo "My task ID: " $LLSUB_RANK
 echo "Number of Tasks: " $LLSUB_SIZE
 
-python scripts/pentago_worker.py $LLSUB_RANK $LLSUB_SIZE
+./cpp/build/PTGWorker $LLSUB_RANK $LLSUB_SIZE
 
-echo "done"
+echo "Done."

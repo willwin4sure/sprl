@@ -180,9 +180,9 @@ runIteration(Game<BOARD_SIZE, ACTION_SIZE>* game,
     std::vector<ActionDist> allDistributions;
     std::vector<float> allOutcomes;
 
-    auto pbar = tq::trange(numGames);
-    pbar.set_prefix("Generating self-play data: ");  // Do not change this prefix: Python side hooks into it
-    for (int t : pbar) {
+    // auto pbar = tq::trange(numGames);
+    // pbar.set_prefix("Generating self-play data: ");  // Do not change this prefix: Python side hooks into it
+    for (int t = 0; t < numGames; ++t) {
         auto [states, distributions, outcome] = selfPlay(game, network, numIters, maxTraversals, maxQueueSize);
 
         allStates.reserve(allStates.size() + states.size());
@@ -199,7 +199,7 @@ runIteration(Game<BOARD_SIZE, ACTION_SIZE>* game,
             }
         }
         
-        pbar << " " << t << " " << allStates.size();  // Display the current iteration and the number of states
+        std::cout << t + 1 << " games played, " << allStates.size() << " states collected\n";
     }
 
     assert(allStates.size() == allDistributions.size());

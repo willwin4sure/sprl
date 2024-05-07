@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 
-RUN_NAME = "flamingo_reset_mini"
+RUN_NAME = "iguana_retry"
 
 all_states = []
 all_distributions = []
@@ -27,7 +27,7 @@ distribution_tensor = torch.cat(all_distributions, dim=0)
 outcome_tensor = torch.cat(all_outcomes, dim=0).unsqueeze(1)
 timestamp_tensor = torch.cat(all_timestamps, dim=0).unsqueeze(1)
 
-for i in range(30):
+for i in range(17):
     print(state_tensor[i])
     print(distribution_tensor[i])
     print(outcome_tensor[i])
