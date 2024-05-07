@@ -174,6 +174,7 @@ public:
             m_children[action] = std::make_unique<UCTNode<BOARD_SIZE, ACTION_SIZE>>(
                 this, action, m_game, m_game->nextState(m_state, action));
 
+            // Parent Q-initialization
             if (m_isNetworkEvaluated) {
                 m_edgeStatistics.m_totalValues[action] = m_networkValue;           
             }
