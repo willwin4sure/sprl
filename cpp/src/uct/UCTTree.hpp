@@ -19,9 +19,9 @@ public:
     using Node = UCTNode<BOARD_SIZE, ACTION_SIZE>;
 
     // Constructor for the tree.
-    UCTTree(Game<BOARD_SIZE, ACTION_SIZE>* game, const GameState<BOARD_SIZE>& state, bool addNoise = true, bool symmetrize = true)
-        : m_addNoise { addNoise }, m_symmetrizeNetwork { symmetrize }, m_edgeStatistics {}, m_game { game }, 
-          m_root { std::make_unique<Node>(&m_edgeStatistics, game, state) } {}
+    UCTTree(Game<BOARD_SIZE, ACTION_SIZE>* game, const GameState<BOARD_SIZE>& state, bool addNoise = true, bool symmetrize = true, bool useParentQ = true)
+        : m_addNoise { addNoise }, m_symmetrizeNetwork { symmetrize }, m_edgeStatistics {}, m_game { game }, m_useParentQ { useParentQ },
+          m_root { std::make_unique<Node>(&m_edgeStatistics, game, state, useParentQ) } {}
 
 
     /**
@@ -298,6 +298,9 @@ private:
 
     /// A raw pointer to an instance of the game we are playing.
     Game<BOARD_SIZE, ACTION_SIZE>* m_game;
+
+    /// Whether to use parent Q initialization
+    bool m_useParentQ;
 
     /// A unique pointer to the root node of the UCT tree; we own it.
     std::unique_ptr<Node> m_root;

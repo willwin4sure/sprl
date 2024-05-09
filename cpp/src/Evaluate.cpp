@@ -31,8 +31,9 @@
 
 
 int main(int argc, char* argv[]) {
-    if (argc != 7) {
-        std::cerr << "Usage: ./Evaluate.exe <modelPath0> <modelPath1> <numGames> <numIters> <maxTraversals> <maxQueueSize>" << std::endl;
+    if (argc != 11) {
+        std::cerr << "Usage: ./Evaluate.exe <modelPath0> <modelPath1> <numGames> <numIters> <maxTraversals>
+         <maxQueueSize> <model0UseSymmetrize> <model0UseParentQ> <model1UseSymmetrize> <model1UseParentQ>" << std::endl;
         return 1;
     }
 
@@ -42,6 +43,10 @@ int main(int argc, char* argv[]) {
     int numIters = std::stoi(argv[4]);
     int maxTraversals = std::stoi(argv[5]);
     int maxQueueSize = std::stoi(argv[6]);
+    bool model0UseSymmetrize = std::stoi(argv[7]) > 0;
+    bool model0UseParentQ = std::stoi(argv[8]) > 0;
+    bool model1UseSymmetrize = std::stoi(argv[9]) > 0;
+    bool model1UseParentQ = std::stoi(argv[10]) > 0;
 
     auto game = std::make_unique<SPRL::Pentago>();
 
@@ -78,8 +83,8 @@ int main(int argc, char* argv[]) {
         SPRL::GameState<36> state0 = game->startState();
         SPRL::GameState<36> state1 = game->startState();
 
-        SPRL::UCTTree<36, 288> tree0 { game.get(), state0, false }; 
-        SPRL::UCTTree<36, 288> tree1 { game.get(), state1, false };
+        SPRL::UCTTree<36, 288> tree0 { game.get(), state0, false, model0UseSymmetrize, model0UseParentQ }; 
+        SPRL::UCTTree<36, 288> tree1 { game.get(), state1, false, model1UseSymmetrize, model0UseParentQ };
 
         SPRL::UCTNetworkAgent<36, 288> networkAgent0 { network0, &tree0, numIters, maxTraversals, maxQueueSize };
         SPRL::UCTNetworkAgent<36, 288> networkAgent1 { network1, &tree1, numIters, maxTraversals, maxQueueSize };
