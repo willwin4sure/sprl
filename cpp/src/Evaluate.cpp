@@ -32,8 +32,7 @@
 
 int main(int argc, char* argv[]) {
     if (argc != 11) {
-        std::cerr << "Usage: ./Evaluate.exe <modelPath0> <modelPath1> <numGames> <numIters> <maxTraversals>
-         <maxQueueSize> <model0UseSymmetrize> <model0UseParentQ> <model1UseSymmetrize> <model1UseParentQ>" << std::endl;
+        std::cerr << "Usage: ./Evaluate.exe <modelPath0> <modelPath1> <numGames> <numIters> <maxTraversals> <maxQueueSize> <model0UseSymmetrize> <model0UseParentQ> <model1UseSymmetrize> <model1UseParentQ>" << std::endl;
         return 1;
     }
 
