@@ -176,7 +176,7 @@ public:
 
             // Parent Q-initialization
             if (m_isNetworkEvaluated) {
-                m_edgeStatistics.m_totalValues[action] = m_useParentQ ? m_networkValue : 0f;           
+                m_edgeStatistics.m_totalValues[action] = m_useParentQ ? m_networkValue : 0.0f;           
             }
         }
 

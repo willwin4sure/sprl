@@ -34,7 +34,7 @@ std::string waitModelPath(int iteration, const std::string& runName) {
 
         if (!std::filesystem::exists(modelPath)) {
             std::cout << "Spinning on traced model from iteration " << iteration << "..." << std::endl;
-            std::this_thread::sleep_for(std::chrono::seconds(10));
+            std::this_thread::sleep_for(std::chrono::seconds(30));
         }
     } while (!std::filesystem::exists(modelPath));
 
@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
     // Log who I am.
     std::cout << "Task " << myTaskId << " of " << numTasks << ", in group " << myGroup << "." << std::endl;
 
-    std::string runName = "kangaroo_prime";
+    std::string runName = "lion_prime";
     std::string saveDir = "data/games/" + runName + "/" + std::to_string(myGroup) + "/" + std::to_string(myTaskId);
 
     // Make the directory if it doesn't exist.
