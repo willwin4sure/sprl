@@ -4,12 +4,13 @@
 
 #include "games/GameState.hpp"
 #include "games/Game.hpp"
-#include "games/Pentago.hpp"
+#include "games/Othello.hpp"
 
 #include "interface/npy.hpp"
 
 #include "networks/Network.hpp"
 #include "networks/RandomNetwork.hpp"
+#include "networks/OthelloHeuristic.hpp"
 #include "networks/OthelloNetwork.hpp"
 
 #include "selfplay/SelfPlay.hpp"
@@ -76,9 +77,9 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    SPRL::Pentago game;
+    SPRL::Othello game;
     SPRL::Network<64, 65>* network;
-    SPRL::RandomNetwork<64, 65> randomNetwork {};
+    SPRL::OthelloHeuristic randomNetwork {};
 
     for (int iteration = 0; iteration < NUM_ITERS; ++iteration) {
         std::cout << "Starting iteration " << iteration << "..." << std::endl;
@@ -90,7 +91,7 @@ int main(int argc, char *argv[]) {
         int maxTraversals = (iteration == 0) ? INIT_MAX_TRAVERSALS : MAX_TRAVERSALS;
         int maxQueueSize = (iteration == 0) ? INIT_MAX_QUEUE_SIZE : MAX_QUEUE_SIZE;
 
-        SPRL::PentagoNetwork neuralNetwork { modelPath };
+        SPRL::OthelloNetwork neuralNetwork { modelPath };
 
         if (modelPath == "random") {
             std::cout << "Using random network..." << std::endl;

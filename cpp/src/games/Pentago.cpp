@@ -464,7 +464,7 @@ Pentago::State Pentago::stringToState(const std::string& str) const {
         }
     }
 
-    return State { board, ((numO > numX) ? 1 : 0), -1, false };
+    return State { board, static_cast<Player>((numO > numX) ? 1 : 0), -1, false };
 }
 
 /**

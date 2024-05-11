@@ -111,7 +111,7 @@ def collate_data(iteration: int, live_workers: set):
     return new_states, new_distributions, new_outcomes, new_timestamps
 
 
-def train_network(network: PentagoNetwork, learning_rate: float, iteration: int, state_tensor, distribution_tensor, outcome_tensor, timestamp_tensor):
+def train_network(network: OthelloNetwork, learning_rate: float, iteration: int, state_tensor, distribution_tensor, outcome_tensor, timestamp_tensor):
     network.to(device)
 
     dataset = TensorDataset(state_tensor, distribution_tensor, outcome_tensor, timestamp_tensor)
@@ -269,7 +269,7 @@ def main():
     all_outcome_tensors = []
     all_timestamp_tensors = []
 
-    network = PentagoNetwork(MODEL_NUM_BLOCKS, MODEL_NUM_CHANNELS)
+    network = OthelloNetwork(MODEL_NUM_BLOCKS, MODEL_NUM_CHANNELS)
     learning_rate = LR_INIT
 
     live_workers = set(range(NUM_WORKER_TASKS))
@@ -283,7 +283,7 @@ def main():
 
         if RESET_NETWORK:
             print(f"Resetting network.")
-            network = PentagoNetwork(MODEL_NUM_BLOCKS, MODEL_NUM_CHANNELS)
+            network = OthelloNetwork(MODEL_NUM_BLOCKS, MODEL_NUM_CHANNELS)
 
         new_states, new_distributions, new_outcomes, new_timestamps = collate_data(iteration, live_workers)
 

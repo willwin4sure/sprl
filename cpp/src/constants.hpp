@@ -8,7 +8,7 @@ constexpr float EXPLORATION = 1.0f;
 constexpr float DIRICHLET_EPSILON = 0.25f;
 constexpr float DIRICHLET_ALPHA = 0.1f;
 
-constexpr int EARLY_GAME_CUTOFF = 20;
+constexpr int EARLY_GAME_CUTOFF = 15;
 constexpr float EARLY_GAME_EXP = 0.98f;
 constexpr float REST_GAME_EXP = 10.0f;
 
