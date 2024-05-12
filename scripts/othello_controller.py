@@ -40,7 +40,7 @@ NUM_PAST_ITERS_TO_TRAIN = 10
 MAX_GROUPS = 10
 EPOCHS_PER_GROUP = 10
 BATCH_SIZE = 1024
-LR_INIT = 0.02
+LR_INIT = 0.01
 LR_DECAY_FACTOR = 0.1
 LR_MILESTONE_ITERS = [10, 30, 60]
 
@@ -221,7 +221,7 @@ def train_network(network: OthelloNetwork, learning_rate: float, iteration: int,
     print(f"The best model was at epoch {best_epoch}.")
     
     trace_model(f"./data/models/{RUN_NAME}/{RUN_NAME}_iteration_{iteration}.pt",
-                torch.randn(1, 3, 6, 6),
+                torch.randn(1, 3, 8, 8),
                 f"./data/models/{RUN_NAME}/traced_{RUN_NAME}_iteration_{iteration}.pt")
     
     network.to("cpu")

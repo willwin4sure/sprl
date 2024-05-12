@@ -21,8 +21,8 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 ##  Hyperparameters  ##
 #######################
 
-NUM_ITERS = 100
-EXEC_PATH = "./build/Release/C4SelfPlay.exe"
+NUM_ITERS = 50
+EXEC_PATH = "./cpp/build/C4SelfPlay"
 
 # Parameters for self-play iteration
 NUM_GAMES_PER_ITER = 500
@@ -40,17 +40,17 @@ INIT_MAX_QUEUE_SIZE = 1
 MODEL_NUM_BLOCKS = 2
 MODEL_NUM_CHANNELS = 64
 RESET_NETWORK = False
-LINEAR_WEIGHTING = True
+LINEAR_WEIGHTING = False
 NUM_PAST_ITERS_TO_TRAIN = 20
-MAX_GROUPS = 5
+MAX_GROUPS = 10
 EPOCHS_PER_GROUP = 20
 BATCH_SIZE = 1024
 
 # Techniques to run ablation on
-SYMMETRIZE = True
+SYMMETRIZE = False
 USE_PARENT_Q = True
 
-RUN_NAME = f"gorilla_{random.randint(0,1000000000)}"
+RUN_NAME = f"gorilla_ablation_only_parent_q"
 
 
 os.makedirs(f"data/games/{RUN_NAME}", exist_ok=True)
