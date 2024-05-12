@@ -38,7 +38,9 @@ from src.pentago_constants import (
     MAX_GROUPS,
     EPOCHS_PER_GROUP,
     BATCH_SIZE,
-    LR,
+    LR_INIT,
+    LR_DECAY_FACTOR,
+    LR_MILESTONE_ITERS,
 
     RUN_NAME,
 )
@@ -107,7 +109,7 @@ def collate_data(iteration: int, live_workers: set):
     return new_states, new_distributions, new_outcomes, new_timestamps
 
 
-def train_network(network: PentagoNetwork, iteration: int, state_tensor, distribution_tensor, outcome_tensor, timestamp_tensor):
+def train_network(network: PentagoNetwork, learning_rate: float, iteration: int, state_tensor, distribution_tensor, outcome_tensor, timestamp_tensor):
     network.to(device)
 
     dataset = TensorDataset(state_tensor, distribution_tensor, outcome_tensor, timestamp_tensor)
@@ -123,12 +125,12 @@ def train_network(network: PentagoNetwork, iteration: int, state_tensor, distrib
     train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     val_dataloader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=True)
     
-    optimizer = torch.optim.AdamW(network.parameters(), lr=LR)
+    optimizer = torch.optim.AdamW(network.parameters(), lr=learning_rate)
 
     best_val_loss = float("inf")
     best_epoch = 0
 
-    EPS = 1e-8
+    EPS = 1e-8  # Small constant to prevent log(0)
 
     for group in range(MAX_GROUPS):
         with tqdm(range(EPOCHS_PER_GROUP)) as pbar:
@@ -210,8 +212,8 @@ def train_network(network: PentagoNetwork, iteration: int, state_tensor, distrib
                 pbar.set_description(
                     f"Tr Pol: {train_init_policy_loss:.4f} -> {train_average_policy_loss:.4f}, Tr Val: {train_init_value_loss:.4f} -> {train_average_value_loss:.4f}, Val Pol: {val_init_policy_loss:.4f} -> {val_average_policy_loss:.4f}, Val Val: {val_init_value_loss:.4f} -> {val_average_value_loss:.4f}")
                 
-            # If the best epoch is among the last EPOCHS_PER_GROUP // 4 epochs, don't break, might get more from training
-            if best_epoch < (group + 1) * EPOCHS_PER_GROUP - EPOCHS_PER_GROUP // 4:
+            # If the best epoch is among the last EPOCHS_PER_GROUP // 2 epochs, don't break, might get more from training
+            if best_epoch < (group + 1) * EPOCHS_PER_GROUP - EPOCHS_PER_GROUP // 2:
                 break
 
     print(f"The best model was at epoch {best_epoch}.")
@@ -254,42 +256,55 @@ def main():
         f.write(f"MAX_GROUPS = {MAX_GROUPS}\n")
         f.write(f"EPOCHS_PER_GROUP = {EPOCHS_PER_GROUP}\n")
         f.write(f"BATCH_SIZE = {BATCH_SIZE}\n")
-        f.write(f"LR = {LR}\n")
+        f.write(f"LR_INIT = {LR_INIT}\n")
+        f.write(f"LR_DECAY_FACTOR = {LR_DECAY_FACTOR}\n")
+        f.write(f"LR_MILESTONE_ITERS = {LR_MILESTONE_ITERS}\n")
 
     print(f"Wrote configuration file at ./data/configs/{RUN_NAME}_config.txt.")
 
-    all_states = []
-    all_distributions = []
-    all_outcomes = []
-    all_timestamps = []
+    all_state_tensors = []
+    all_distribution_tensors = []
+    all_outcome_tensors = []
+    all_timestamp_tensors = []
 
     network = PentagoNetwork(MODEL_NUM_BLOCKS, MODEL_NUM_CHANNELS)
+    learning_rate = LR_INIT
 
     live_workers = set(range(NUM_WORKER_TASKS))
 
     for iteration in range(NUM_ITERS):
         print(f"Iteration {iteration}...")
 
+        if iteration in LR_MILESTONE_ITERS:
+            print(f"Decaying learning rate to {learning_rate}.")
+            learning_rate *= LR_DECAY_FACTOR
+
         if RESET_NETWORK:
+            print(f"Resetting network.")
             network = PentagoNetwork(MODEL_NUM_BLOCKS, MODEL_NUM_CHANNELS)
 
         new_states, new_distributions, new_outcomes, new_timestamps = collate_data(iteration, live_workers)
 
-        all_states.extend(new_states)
-        all_distributions.extend(new_distributions)
-        all_outcomes.extend(new_outcomes)
-        all_timestamps.extend(new_timestamps)
+        new_state_tensor = torch.cat(new_states, dim=0).to(device)
+        new_distribution_tensor = torch.cat(new_distributions, dim=0).to(device)
+        new_outcome_tensor = torch.cat(new_outcomes, dim=0).unsqueeze(1).to(device)
+        new_timestamp_tensor = torch.cat(new_timestamps, dim=0).unsqueeze(1).to(device)
 
-        state_tensor = torch.cat(all_states, dim=0).to(device)
-        distribution_tensor = torch.cat(all_distributions, dim=0).to(device)
-        outcome_tensor = torch.cat(all_outcomes, dim=0).unsqueeze(1).to(device)
-        timestamp_tensor = torch.cat(all_timestamps, dim=0).unsqueeze(1).to(device)
+        assert new_state_tensor.shape[0] == new_distribution_tensor.shape[0] == new_outcome_tensor.shape[0] == new_timestamp_tensor.shape[0]
 
-        assert state_tensor.shape[0] == distribution_tensor.shape[0] == outcome_tensor.shape[0] == timestamp_tensor.shape[0]
+        all_state_tensors.append(new_state_tensor)
+        all_distribution_tensors.append(new_distribution_tensor)
+        all_outcome_tensors.append(new_outcome_tensor)
+        all_timestamp_tensors.append(new_timestamp_tensor)
 
-        print(f"Training network on {state_tensor.shape[0]} samples...")
+        train_state_tensor = torch.cat(all_state_tensors[-NUM_PAST_ITERS_TO_TRAIN:], dim=0)
+        train_distribution_tensor = torch.cat(all_distribution_tensors[-NUM_PAST_ITERS_TO_TRAIN:], dim=0)
+        train_outcome_tensor = torch.cat(all_outcome_tensors[-NUM_PAST_ITERS_TO_TRAIN:], dim=0)
+        train_timestamp_tensor = torch.cat(all_timestamp_tensors[-NUM_PAST_ITERS_TO_TRAIN:], dim=0) - max(0, iteration - NUM_PAST_ITERS_TO_TRAIN)
 
-        train_network(network, iteration, state_tensor, distribution_tensor, outcome_tensor, timestamp_tensor)
+        assert train_state_tensor.shape[0] == train_distribution_tensor.shape[0] == train_outcome_tensor.shape[0] == train_timestamp_tensor.shape[0]
+
+        train_network(network, learning_rate, iteration, train_state_tensor, train_distribution_tensor, train_outcome_tensor, train_timestamp_tensor)
 
 
 if __name__ == "__main__":

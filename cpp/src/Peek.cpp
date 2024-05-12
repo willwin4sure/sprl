@@ -36,8 +36,6 @@ int main(int argc, char* argv[]) {
     
     SPRL::ActionIdx action = networkAgent.act(&game, state, game.actionMask(state), true);
 
-    std::cout << "Action: " << action << std::endl;
-
     state = game.nextState(state, action);
 
     std::cout << game.stateToString(state) << std::endl;

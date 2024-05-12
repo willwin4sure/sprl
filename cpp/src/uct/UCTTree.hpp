@@ -107,7 +107,7 @@ public:
         if (m_symmetrizeNetwork) {
             int numSymmetries = m_game->numSymmetries();
             for (int i = 0; i < numLeaves; ++i) {
-                symmetries[i] = GetRandom().UniformInt(0, numSymmetries - 1);
+                symmetries[i] = static_cast<Symmetry>(GetRandom().UniformInt(0, numSymmetries - 1));
                 states[i] = m_game->symmetrizeState(states[i], { symmetries[i] })[0];
             }
         }

@@ -69,6 +69,13 @@ public:
         // sample action with most visits
         ActionIdx action = std::distance(visits.begin(), std::max_element(visits.begin(), visits.end()));
 
+        if (verbose) {
+            std::cout << "Action: " << action << '\n';
+            std::cout << "Action prior: " << priors[action] << '\n';
+            std::cout << "Action visits: " << visits[action] << '\n';
+            std::cout << "Action average value: " << values[action] / (1 + visits[action]) << '\n';
+        }
+
         m_tree->rerootTree(action);
 
         return action;

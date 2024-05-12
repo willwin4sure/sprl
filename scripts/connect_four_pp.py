@@ -21,8 +21,8 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 ##  Hyperparameters  ##
 #######################
 
-NUM_ITERS = 100
-EXEC_PATH = "./build/Release/C4SelfPlay.exe"
+NUM_ITERS = 50
+EXEC_PATH = "./cpp/build/C4SelfPlay"
 
 # Parameters for self-play iteration
 NUM_GAMES_PER_ITER = 500
@@ -31,7 +31,7 @@ MAX_TRAVERSALS = 8
 MAX_QUEUE_SIZE = 4
 
 # Seed games at iteration 0
-INIT_NUM_GAMES = 2500
+INIT_NUM_GAMES = 1000
 INIT_UCT_ITERATIONS = 32768
 INIT_MAX_TRAVERSALS = 1
 INIT_MAX_QUEUE_SIZE = 1
@@ -40,12 +40,17 @@ INIT_MAX_QUEUE_SIZE = 1
 MODEL_NUM_BLOCKS = 2
 MODEL_NUM_CHANNELS = 64
 RESET_NETWORK = False
+LINEAR_WEIGHTING = False
 NUM_PAST_ITERS_TO_TRAIN = 20
-MAX_GROUPS = 5
+MAX_GROUPS = 10
 EPOCHS_PER_GROUP = 20
 BATCH_SIZE = 1024
 
-RUN_NAME = f"gorilla_{random.randint(0,1000000000)}"
+# Techniques to run ablation on
+SYMMETRIZE = False
+USE_PARENT_Q = True
+
+RUN_NAME = f"gorilla_ablation_only_parent_q"
 
 
 os.makedirs(f"data/games/{RUN_NAME}", exist_ok=True)
@@ -66,10 +71,13 @@ with open(f"./data/configs/{RUN_NAME}_config.txt", "w") as f:
     f.write(f"MODEL_NUM_BLOCKS = {MODEL_NUM_BLOCKS}\n")
     f.write(f"MODEL_NUM_CHANNELS = {MODEL_NUM_CHANNELS}\n")
     f.write(f"RESET_NETWORK = {RESET_NETWORK}\n")
+    f.write(f"LINEAR_WEIGHTING = {LINEAR_WEIGHTING}\n")
     f.write(f"NUM_PAST_ITERS_TO_TRAIN = {NUM_PAST_ITERS_TO_TRAIN}\n")
     f.write(f"MAX_GROUPS = {MAX_GROUPS}\n")
     f.write(f"EPOCHS_PER_GROUP = {EPOCHS_PER_GROUP}\n")
     f.write(f"BATCH_SIZE = {BATCH_SIZE}\n")
+    f.write(f"SYMMETRIZE = {SYMMETRIZE}\n")
+    f.write(f"PARENT_Q_INIT = {USE_PARENT_Q}\n")
 
 
 def train_network(network: NewConnectFourNetwork, iteration: int):
@@ -88,7 +96,7 @@ def train_network(network: NewConnectFourNetwork, iteration: int):
         states = torch.Tensor(np.load(f"./data/games/{RUN_NAME}/{RUN_NAME}_iteration_{i}_states.npy"))
         distributions = torch.Tensor(np.load(f"./data/games/{RUN_NAME}/{RUN_NAME}_iteration_{i}_distributions.npy"))
         outcomes = torch.Tensor(np.load(f"./data/games/{RUN_NAME}/{RUN_NAME}_iteration_{i}_outcomes.npy"))
-        timestamps = torch.Tensor([timestamp for _ in range(states.shape[0])])
+        timestamps = torch.Tensor([timestamp if LINEAR_WEIGHTING else 1 for _ in range(states.shape[0])])
         
         timestamp += 1
         
@@ -235,6 +243,7 @@ def train():
         run_self_play(EXEC_PATH, network_path,
                       f"./data/games/{RUN_NAME}/{RUN_NAME}_iteration_{iteration}",
                       num_games, uct_iterations, max_traversals, max_queue_size,
+                      symmetrize=SYMMETRIZE, use_parent_q=USE_PARENT_Q,
                       do_print_tqdm=True)
         
         train_network(network, iteration)

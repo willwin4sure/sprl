@@ -8,6 +8,7 @@
 
 #include "agents/HumanAgent.hpp"
 #include "agents/HumanPentagoAgent.hpp"
+#include "agents/HumanOthelloAgent.hpp"
 #include "agents/UCTNetworkAgent.hpp"
 
 #include "evaluate/play.hpp"
@@ -16,6 +17,7 @@
 #include "games/Game.hpp"
 #include "games/ConnectFour.hpp"
 #include "games/Pentago.hpp"
+#include "games/Othello.hpp"
 
 #include "interface/npy.hpp"
 
@@ -24,12 +26,14 @@
 #include "networks/RandomNetwork.hpp"
 #include "networks/PentagoHeuristic.hpp"
 #include "networks/PentagoNetwork.hpp"
+#include "networks/OthelloHeuristic.hpp"
+#include "networks/OthelloNetwork.hpp"
 
 #include "uct/UCTNode.hpp"
 #include "uct/UCTTree.hpp"
 
-constexpr int BOARD_SIZE = 36;
-constexpr int ACTION_SIZE = 288;
+constexpr int BOARD_SIZE = 64;
+constexpr int ACTION_SIZE = 65;
 
 int main(int argc, char* argv[]) {
     if (argc != 6) {
@@ -43,12 +47,14 @@ int main(int argc, char* argv[]) {
     int maxTraversals = std::stoi(argv[4]);
     int maxQueueSize = std::stoi(argv[5]);
 
-    auto game = std::make_unique<SPRL::Pentago>();
+    auto game = std::make_unique<SPRL::Othello>();
 
     SPRL::Network<BOARD_SIZE, ACTION_SIZE>* network;
 
     SPRL::RandomNetwork<BOARD_SIZE, ACTION_SIZE> randomNetwork {};
-    SPRL::PentagoNetwork neuralNetwork { modelPath };
+    SPRL::OthelloNetwork neuralNetwork { modelPath };
+
+    network = &randomNetwork;
 
     if (modelPath == "random") {
         std::cout << "Using random network..." << std::endl;
@@ -63,7 +69,7 @@ int main(int argc, char* argv[]) {
     SPRL::UCTTree<BOARD_SIZE, ACTION_SIZE> tree { game.get(), state, false }; 
     SPRL::UCTNetworkAgent<BOARD_SIZE, ACTION_SIZE> networkAgent { network, &tree, numIters, maxTraversals, maxQueueSize };
 
-    SPRL::HumanPentagoAgent humanAgent {};
+    SPRL::HumanOthelloAgent humanAgent {};
 
     std::array<SPRL::Agent<BOARD_SIZE, ACTION_SIZE>*, 2> agents;
 
