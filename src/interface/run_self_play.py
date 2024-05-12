@@ -18,6 +18,9 @@ def run_self_play(exec_path: str, model_path: str, save_path: str, num_games: in
         num_iters (int): number of iterations of UCT search to run
         max_traversals (int): maximum number of traversals per batch
         max_queue_size (int): maximum number of NN evals per batch
+        symmetrize (bool): whether to symmetrize the data
+        use_parent_q (bool): whether to use the parent's Q value
+        do_print_tqdm (bool): whether to print a tqdm progress bar
     """
     process = subprocess.Popen([exec_path, model_path, save_path,
                                 str(num_games), str(num_iters), str(max_traversals), str(max_queue_size), "1" if symmetrize else "0", "1" if symmetrize else "0", "1" if use_parent_q else "0"],
