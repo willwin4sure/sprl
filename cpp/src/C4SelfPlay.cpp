@@ -14,8 +14,8 @@
 #include <string>
 
 int main(int argc, char *argv[]) {
-    if (argc != 7) {
-        std::cerr << "Usage: ./C4SelfPlay.exe <model_path> <save_path> <numGames> <numIters> <maxTraversals> <maxQueueSize>" << std::endl;
+    if (argc != 10) {
+        std::cerr << "Usage: ./C4SelfPlay.exe <model_path> <save_path> <numGames> <numIters> <maxTraversals> <maxQueueSize> <useSymmetrizeNetwork> <useSymmetrizeData> <useParentQ>" << std::endl;
         return 1;
     }
 
@@ -25,6 +25,9 @@ int main(int argc, char *argv[]) {
     int numIters = std::stoi(argv[4]);
     int maxTraversals = std::stoi(argv[5]);
     int maxQueueSize = std::stoi(argv[6]);
+    bool symmetrizeNetwork = std::stoi(argv[7]) > 0;
+    bool symmetrizeData = std::stoi(argv[8]) > 0;
+    bool useParentQ = std::stoi(argv[9]) > 0;
 
     SPRL::ConnectFour game;
 
@@ -41,7 +44,7 @@ int main(int argc, char *argv[]) {
         network = &neuralNetwork;
     }
 
-    auto [states, distributions, outcomes] = SPRL::runIteration(&game, network, numGames, numIters, maxTraversals, maxQueueSize);
+    auto [states, distributions, outcomes] = SPRL::runIteration(&game, network, numGames, numIters, maxTraversals, maxQueueSize, true, symmetrizeNetwork, symmetrizeData, useParentQ);
 
     std::vector<float> embeddedStates;
     for (const SPRL::GameState<42>& state : states) {

@@ -8,7 +8,7 @@ to generate self-play data.
 from tqdm import tqdm
 import subprocess
 
-def run_self_play(exec_path: str, model_path: str, save_path: str, num_games: int, num_iters: int, max_traversals: int, max_queue_size: int, do_print_tqdm: bool):
+def run_self_play(exec_path: str, model_path: str, save_path: str, num_games: int, num_iters: int, max_traversals: int, max_queue_size: int, symmetrize: bool, use_parent_q: bool, do_print_tqdm: bool):
     """
     Args:
         exec_path (str): path to the compiled cpp executable, e.g. something like "/build/Release/C4SelfPlay.exe"
@@ -20,7 +20,7 @@ def run_self_play(exec_path: str, model_path: str, save_path: str, num_games: in
         max_queue_size (int): maximum number of NN evals per batch
     """
     process = subprocess.Popen([exec_path, model_path, save_path,
-                                str(num_games), str(num_iters), str(max_traversals), str(max_queue_size)],
+                                str(num_games), str(num_iters), str(max_traversals), str(max_queue_size), "1" if symmetrize else "0", "1" if symmetrize else "0", "1" if use_parent_q else "0"],
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
     if do_print_tqdm:

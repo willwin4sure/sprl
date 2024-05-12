@@ -40,7 +40,8 @@ selfPlay(Game<BOARD_SIZE, ACTION_SIZE>* game,
          int maxQueueSize,
          bool addNoise = true,
          bool symmetrizeNetwork = true,
-         bool symmetrizeData = true) {
+         bool symmetrizeData = true,
+         bool useParentQ = true) {
 
     using State = GameState<BOARD_SIZE>;
     using ActionDist = GameActionDist<ACTION_SIZE>;
@@ -55,7 +56,7 @@ selfPlay(Game<BOARD_SIZE, ACTION_SIZE>* game,
     }
 
     State state = game->startState();
-    UCTTree<BOARD_SIZE, ACTION_SIZE> tree { game, state, addNoise, symmetrizeNetwork };
+    UCTTree<BOARD_SIZE, ACTION_SIZE> tree { game, state, addNoise, symmetrizeNetwork, useParentQ };
 
     int moveCount = 0;
 
@@ -171,7 +172,8 @@ template <int BOARD_SIZE, int ACTION_SIZE>
 std::tuple<std::vector<GameState<BOARD_SIZE>>, std::vector<GameActionDist<ACTION_SIZE>>, std::vector<float>>
 runIteration(Game<BOARD_SIZE, ACTION_SIZE>* game,
              Network<BOARD_SIZE, ACTION_SIZE>* network,
-             int numGames, int numIters, int maxTraversals, int maxQueueSize) {
+             int numGames, int numIters, int maxTraversals, int maxQueueSize,
+             bool addNoise = true, bool symmetrizeNetwork = true, bool symmetrizeData = true, bool useParentQ = true) {
 
     using State = GameState<BOARD_SIZE>;
     using ActionDist = GameActionDist<ACTION_SIZE>;
@@ -183,7 +185,7 @@ runIteration(Game<BOARD_SIZE, ACTION_SIZE>* game,
     // auto pbar = tq::trange(numGames);
     // pbar.set_prefix("Generating self-play data: ");  // Do not change this prefix: Python side hooks into it
     for (int t = 0; t < numGames; ++t) {
-        auto [states, distributions, outcome] = selfPlay(game, network, numIters, maxTraversals, maxQueueSize);
+        auto [states, distributions, outcome] = selfPlay(game, network, numIters, maxTraversals, maxQueueSize, addNoise, symmetrizeNetwork, symmetrizeData, useParentQ);
 
         allStates.reserve(allStates.size() + states.size());
         allStates.insert(allStates.end(), states.begin(), states.end());

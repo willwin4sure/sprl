@@ -27,6 +27,7 @@
 #include "networks/PentagoHeuristic.hpp"
 #include "networks/PentagoNetwork.hpp"
 #include "networks/OthelloHeuristic.hpp"
+#include "networks/OthelloNetwork.hpp"
 
 #include "uct/UCTNode.hpp"
 #include "uct/UCTTree.hpp"
@@ -50,22 +51,18 @@ int main(int argc, char* argv[]) {
 
     SPRL::Network<BOARD_SIZE, ACTION_SIZE>* network;
 
-    SPRL::OthelloHeuristic heuristic {};
-
-    network = &heuristic;
-
     SPRL::RandomNetwork<BOARD_SIZE, ACTION_SIZE> randomNetwork {};
-    // SPRL::PentagoNetwork neuralNetwork { modelPath };
+    SPRL::OthelloNetwork neuralNetwork { modelPath };
 
-    // network = &randomNetwork;
+    network = &randomNetwork;
 
-    // if (modelPath == "random") {
-    //     std::cout << "Using random network..." << std::endl;
-    //     network = &randomNetwork;
-    // } else {
-    //     std::cout << "Using traced PyTorch network..." << std::endl;
-    //     network = &neuralNetwork;
-    // }
+    if (modelPath == "random") {
+        std::cout << "Using random network..." << std::endl;
+        network = &randomNetwork;
+    } else {
+        std::cout << "Using traced PyTorch network..." << std::endl;
+        network = &neuralNetwork;
+    }
 
     SPRL::GameState<BOARD_SIZE> state = game->startState();
 
