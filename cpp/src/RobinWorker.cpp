@@ -10,22 +10,20 @@
 #include <filesystem>
 #include <fstream>
 
-#include "agents/HumanAgent.hpp"
-#include "agents/HumanPentagoAgent.hpp"
+#include "agents/Agent.hpp"
 #include "agents/UCTNetworkAgent.hpp"
 
 #include "evaluate/play.hpp"
 
 #include "games/GameState.hpp"
 #include "games/Game.hpp"
-#include "games/ConnectFour.hpp"
-#include "games/Pentago.hpp"
+#include "games/Othello.hpp"
 
 #include "interface/npy.hpp"
 
 #include "networks/Network.hpp"
 #include "networks/RandomNetwork.hpp"
-#include "networks/ConnectFourNetwork.hpp"
+#include "networks/OthelloNetwork.hpp"
 
 #include "uct/UCTNode.hpp"
 #include "uct/UCTTree.hpp"
@@ -57,8 +55,8 @@ int main(int argc, char* argv[]) {
     int myGroup = myTaskId / (numTasks / 4);
     std::cout << "I am task " << myTaskId << " of " << numTasks << " in group " << myGroup << std::endl;
 
-    std::string runName = "gorilla_ablation";
-    std::string saveDir = "data/robin/" + runName + "/" + std::to_string(myGroup);
+    std::string runName = "manatee";
+    std::string saveDir = "data/robin2/" + runName + "/" + std::to_string(myGroup) + "/" + std::to_string(myTaskId);
 
     // Make the directory if it doesn't exist.
     try {
@@ -90,19 +88,28 @@ int main(int argc, char* argv[]) {
     // A win is worth 2 points; a draw is worth 1 point.
     std::vector<std::vector<int>> points(numPlayers, std::vector<int>(numPlayers, 0));
 
-    auto game = std::make_unique<SPRL::ConnectFour>();
+    auto game = std::make_unique<SPRL::Othello>();
 
     // Setup the networks.
-    std::vector<std::unique_ptr<SPRL::Network<42, 7>>> networks(numPlayers);
+    std::vector<std::unique_ptr<SPRL::Network<64, 65>>> networks(numPlayers);
 
     for (int i = 0; i < numPlayers; ++i) {
         if (players[i].modelPath == "random") {
             std::cout << "Using random network for player " << i << "..." << std::endl;
-            networks[i] = std::make_unique<SPRL::RandomNetwork<42, 7>>();
+            networks[i] = std::make_unique<SPRL::RandomNetwork<64, 65>>();
         } else {
             std::cout << "Using traced PyTorch network for player " << i << "..." << std::endl;
-            networks[i] = std::make_unique<SPRL::ConnectFourNetwork>(players[i].modelPath);
+            networks[i] = std::make_unique<SPRL::OthelloNetwork>(players[i].modelPath);
         }
+    }
+
+    // Write game results to a log.
+    std::string logPath = saveDir + "/log.txt";
+    std::ofstream logFile(logPath);
+
+    if (!logFile.is_open()) {
+        std::cerr << "Error opening file: " << logPath << std::endl;
+        return 1;
     }
 
     // Play two games between each pair of players.
@@ -110,20 +117,20 @@ int main(int argc, char* argv[]) {
         for (int j = 0; j < numPlayers; ++j) {
             if (i == j) continue;
 
-            SPRL::GameState<42> state0 = game->startState();
-            SPRL::GameState<42> state1 = game->startState();
+            SPRL::GameState<64> state0 = game->startState();
+            SPRL::GameState<64> state1 = game->startState();
 
-            SPRL::UCTTree<42, 7> tree0 { game.get(), state0, false, players[i].useSymmetrize, players[i].useParentQ };
-            SPRL::UCTTree<42, 7> tree1 { game.get(), state1, false, players[j].useSymmetrize, players[j].useParentQ };
+            SPRL::UCTTree<64, 65> tree0 { game.get(), state0, false, players[i].useSymmetrize, players[i].useParentQ };
+            SPRL::UCTTree<64, 65> tree1 { game.get(), state1, false, players[j].useSymmetrize, players[j].useParentQ };
 
-            SPRL::UCTNetworkAgent<42, 7> networkAgent0 { networks[i].get(), &tree0, 1000, 8, 4 };
-            SPRL::UCTNetworkAgent<42, 7> networkAgent1 { networks[j].get(), &tree1, 1000, 8, 4 };
+            SPRL::UCTNetworkAgent<64, 65> networkAgent0 { networks[i].get(), &tree0, 100, 8, 4 };
+            SPRL::UCTNetworkAgent<64, 65> networkAgent1 { networks[j].get(), &tree1, 100, 8, 4 };
 
-            std::array<SPRL::Agent<42, 7>*, 2> agents { &networkAgent0, &networkAgent1 };
+            std::array<SPRL::Agent<64, 65>*, 2> agents { &networkAgent0, &networkAgent1 };
 
             int winner = SPRL::playGame(game.get(), game->startState(), agents, false);
 
-            std::cout << "Game between players " << i << " and " << j << " ended with winner " << winner << std::endl;
+            logFile << i << " " << j << " " << winner << std::endl;
 
             if (winner == 0) {
                 // Player i wins
@@ -141,23 +148,25 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    // Write the results to a file using fstream.
-    std::string savePath = saveDir + "/points.txt";
-    std::ofstream file(savePath);
+    logFile.close();
 
-    if (!file.is_open()) {
-        std::cerr << "Error opening file: " << savePath << std::endl;
+    // Write the table to a file using fstream.
+    std::string tableSavePath = saveDir + "/points.txt";
+    std::ofstream tableFile(tableSavePath);
+
+    if (!tableFile.is_open()) {
+        std::cerr << "Error opening file: " << tableSavePath << std::endl;
         return 1;
     }
 
     for (int i = 0; i < numPlayers; ++i) {
         for (int j = 0; j < numPlayers; ++j) {
-            file << points[i][j] << " ";
+            tableFile << points[i][j] << " ";
         }
-        file << std::endl;
+        tableFile << std::endl;
     }
 
-    file.close();
+    tableFile.close();
 
     return 0;
 }
