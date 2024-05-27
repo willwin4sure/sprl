@@ -55,7 +55,6 @@ cmake -DCMAKE_PREFIX_PATH=/absolute/path/to/libtorch ..
 cmake --build . --config Release
 ```
 
-
 ### Windows
 
 On Windows, you will probably need to use a Visual Studio compiler on
