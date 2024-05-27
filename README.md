@@ -34,19 +34,25 @@ neural network. The code is responsible for collating self-play data,
 splitting it into training and validation sets, and tracing the networks
 for inference in C++ using LibTorch.
 
-## Requirements
+## How to Develop and Build
 
-Be sure to run `pip install -e .` in your environment to install the `src`
-package, so the `import` statements all work. You will also need standard
-packages such as `numpy` and `torch`.
+For the Python code, you will need standard packages such as `numpy`
+and `torch`. I would recommend creating a virtual environment
+and installing them there. You can see the full list of requiements
+in `requirements.txt`.
 
-To compile the C++ code, you will need a suitable LibTorch distribution.
-You can learn how to set this up from the [docs](https://pytorch.org/cppdocs/installing.html).
+Be sure to also run `pip install -e .` to install the `src` package,
+so all the `import` statements work properly.
+
+For the C++ code, you will need a suitable compiler and CMake.
+You will also need a LibTorch distribution, which you can learn
+to setup from the [docs](https://pytorch.org/cppdocs/installing.html).
 
 ### Linux
 
-On Linux, simply `wget` and `unzip` the LibTorch ZIP archive, navigate
-to the `/cpp` directory, and then run the commands:
+On Linux, simply `wget` and `unzip` the LibTorch ZIP archive into
+your favorite location on your location. To build,
+navigate to the `/cpp` directory and then run the commands:
 
 ```shell
 mkdir build
@@ -55,15 +61,35 @@ cmake -DCMAKE_PREFIX_PATH=/absolute/path/to/libtorch ..
 cmake --build . --config Release
 ```
 
+This will build the files into the `/cpp/build` directory.
+
 ### Windows
 
-On Windows, you will probably need to use a Visual Studio compiler on
-Release mode (I couldn't get G++ to work). I would recommend installing
-LibTorch into your root directory `C:/` and then adding the line
-`list(APPEND CMAKE_PREFIX_PATH "C:\\libtorch\\share\\cmake\\Torch")`
-into `CMakeLists.txt` in order for the compiler to locate it.
+On Windows, install LibTorch using the
+[PyTorch website](https://pytorch.org/get-started/locally/)
+into your favorite location on your computer.
 
-## Running the Code
+You will probably need to build using a Visual Studio compiler
+on Release mode (I couldn't get G++ to work).
+
+If you are using the CMake extension in VSCode, I would recommend
+adding the path to your LibTorch installation to the CMake
+configuration settings. You can find this by clicking the
+cog wheel icon in the CMake extension side bar.
+
+Then, add an entry with item `CMAKE_PREFIX_PATH` and value
+`/absolute/path/to/libtorch/share/cmake/Torch`, e.g.
+`C:/libtorch/share/cmake/Torch`.
+
+Then, to build, open a new workspace inside the `/cpp` folder
+and click the Build button with the CMake extension in VSCode.
+
+To actually run any resultant executable, you will also
+need to copy every `.dll` file from `/libtorch/lib` into
+the same directory as the executable to be dynamically linked
+at runtime.
+
+## Starting Training Runs
 
 Right now, there are two entrypoints into the code for the training loop.
 You need to compile an executable such as `/cpp/build/OTHWorker.exe`
@@ -78,6 +104,8 @@ Further, the `RUN_NAME` constant **must** be sync-ed with the constant
 string `runName` in `/cpp/OTHWorker.cpp`, otherwise the data will not be
 transferred correctly.
 
+**Remember to recompile the C++ code if you change the constant values!**
+
 There are two shell scripts `/scripts/othello_worker.sh` and
 `/scripts/othello_controller.sh` that run these two components.
 There is also a top-level `othello_main.sh` that automatically
@@ -86,3 +114,6 @@ the code is designed to train the neural network on one GPU
 controller machine and collect data across 384 worker CPU cores.
 The machines operate in lock step, though it is written to be
 fault-tolerant to any individual worker machine dying.
+
+A current work in progress is distributed data parallel training
+to train across multiple GPUs. This is not yet implemented.

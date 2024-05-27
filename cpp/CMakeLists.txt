@@ -10,8 +10,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include(CTest)
 enable_testing()
 
-# Path to libtorch on my Windows computers.
-list(APPEND CMAKE_PREFIX_PATH "C:\\libtorch\\share\\cmake\\Torch")
 find_package(Torch REQUIRED)
 
 set(src_dir ${PROJECT_SOURCE_DIR}/src)
