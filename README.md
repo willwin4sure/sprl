@@ -69,20 +69,18 @@ On Windows, install LibTorch using the
 [PyTorch website](https://pytorch.org/get-started/locally/)
 into your favorite location on your computer.
 
-You will probably need to build using a Visual Studio compiler
-on Release mode (I couldn't get G++ to work).
-
 If you are using the CMake extension in VSCode, I would recommend
 adding the path to your LibTorch installation to the CMake
 configuration settings. You can find this by clicking the
 cog wheel icon in the CMake extension side bar.
-
 Then, add an entry with item `CMAKE_PREFIX_PATH` and value
 `/absolute/path/to/libtorch/share/cmake/Torch`, e.g.
 `C:/libtorch/share/cmake/Torch`.
 
 Then, to build, open a new workspace inside the `/cpp` folder
 and click the Build button with the CMake extension in VSCode.
+You will probably need to build using a Visual Studio compiler
+on Release mode (I couldn't get G++ to work).
 
 To actually run any resultant executable, you will also
 need to copy every `.dll` file from `/libtorch/lib` into
