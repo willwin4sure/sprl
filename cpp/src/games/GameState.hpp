@@ -1,79 +1,54 @@
-#ifndef GAME_STATE_HPP
-#define GAME_STATE_HPP
+#ifndef SPRL_GAME_STATE_HPP
+#define SPRL_GAME_STATE_HPP
+
+#include "GameActionDist.hpp"
 
 #include <cstdint>
-#include <array>
 #include <vector>
 
 namespace SPRL {
 
-/// Type alias for the player (0 or 1), or -1 to represent no player.
-using Player = int8_t;
-
-/// Type alias for the piece (0 or 1), or -1 to represent no piece.
-using Piece = int8_t;
-
-/// Templated type alias for some board.
-template <int BOARD_SIZE>
-using GameBoard = std::array<Piece, BOARD_SIZE>;
-
+/**
+ * Represents a player in the game.
+*/
+enum class Player : int8_t {
+    NONE = -1,
+    ZERO = 0,
+    ONE  = 1
+};
 
 /**
- * Immutable class for game states, templated on the size of the (flattened) board.
- * 
- * Represents the current state of a game in a light-weight fashion.
+ * Represents a piece on the game board.
 */
-template <int BOARD_SIZE>
+enum class Piece : int8_t {
+    NONE = -1,
+    ZERO = 0,
+    ONE  = 1
+};
+
+/**
+ * Represents a game board of pieces.
+ * 
+ * @tparam BS The size of the board.
+*/
+template <int BS>
+using GameBoard = std::array<Piece, BS>;
+
+/**
+ * Immutable state of a game as a short history of board states.
+ * 
+ * Used as input into the neural network.
+ * 
+ * @tparam BS The size of the board.
+*/
+template <int BS>
 class GameState {
-public:
-    using Board = GameBoard<BOARD_SIZE>;
-
-    /**
-     * Constructs a new game state with an empty board, player 0 to move, no winner.
-    */
-    GameState() : m_board {}, m_player { 0 }, m_winner { -1 }, m_isTerminal { false } {
-        m_board.fill(-1);  // empty board
-    }
-
-    /**
-     * Constructs a new game state with the given board, player to move, and winner.
-    */
-    GameState(const Board& board, Player player, Player winner, bool isTerminal)
-        : m_board { board }, m_player { player }, m_winner { winner }, m_isTerminal { isTerminal } {}
-
-    /**
-     * Returns a readonly reference to the underlying board.
-    */
-    const Board& getBoard() const {
-        return m_board;
-    }
-
-    /**
-     * Returns the player to move.
-    */
-    Player getPlayer() const {
-        return m_player;
-    }
-
-    /**
-     * Returns the winner of the game.
-    */
-    Player getWinner() const {
-        return m_winner;
-    }
-
-    /**
-     * Returns whether the state is terminal.
-    */
-    bool isTerminal() const {
-        return m_isTerminal;
-    }
-
 private:
-    Board m_board {};
-    Player m_player {};
-    Player m_winner {};
-    bool m_isTerminal {};
+    /// `history[0]` is the current state and higher indices move back in time.
+    std::vector<GameBoard<BS>> m_history;
+
+    /// The current player to move.
+    Player m_player { Player::NONE };
 };
 
 } // namespace SPRL
