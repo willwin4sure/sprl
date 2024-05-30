@@ -2,16 +2,22 @@
 #define SPRL_GAME_ACTION_DIST_HPP
 
 #include <array>
+#include <cmath>
 
 namespace SPRL {
 
 /**
- * Represents a normalized distribution over legal actions.
+ * Represents any array of floats with length `AS`,
+ * e.g. could correspond to a probability distribution over actions.
  * 
  * @tparam AS The size of the action space.
+ * 
+ * @note Equipped with operations to manipulate
+ * action distributions like 1D arrays.
 */
 template <int AS>
 using GameActionDist = std::array<float, AS>;
+
 
 /**
  * @tparam AS The size of the action space.

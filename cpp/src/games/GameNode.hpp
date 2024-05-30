@@ -1,13 +1,23 @@
 #ifndef SPRL_GAME_NODE_HPP
 #define SPRL_GAME_NODE_HPP
 
-#include "GameState.hpp"
+#include "GameActionDist.hpp"
 
 #include <cassert>
+#include <cstdint>
 #include <memory>
 #include <string>
 
 namespace SPRL {
+
+/**
+ * Represents a player in the game.
+*/
+enum class Player : int8_t {
+    NONE = -1,
+    ZERO = 0,
+    ONE  = 1
+};
 
 /// Type alias for the action index.
 using ActionIdx = int16_t;
@@ -21,43 +31,13 @@ using Value = float;
  * Used to implement games that hold more state than just the information
  * available on the current game board.
  * 
- * @tparam BS The size of the board.
+ * @tparam State The state of the game.
  * @tparam AS The size of the action space.
 */
-template <int BS, int AS>
+template <typename State, int AS>
 class GameNode {
 public:
-    using Board = GameBoard<BS>;
-    using State = GameState<BS>;
     using ActionDist = GameActionDist<AS>;
-
-    /**
-     * Constructs a new game node with the initial state of the game.
-    */
-    GameNode()
-        : m_parent { nullptr }, m_action { 0 }, m_board {},
-          m_player { Player::ZERO }, m_winner { Player::NONE }, m_isTerminal { false } {
-
-        setStartNode();
-    }
-
-    /**
-     * Constructs a new game node with given parameters.
-     * 
-     * @param parent Raw pointer to the parent node.
-     * @param action The action taken to reach the new node.
-     * @param board The state of the board, will be copied.
-     * @param player The player to move in the new node.
-     * @param winner The winner of the game in the new node.
-     * @param isTerminal Whether the new node is terminal.
-    */
-    GameNode(GameNode* parent, ActionIdx action, const Board& board,
-             Player player, Player winner, bool isTerminal)
-
-        : m_parent { parent }, m_action { action }, m_board { board },
-          m_player { player }, m_winner { winner }, m_isTerminal { isTerminal } {
-
-    }
 
     virtual ~GameNode() { }
 
@@ -104,6 +84,13 @@ public:
     }
 
     /**
+     * @returns The player to move at this node.
+    */
+    Player getPlayer() const {
+        return m_player;
+    }
+
+    /**
      * @returns Whether the node is terminal.
     */
     bool isTerminal() const {
@@ -116,10 +103,10 @@ public:
     const ActionDist& getActionMask() const {
         return m_actionMask;
     }
-    
+
     /**
-     * @returns The game state at this node, i.e. a short history of board states
-     * fed into the neural network.
+     * @returns The game state at this node, e.g. a short history of board states
+     * that can be fed into the neural network.
     */
     virtual State getGameState() const = 0;
 
@@ -135,7 +122,7 @@ public:
 
 private:
     /**
-     * Sets the node to the initial state of the game.
+     * Mutates this node to the initial state of the game.
     */
     virtual void setStartNode() = 0;
 
@@ -150,7 +137,6 @@ private:
     std::array<std::unique_ptr<GameNode>, AS> m_children;  // Parent owns children.
 
     ActionIdx m_action;       // Action index taken into this node, 0 if root.
-    Board m_board;            // Current state of the pieces on the board.
     ActionDist m_actionMask;  // Current action mask of legal moves.
 
     Player m_player;    // The player to move.

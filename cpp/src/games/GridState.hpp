@@ -1,24 +1,21 @@
-#ifndef SPRL_GAME_STATE_HPP
-#define SPRL_GAME_STATE_HPP
+#ifndef SPRL_GRID_STATE_HPP
+#define SPRL_GRID_STATE_HPP
 
-#include "GameActionDist.hpp"
+/**
+ * @file GridState.hpp
+ * 
+ * Contains a particular game state representation for grid games
+ * with exactly two types of pieces.
+*/
 
-#include <cstdint>
+#include "GameNode.hpp"
+
 #include <vector>
 
 namespace SPRL {
 
 /**
- * Represents a player in the game.
-*/
-enum class Player : int8_t {
-    NONE = -1,
-    ZERO = 0,
-    ONE  = 1
-};
-
-/**
- * Represents a piece on the game board.
+ * Represents a piece on the grid game board.
 */
 enum class Piece : int8_t {
     NONE = -1,
@@ -27,25 +24,25 @@ enum class Piece : int8_t {
 };
 
 /**
- * Represents a game board of pieces.
+ * Represents a grid game board of pieces.
  * 
  * @tparam BS The size of the board.
 */
 template <int BS>
-using GameBoard = std::array<Piece, BS>;
+using GridBoard = std::array<Piece, BS>;
 
 /**
- * Immutable state of a game as a short history of board states.
+ * Immutable state of a grid game as a short history of board states.
  * 
  * Used as input into the neural network.
  * 
  * @tparam BS The size of the board.
 */
 template <int BS>
-class GameState {
+class GridState {
 private:
     /// `history[0]` is the current state and higher indices move back in time.
-    std::vector<GameBoard<BS>> m_history;
+    std::vector<GridBoard<BS>> m_history;
 
     /// The current player to move.
     Player m_player { Player::NONE };
