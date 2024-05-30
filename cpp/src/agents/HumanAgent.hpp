@@ -1,5 +1,5 @@
-#ifndef HUMAN_AGENT_HPP
-#define HUMAN_AGENT_HPP
+#ifndef SPRL_HUMAN_AGENT_HPP
+#define SPRL_HUMAN_AGENT_HPP
 
 #include "Agent.hpp"
 
@@ -10,16 +10,13 @@ namespace SPRL {
 /**
  * Agent that prompts the terminal for input.
 */
-template <int BOARD_SIZE, int ACTION_SIZE>
-class HumanAgent : public Agent<BOARD_SIZE, ACTION_SIZE> {
+template <typename State, int AS>
+class HumanAgent : public Agent<State, AS> {
 public:
-    using State = GameState<BOARD_SIZE>;
-    using ActionDist = GameActionDist<ACTION_SIZE>;
+    using GNode = GameNode<State, AS>;
+    using ActionDist = GameActionDist<AS>;
 
-    ActionIdx act(Game<BOARD_SIZE, ACTION_SIZE>* game,
-                  const State& state,
-                  const ActionDist& actionMask,
-                  bool verbose = false) const override {
+    ActionIdx act(const GNode* gameNode, bool verbose = false) const override {
 
         while (true) {
             ActionIdx action {};
@@ -34,12 +31,12 @@ public:
                 continue;
             }
 
-            if (action < 0 || action >= ACTION_SIZE) {
+            if (action < 0 || action >= AS) {
                 std::cout << "Action not in bounds. Try again." << '\n';
                 continue;
             }
 
-            if (actionMask[action] == 0.0) {
+            if (gameNode->getActionMask()[action] == 0.0f) {
                 std::cout << "Action is not legal in this position. Try again." << '\n';
                 continue;
             }

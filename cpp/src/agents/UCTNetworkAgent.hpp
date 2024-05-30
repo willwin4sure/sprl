@@ -1,5 +1,5 @@
-#ifndef UCT_NETWORK_AGENT_HPP
-#define UCT_NETWORK_AGENT_HPP
+#ifndef SPRL_UCT_NETWORK_AGENT_HPP
+#define SPRL_UCT_NETWORK_AGENT_HPP
 
 #include "Agent.hpp"
 #include "../networks/Network.hpp"
@@ -9,27 +9,26 @@
 
 namespace SPRL {
 
-template <int BOARD_SIZE, int ACTION_SIZE>
-class UCTNetworkAgent : public Agent<BOARD_SIZE, ACTION_SIZE> {
+template <typename State, int AS>
+class UCTNetworkAgent : public Agent<State, AS> {
 public:
-    using State = GameState<BOARD_SIZE>;
-    using ActionDist = GameActionDist<ACTION_SIZE>;
+    using GNode = GameNode<State, AS>;
+    using ActionDist = GameActionDist<AS>;
 
-    UCTNetworkAgent(Network<BOARD_SIZE, ACTION_SIZE>* network,
-                    UCTTree<BOARD_SIZE, ACTION_SIZE>* tree,
+    UCTNetworkAgent(Network<State, AS>* network,
+                    UCTTree<State, AS>* tree,
                     int numIters, int maxTraversals, int maxQueueSize)
         : m_network(network), m_tree(tree), m_numIters(numIters),
           m_maxTraversals(maxTraversals), m_maxQueueSize(maxQueueSize) {}
 
 
-    ActionIdx act(Game<BOARD_SIZE, ACTION_SIZE>* game,
-                  const State& state,
-                  const ActionDist& actionMask,
+    ActionIdx act(const GNode* gameNode,
                   bool verbose = false) const override {
         
         int iters = 0;
         while (iters < m_numIters) {
-            auto [leaves, iter] = m_tree->searchAndGetLeaves(m_maxTraversals, m_maxQueueSize, m_network);
+            auto [leaves, iter] = m_tree->searchAndGetLeaves(
+                m_maxTraversals, m_maxQueueSize, m_network);
 
             if (leaves.size() > 0) {
                 m_tree->evaluateAndBackpropLeaves(leaves, m_network);
@@ -38,9 +37,9 @@ public:
             iters += iter;
         }
 
-        auto priors = m_tree->getRoot()->getEdgeStatistics()->m_childPriors;
-        auto values = m_tree->getRoot()->getEdgeStatistics()->m_totalValues;
-        auto visits = m_tree->getRoot()->getEdgeStatistics()->m_numberVisits;
+        auto priors = m_tree->getDecisionNode()->getEdgeStatistics()->m_childPriors;
+        auto values = m_tree->getDecisionNode()->getEdgeStatistics()->m_totalValues;
+        auto visits = m_tree->getDecisionNode()->getEdgeStatistics()->m_numberVisits;
 
         if (verbose) {
             std::cout << "Priors: ";
@@ -59,14 +58,14 @@ public:
             }
 
             std::cout << "\nAverage values: ";
-            for (int i = 0; i < ACTION_SIZE; ++i) {
+            for (int i = 0; i < AS; ++i) {
                 std::cout << values[i] / (1 + visits[i]) << ' ';
             }
 
             std::cout << '\n';
         }
 
-        // sample action with most visits
+        // Sample action with most visits
         ActionIdx action = std::distance(visits.begin(), std::max_element(visits.begin(), visits.end()));
 
         if (verbose) {
@@ -76,18 +75,18 @@ public:
             std::cout << "Action average value: " << values[action] / (1 + visits[action]) << '\n';
         }
 
-        m_tree->rerootTree(action);
+        m_tree->advanceDecision(action);
 
         return action;
     }
 
     void opponentAct(const ActionIdx action) override {
-        m_tree->rerootTree(action);
+        m_tree->advanceDecision(action);
     }
 
 private:
-    Network<BOARD_SIZE, ACTION_SIZE>* m_network;
-    UCTTree<BOARD_SIZE, ACTION_SIZE>* m_tree;
+    Network<State, AS>* m_network;
+    UCTTree<State, AS>* m_tree;
     int m_numIters {};
     int m_maxTraversals {};
     int m_maxQueueSize {};

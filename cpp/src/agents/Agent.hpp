@@ -1,36 +1,32 @@
-#ifndef AGENT_HPP
-#define AGENT_HPP
+#ifndef SPRL_AGENT_HPP
+#define SPRL_AGENT_HPP
 
-#include "../games/GameState.hpp"
-#include "../games/Game.hpp"
+#include "../games/GameNode.hpp"
 
 namespace SPRL {
 
 /**
  * Interface class for agents that play a game.
 */
-template <int BOARD_SIZE, int ACTION_SIZE>
+template <typename State, int AS>
 class Agent {
 public:
-    using State = GameState<BOARD_SIZE>;
-    using ActionDist = GameActionDist<ACTION_SIZE>;
+    using GNode = GameNode<State, AS>;
+    using ActionDist = GameActionDist<AS>;
 
     virtual ~Agent() = default;
 
     /**
-     * Returns the action to take given the current state.
+     * Returns the action to take given the current game node.
      * 
      * Requires that the state is non-terminal.
     */
-    virtual ActionIdx act(Game<BOARD_SIZE, ACTION_SIZE>* game,
-                          const State& state,
-                          const ActionDist& actionMask,
-                          bool verbose = false) const = 0;
+    virtual ActionIdx act(const GNode* gameNode, bool verbose = false) const = 0;
 
     /**
      * Processes an opponent's action if necessary to update state.
     */
-    virtual void opponentAct(const ActionIdx action) {}
+    virtual void opponentAct(const ActionIdx action) const {}
 };
 
 } // namespace SPRL
