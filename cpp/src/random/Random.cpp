@@ -77,6 +77,11 @@ int Random::UniformInt(int a, int b) {
     return distribution(impl_);
 }
 
+uint64_t Random::UniformUint64(uint64_t a, uint64_t b) {
+    std::uniform_int_distribution<uint64_t> distribution(a, b);
+    return distribution(impl_);
+}
+
 int Random::SampleCDF(const std::vector<float>& cdf)
 {
     // Take care to handle the case where the first elements in the CDF have zero

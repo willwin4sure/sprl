@@ -55,6 +55,9 @@ public:
     // Draw a sample from a uniform distribution over integers in closed interval [a, b].
     int UniformInt(int a, int b);
 
+    // Draw a sample from a uniform distribution over uint64_t in closed interval [a, b].
+    uint64_t UniformUint64(uint64_t a, uint64_t b);
+
     // Samples the given CDF at random, returning the index of the element found.
     // Guarantees that elements with zero probability will not be sampled.
     int SampleCDF(const std::vector<float>& cdf);
