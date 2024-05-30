@@ -1,9 +1,8 @@
-#ifndef PLAY_HPP
-#define PLAY_HPP
+#ifndef SPRL_PLAY_HPP
+#define SPRL_PLAY_HPP
 
 #include "../agents/Agent.hpp"
-#include "../games/GameState.hpp"
-#include "../games/Game.hpp"
+#include "../games/GameNode.hpp"
 
 #include <chrono>
 
@@ -29,65 +28,55 @@ namespace SPRL {
 
 /**
  * Plays a game with two agents.
- * 
- * @param game The game to play.
- * @param agent0 The first agent.
- * @param agent1 The second agent.
- * @param verbose Whether to print information.
- * @return The winner of the game.
 */
-template <int BOARD_SIZE, int ACTION_SIZE>
-int playGame(Game<BOARD_SIZE, ACTION_SIZE>* game,
-             GameState<BOARD_SIZE> initialState,
-             std::array<Agent<BOARD_SIZE, ACTION_SIZE>*, 2> agents,
+template <typename State, int AS>
+Player playGame(GameNode<State, AS>* rootNode,
+             std::array<Agent<State, AS>*, 2> agents,
              bool verbose = false) {
 
-    using State = SPRL::GameState<BOARD_SIZE>;
-    using ActionDist = SPRL::GameActionDist<ACTION_SIZE>;
+    using ActionDist = SPRL::GameActionDist<AS>;
 
     float totalTime = 0.0f;
     Timer t {};
 
-    GameState<BOARD_SIZE> state = initialState;
+    GameNode<State, AS>* curNode = rootNode;
 
-    while (!state.isTerminal()) {
-        ActionDist actionMask = game->actionMask(state);
-
+    while (!curNode->isTerminal()) {
         if (verbose) {
-            std::cout << game->stateToString(state) << '\n';
-            std::cout << "Action mask: ";
-            for (int i = 0; i < ACTION_SIZE; ++i) {
-                std::cout << actionMask[i] << ' ';
-            }
-            std::cout << '\n';
+            std::cout << curNode->toString() << '\n';
         }
 
         ActionIdx action;
 
         t.reset();
-        action = agents[state.getPlayer()]->act(game, state, actionMask, verbose);
+
+        int playerIdx = static_cast<int>(curNode->getPlayer());
+
+        action = agents[playerIdx]->act(curNode, verbose);
         totalTime += t.elapsed();
 
-        agents[1 - state.getPlayer()]->opponentAct(action);
+        agents[1 - playerIdx]->opponentAct(action);
 
         if (verbose) {
-            std::cout << "Player " << static_cast<int>(state.getPlayer()) << " chose action " << action << '\n';
+            std::cout << "Player " << playerIdx << " chose action " << action << '\n';
             std::cout << "Time taken: " << t.elapsed() << "s\n";
         }
 
-        state = game->nextState(state, action);
+        curNode = curNode->getAddChild(action);
     }
+
+    Player winner = curNode->getWinner();
 
     if (verbose) {
         std::cout << "Game over!\n";
-        std::cout << game->stateToString(state) << '\n';
+        std::cout << curNode->toString() << '\n';
 
-        std::cout << "The winner is Player " << static_cast<int>(state.getWinner()) << '\n';
-        std::cout << "The rewards are " << game->rewards(state).first << " and " << game->rewards(state).second << '\n';
+        std::cout << "The winner is Player " << static_cast<int>(winner) << '\n';
+        std::cout << "The rewards are " << curNode->getRewards()[0] << " and " << curNode->getRewards()[1] << '\n';
         std::cout << "Total time taken: " << totalTime << "s\n";
     }
 
-    return state.getWinner();
+    return winner;
 }
 
 } // namespace SPRL

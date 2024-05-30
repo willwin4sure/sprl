@@ -56,8 +56,6 @@ public:
     GameNode()
         : m_parent { nullptr }, m_action { 0 },
           m_player { Player::ZERO }, m_winner { Player::NONE }, m_isTerminal { false } {
-
-        m_children.fill(nullptr);
     }
 
     /**
@@ -75,8 +73,6 @@ public:
 
         : m_parent { parent }, m_action { action }, m_actionMask { actionMask },
           m_player { player }, m_winner { winner }, m_isTerminal { isTerminal } {
-
-        m_children.fill(nullptr);
     }
 
     virtual ~GameNode() { }
@@ -100,7 +96,7 @@ public:
         assert(m_actionMask[action] > 0.0f);
 
         if (m_children[action] == nullptr) {
-            m_children[action] = getNextNode(action);
+            m_children[action] = std::move(getNextNode(action));
         }
 
         return m_children[action].get();
@@ -128,6 +124,13 @@ public:
     */
     Player getPlayer() const {
         return m_player;
+    }
+
+    /**
+     * @returns The winner of the game at this node.
+    */
+    Player getWinner() const {
+        return m_winner;
     }
 
     /**

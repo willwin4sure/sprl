@@ -42,7 +42,7 @@ public:
     */
     ConnectFourNode(ConnectFourNode* parent, ActionIdx action, const ActionDist& actionMask,
                     Player player, Player winner, bool isTerminal, const Board& board)
-        : GNode { parent, action, actionMask, player, winner, isTerminal },
+        : GNode ( parent, action, actionMask, player, winner, isTerminal ),
           m_board { board } {
 
     }

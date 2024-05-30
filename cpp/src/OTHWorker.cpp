@@ -3,7 +3,6 @@
 */
 
 #include "games/GameState.hpp"
-#include "games/Game.hpp"
 #include "games/Othello.hpp"
 
 #include "interface/npy.hpp"

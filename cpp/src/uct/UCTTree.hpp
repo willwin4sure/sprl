@@ -23,13 +23,13 @@ public:
      * Constructs a UCT tree rooted at the initial state of the game.
     */
     UCTTree(std::unique_ptr<GNode> gameRoot,
-            InitQ initQMethod, float dirAlpha, float dirEps,
+            float dirEps, float dirAlpha, InitQ initQMethod,
             ISymmetrizer<State, AS>* symmetrizer, bool addNoise = true)
 
         : m_edgeStatistics {},
-          m_gameRoot { gameRoot },
+          m_gameRoot { std::move(gameRoot) },
           m_uctRoot { std::make_unique<UNode>(
-            &m_edgeStatistics, m_gameRoot.get(), initQMethod, dirAlpha, dirEps ) },
+            &m_edgeStatistics, m_gameRoot.get(), dirEps, dirAlpha, initQMethod ) },
           m_decisionNode { m_uctRoot.get() },
           m_dirEps { dirEps },
           m_dirAlpha { dirAlpha },
@@ -69,7 +69,7 @@ public:
             if (leaf->m_isTerminal) {
                 // Terminal case: compute the exact value and backpropagate immediately
                 std::array<Value, 2> rewards = leaf->getRewards();
-                Value value = rewards[leaf->getPlayer()];
+                Value value = rewards[static_cast<int>(leaf->getPlayer())];
 
                 backup(leaf, value);
                 continue;
@@ -183,7 +183,7 @@ public:
         clearSubtree(child);
 
         // Set the new decision node
-        m_decisionNode = m_decisionNode->m_children[action];
+        m_decisionNode = m_decisionNode->m_children[action].get();
     }
 
 private:
@@ -234,11 +234,11 @@ private:
         assert(node->m_isTerminal || (node->m_isNetworkEvaluated && node->m_isExpanded));
 
         // Value is negated since they are stored from the perspective of the parent
-        float estimate = -valueEstimate * ((node->getPlayer() == 0) ? 1 : -1);
+        float estimate = -valueEstimate * ((node->getPlayer() == Player::ZERO) ? 1 : -1);
         UNode* current = node;
         while (current != m_decisionNode->m_parent) {
             // Extra +1 due to reverting the virtual losses
-            current->W() += 1 + estimate * ((current->getPlayer() == 0) ? 1 : -1);
+            current->W() += 1 + estimate * ((current->getPlayer() == Player::ZERO) ? 1 : -1);
 
             current = current->m_parent;
         }

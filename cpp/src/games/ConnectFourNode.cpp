@@ -69,8 +69,10 @@ std::unique_ptr<ConnectFourNode::GNode> ConnectFourNode::getNextNode(ActionIdx a
         newActionMask.fill(0.0f);
     }
 
-    return std::make_unique<ConnectFourNode>(
+    std::unique_ptr<GNode> newNode = std::make_unique<ConnectFourNode>(
         this, action, newActionMask, newPlayer, winner, isTerminal, newBoard);
+
+    return std::move(newNode);
 }
 
 ConnectFourNode::State ConnectFourNode::getGameState() const {

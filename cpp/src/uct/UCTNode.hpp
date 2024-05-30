@@ -69,12 +69,8 @@ public:
     UCTNode(EdgeStatistics* edgeStats, GNode* gameNode,
             float dirEps = 0.25f, float dirAlpha = 0.1f, InitQ initQMethod = InitQ::PARENT)
         : m_gameNode { gameNode }, m_parentEdgeStatistics { edgeStats },
-          m_dirEps { dirEps }, m_dirAlpha { dirAlpha }, m_initQMethod { initQMethod } {
-          
-        m_children.fill(nullptr);
-
-        m_isTerminal = m_gameNode->isTerminal();
-        m_actionMask = m_gameNode->getActionMask();
+          m_dirEps { dirEps }, m_dirAlpha { dirAlpha }, m_initQMethod { initQMethod },
+          m_isTerminal { m_gameNode->isTerminal() }, m_actionMask { m_gameNode->getActionMask() } {
     }
 
     /**
@@ -90,15 +86,10 @@ public:
     UCTNode(UCTNode* parent, ActionIdx action, GNode* gameNode,
             float dirEps = 0.25f, float dirAlpha = 0.1f, InitQ initQMethod = InitQ::PARENT)
         : m_parent { parent }, m_action { action }, m_gameNode { gameNode },
-          m_dirEps { dirEps }, m_dirAlpha { dirAlpha }, m_initQMethod { initQMethod } {
-          
+          m_dirEps { dirEps }, m_dirAlpha { dirAlpha }, m_initQMethod { initQMethod },
+          m_isTerminal { m_gameNode->isTerminal() }, m_actionMask { m_gameNode->getActionMask() },
+          m_parentEdgeStatistics { &parent->m_edgeStatistics } {
 
-        m_children.fill(nullptr);
-
-        m_isTerminal = m_gameNode->isTerminal();
-        m_actionMask = m_gameNode->getActionMask();
-
-        m_parentEdgeStatistics = &parent->m_edgeStatistics;
     }
 
     /**
@@ -139,7 +130,7 @@ public:
     /**
      * @returns A reference to the current number of visits to this node.
     */
-    float& N() { return m_parentEdgeStatistics->m_numberVisits[m_action]; }
+    float& N() { return m_parentEdgeStatistics->m_numVisits[m_action]; }
 
     /**
      * @returns A reference to the current total value of this node.
@@ -158,7 +149,7 @@ public:
      * 
      * @returns The number of visits to a particular child.
     */
-    float child_N(ActionIdx action) const { return m_edgeStatistics.m_numberVisits[action]; }
+    float child_N(ActionIdx action) const { return m_edgeStatistics.m_numVisits[action]; }
 
     /**
      * @param action The action index of the child to query.
@@ -243,7 +234,7 @@ public:
         if (m_children[action] == nullptr) {
             // Child doesn't exist, so we create it.
             m_children[action] = std::make_unique<UCTNode>(
-                this, action, m_gameNode->getAddChild(action), m_initQMethod);
+                this, action, m_gameNode->getAddChild(action), m_dirEps, m_dirAlpha, m_initQMethod);
 
             // Handle Q-initialization based on the method.
             switch (m_initQMethod) {

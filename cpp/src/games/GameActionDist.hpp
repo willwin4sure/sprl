@@ -40,6 +40,41 @@ public:
     }
 
     /**
+     * @returns The size of the action distribution.
+    */
+    int size() const {
+        return AS;
+    }
+
+    /**
+     * @returns An iterator to the beginning of the action distribution.
+    */
+    auto begin() {
+        return m_data.begin();
+    }
+
+    /**
+     * @returns A const iterator to the beginning of the action distribution.
+    */
+    auto begin() const {
+        return m_data.begin();
+    }
+
+    /**
+     * @returns An iterator to the end of the action distribution.
+    */
+    auto end() {
+        return m_data.end();
+    }
+
+    /**
+     * @returns A const iterator to the end of the action distribution.
+    */
+    auto end() const {
+        return m_data.end();
+    }
+
+    /**
      * @returns The sum of the action distribution.
     */
     float sum() const {

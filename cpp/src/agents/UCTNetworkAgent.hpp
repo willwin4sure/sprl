@@ -39,7 +39,7 @@ public:
 
         auto priors = m_tree->getDecisionNode()->getEdgeStatistics()->m_childPriors;
         auto values = m_tree->getDecisionNode()->getEdgeStatistics()->m_totalValues;
-        auto visits = m_tree->getDecisionNode()->getEdgeStatistics()->m_numberVisits;
+        auto visits = m_tree->getDecisionNode()->getEdgeStatistics()->m_numVisits;
 
         if (verbose) {
             std::cout << "Priors: ";
@@ -80,7 +80,7 @@ public:
         return action;
     }
 
-    void opponentAct(const ActionIdx action) override {
+    void opponentAct(const ActionIdx action) const override {
         m_tree->advanceDecision(action);
     }
 

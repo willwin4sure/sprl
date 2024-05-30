@@ -1,60 +1,62 @@
-// #ifndef RANDOM_NETWORK_HPP
-// #define RANDOM_NETWORK_HPP
+#ifndef SPRL_RANDOM_NETWORK_HPP
+#define SPRL_RANDOM_NETWORK_HPP
 
-// #include "Network.hpp"
+#include "Network.hpp"
 
-// namespace SPRL {
+namespace SPRL {
 
-// template <int BOARD_SIZE, int ACTION_SIZE> 
-// class RandomNetwork : public Network<BOARD_SIZE, ACTION_SIZE> {
-// public:
-//     RandomNetwork() {}
+template <typename State, int AS>
+class RandomNetwork : public Network<State, AS> {
+public:
+    using ActionDist = GameActionDist<AS>;
 
-//     std::vector<std::pair<GameActionDist<ACTION_SIZE>, Value>> evaluate(
-//         const std::vector<GameState<BOARD_SIZE>>& states,
-//         const std::vector<GameActionDist<ACTION_SIZE>>& masks) override {
+    RandomNetwork() {}
 
-//         int numStates = states.size();
+    std::vector<std::pair<ActionDist, Value>> evaluate(
+        const std::vector<State>& states,
+        const std::vector<ActionDist>& masks) override {
 
-//         m_numEvals += numStates;
+        int numStates = states.size();
 
-//         // Return a uniform distribution and a value of 0 for everything
-//         std::vector<std::pair<GameActionDist<ACTION_SIZE>, Value>> results;
-//         results.reserve(numStates);
+        m_numEvals += numStates;
 
-//         for (int b = 0; b < numStates; ++b) {
-//             int numLegal = 0;
-//             for (int i = 0; i < ACTION_SIZE; ++i) {
-//                 if (masks[0][i] == 1.0f) {
-//                     ++numLegal;
-//                 }
-//             }
+        // Return a uniform distribution and a value of 0 for everything
+        std::vector<std::pair<ActionDist, Value>> results;
+        results.reserve(numStates);
 
-//             float uniform = 1.0f / numLegal;
+        for (int b = 0; b < numStates; ++b) {
+            int numLegal = 0;
+            for (int i = 0; i < AS; ++i) {
+                if (masks[0][i] == 1.0f) {
+                    ++numLegal;
+                }
+            }
 
-//             GameActionDist<ACTION_SIZE> uniformDist;
-//             for (int i = 0; i < ACTION_SIZE; ++i) {
-//                 if (masks[0][i] == 1.0f) {
-//                     uniformDist[i] = uniform;
-//                 } else {
-//                     uniformDist[i] = 0.0f;
-//                 }
-//             }
+            float uniform = 1.0f / numLegal;
 
-//             results.push_back({ uniformDist, 0.0f });
-//         }
+            ActionDist uniformDist;
+            for (int i = 0; i < AS; ++i) {
+                if (masks[0][i] == 1.0f) {
+                    uniformDist[i] = uniform;
+                } else {
+                    uniformDist[i] = 0.0f;
+                }
+            }
 
-//         return results;
-//     }
+            results.push_back({ uniformDist, 0.0f });
+        }
 
-//     int getNumEvals() override {
-//         return m_numEvals;
-//     }
+        return results;
+    }
 
-// private:
-//     int m_numEvals { 0 };
-// };
+    int getNumEvals() override {
+        return m_numEvals;
+    }
 
-// } // namespace SPRL
+private:
+    int m_numEvals { 0 };
+};
 
-// #endif
+} // namespace SPRL
+
+#endif

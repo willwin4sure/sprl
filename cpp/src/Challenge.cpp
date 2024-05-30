@@ -7,33 +7,24 @@
 #include <memory>
 
 #include "agents/HumanAgent.hpp"
-#include "agents/HumanPentagoAgent.hpp"
-#include "agents/HumanOthelloAgent.hpp"
 #include "agents/UCTNetworkAgent.hpp"
 
 #include "evaluate/play.hpp"
 
-#include "games/GameState.hpp"
-#include "games/Game.hpp"
-#include "games/ConnectFour.hpp"
-#include "games/Pentago.hpp"
-#include "games/Othello.hpp"
+#include "games/GameNode.hpp"
+#include "games/ConnectFourNode.hpp"
 
 #include "interface/npy.hpp"
 
 #include "networks/Network.hpp"
 #include "networks/ConnectFourNetwork.hpp"
 #include "networks/RandomNetwork.hpp"
-#include "networks/PentagoHeuristic.hpp"
-#include "networks/PentagoNetwork.hpp"
-#include "networks/OthelloHeuristic.hpp"
-#include "networks/OthelloNetwork.hpp"
 
 #include "uct/UCTNode.hpp"
 #include "uct/UCTTree.hpp"
 
-constexpr int BOARD_SIZE = 64;
-constexpr int ACTION_SIZE = 65;
+constexpr int BS = SPRL::C4_BS;
+constexpr int AS = SPRL::C4_AS;
 
 int main(int argc, char* argv[]) {
     if (argc != 6) {
@@ -47,14 +38,11 @@ int main(int argc, char* argv[]) {
     int maxTraversals = std::stoi(argv[4]);
     int maxQueueSize = std::stoi(argv[5]);
 
-    auto game = std::make_unique<SPRL::Othello>();
 
-    SPRL::Network<BOARD_SIZE, ACTION_SIZE>* network;
+    SPRL::Network<SPRL::GridState<BS>, AS>* network;
 
-    SPRL::RandomNetwork<BOARD_SIZE, ACTION_SIZE> randomNetwork {};
-    SPRL::OthelloNetwork neuralNetwork { modelPath };
-
-    network = &randomNetwork;
+    SPRL::RandomNetwork<SPRL::GridState<BS>, AS> randomNetwork {};
+    SPRL::ConnectFourNetwork neuralNetwork { modelPath };
 
     if (modelPath == "random") {
         std::cout << "Using random network..." << std::endl;
@@ -64,14 +52,26 @@ int main(int argc, char* argv[]) {
         network = &neuralNetwork;
     }
 
-    SPRL::GameState<BOARD_SIZE> state = game->startState();
+    SPRL::UCTTree<SPRL::GridState<BS>, AS> tree {
+        std::make_unique<SPRL::ConnectFourNode>(),
+        0.25,
+        0.3,
+        SPRL::InitQ::PARENT,
+        nullptr,
+        true
+    };
 
-    SPRL::UCTTree<BOARD_SIZE, ACTION_SIZE> tree { game.get(), state, false }; 
-    SPRL::UCTNetworkAgent<BOARD_SIZE, ACTION_SIZE> networkAgent { network, &tree, numIters, maxTraversals, maxQueueSize };
+    SPRL::UCTNetworkAgent<SPRL::GridState<BS>, AS> networkAgent {
+        network,
+        &tree,
+        numIters,
+        maxTraversals,
+        maxQueueSize
+    };
 
-    SPRL::HumanOthelloAgent humanAgent {};
+    SPRL::HumanAgent<SPRL::GridState<BS>, AS> humanAgent {};
 
-    std::array<SPRL::Agent<BOARD_SIZE, ACTION_SIZE>*, 2> agents;
+    std::array<SPRL::Agent<SPRL::GridState<BS>, AS>*, 2> agents;
 
     if (player == 0) {
         agents = { &humanAgent, &networkAgent };
@@ -79,7 +79,9 @@ int main(int argc, char* argv[]) {
         agents = { &networkAgent, &humanAgent };
     }
 
-    SPRL::playGame(game.get(), state, agents, true);
+    SPRL::ConnectFourNode rootNode {};
+
+    SPRL::playGame(&rootNode, agents, true);
 
     return 0;
 }
