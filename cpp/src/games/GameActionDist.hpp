@@ -13,7 +13,7 @@ namespace SPRL {
  * @tparam AS The size of the action space.
  * 
  * @note Equipped with operations to manipulate
- * action distributions like 1D arrays.
+ * action distributions with pointwise operations.
 */
 template <int AS>
 class GameActionDist {
@@ -26,7 +26,7 @@ public:
     }
 
     /**
-     * @returns The value at the given index.
+     * @returns A reference to the value at the given index.
     */
     float& operator[](int idx) {
         return m_data[idx];
