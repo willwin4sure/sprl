@@ -16,7 +16,71 @@ namespace SPRL {
  * action distributions like 1D arrays.
 */
 template <int AS>
-using GameActionDist = std::array<float, AS>;
+class GameActionDist {
+public:
+    /**
+     * @returns The value at the given index.
+    */
+    float operator[](int idx) const {
+        return m_data[idx];
+    }
+
+    /**
+     * @returns The value at the given index.
+    */
+    float& operator[](int idx) {
+        return m_data[idx];
+    }
+
+    /**
+     * Fills the action distribution with the given value.
+    */
+    void fill(float value) {
+        m_data.fill(value);
+    }
+
+    /**
+     * @returns The sum of the action distribution.
+    */
+    float sum() const {
+        float result = 0.0;
+
+        for (int i = 0; i < AS; ++i) {
+            result += m_data[i];
+        }
+
+        return result;
+    }
+
+    /**
+     * @returns The action distribution exponentiated, element-wise.
+    */
+    GameActionDist<AS> exp() const {
+        GameActionDist<AS> result {};
+
+        for (int i = 0; i < AS; ++i) {
+            result[i] = std::exp(m_data[i]);
+        }
+
+        return result;
+    }
+
+    /**
+     * @returns The action distribution exponentiated by the constant, element-wise.
+    */
+    GameActionDist<AS> pow(float rhs) const {
+        GameActionDist<AS> result {};
+
+        for (int i = 0; i < AS; ++i) {
+            result[i] = std::pow(m_data[i], rhs);
+        }
+
+        return result;
+    }
+
+private:
+    std::array<float, AS> m_data {};
+};
 
 
 /**
@@ -166,43 +230,6 @@ GameActionDist<AS> operator/(const GameActionDist<AS>& lhs, float rhs) {
 
     for (int i = 0; i < AS; ++i) {
         result[i] = lhs[i] / rhs;
-    }
-
-    return result;
-}
-
-/**
- * @tparam AS The size of the action space.
- * 
- * @param lhs The action distribution.
- * @param rhs The constant to exponentiate by.
- * 
- * @returns The action distribution exponentiated by the constant.
-*/
-template <int AS>
-GameActionDist<AS> pow(const GameActionDist<AS>& lhs, float rhs) {
-    GameActionDist<AS> result {};
-
-    for (int i = 0; i < AS; ++i) {
-        result[i] = std::pow(lhs[i], rhs);
-    }
-
-    return result;
-}
-
-/**
- * @tparam AS The size of the action space.
- * 
- * @param actionDist The action distribution to sum.
- * 
- * @returns The sum of the action distribution.
-*/
-template <int AS>
-float sum(const GameActionDist<AS>& actionDist) {
-    float result = 0.0;
-
-    for (int i = 0; i < AS; ++i) {
-        result += actionDist[i];
     }
 
     return result;

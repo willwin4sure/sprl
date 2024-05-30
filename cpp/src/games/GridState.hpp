@@ -24,6 +24,17 @@ enum class Piece : int8_t {
 };
 
 /**
+ * @returns The other piece.
+*/
+constexpr Piece otherPiece(Piece piece) {
+    switch (piece) {
+    case Piece::ZERO: return Piece::ONE;
+    case Piece::ONE:  return Piece::ZERO;
+    default:          return Piece::NONE;
+    }
+}
+
+/**
  * Represents a grid game board of pieces.
  * 
  * @tparam BS The size of the board.
@@ -46,6 +57,20 @@ public:
     */
     GridState(std::vector<GridBoard<BS>>&& history, Player player)
         : m_history { std::move(history) }, m_player { player } {
+    }
+
+    /**
+     * @returns A readonly reference to the history of board states.
+    */
+    const std::vector<GridBoard<BS>>& getHistory() const {
+        return m_history;
+    }
+
+    /**
+     * @returns The player to move.
+    */
+    Player getPlayer() const {
+        return m_player;
     }
 
 private:

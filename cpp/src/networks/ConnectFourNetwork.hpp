@@ -1,24 +1,27 @@
-#ifndef TRACED_PYTORCH_NETWORK_HPP
-#define TRACED_PYTORCH_NETWORK_HPP
+#ifndef SPRL_CONNECT_FOUR_NETWORK_HPP
+#define SPRL_CONNECT_FOUR_NETWORK_HPP
 
 #include <torch/torch.h>
 #include <torch/script.h>
 
 #include "Network.hpp"
+#include "../games/ConnectFourNode.hpp"
 
 namespace SPRL {
 
-class ConnectFourNetwork : public Network<42, 7> {
+class ConnectFourNetwork : public Network<GridState<C4_BS>, C4_AS> {
 public:
+    using State = GridState<C4_BS>;
+
     ConnectFourNetwork(std::string path);
 
     /**
      * Implementation of evaluate for Connect Four, including
      * the proper embedding of the game state.
     */
-    std::vector<std::pair<GameActionDist<7>, Value>> evaluate(
-        const std::vector<GameState<42>>& states,
-        const std::vector<GameActionDist<7>>& masks) override;
+    std::vector<std::pair<ActionDist, Value>> evaluate(
+        const std::vector<State>& states,
+        const std::vector<ActionDist>& masks) override;
 
     int getNumEvals() override {
         return m_numEvals;

@@ -60,6 +60,8 @@ private:
     static bool checkWin(const Board& board, const int row, const int col, const Piece piece);
 
     Board m_board;
+
+    friend class ConnectFourNetwork;
 };
 
 } // namespace SPRL

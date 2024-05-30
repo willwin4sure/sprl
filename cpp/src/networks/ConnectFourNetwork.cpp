@@ -18,9 +18,9 @@ ConnectFourNetwork::ConnectFourNetwork(std::string path) {
     }
 }
 
-std::vector<std::pair<GameActionDist<7>, Value>> ConnectFourNetwork::evaluate(
-    const std::vector<GameState<42>>& states,
-    const std::vector<GameActionDist<7>>& masks) {
+std::vector<std::pair<ConnectFourNetwork::ActionDist, Value>> ConnectFourNetwork::evaluate(
+    const std::vector<State>& states,
+    const std::vector<ActionDist>& masks) {
     
     torch::NoGradGuard no_grad;
     m_model->eval();
@@ -29,24 +29,30 @@ std::vector<std::pair<GameActionDist<7>, Value>> ConnectFourNetwork::evaluate(
 
     m_numEvals += numStates;
 
-    auto input = torch::zeros({numStates, 3, 6, 7}).to(m_device);
+    auto input = torch::zeros({ numStates, 3, C4_NUM_ROWS, C4_NUM_COLS }).to(m_device);
 
     for (int b = 0; b < numStates; ++b) {
+        Player player = states[b].getPlayer();
+        Piece piece = static_cast<Piece>(player);
+
+        GridBoard<C4_BS> board = states[b].getHistory()[0];
+
         // Stone bitmask channels for current player and opponent player
-        for (int i = 0; i < 6; ++i) {
-            for (int j = 0; j < 7; ++j) {
-                if (states[b].getBoard()[i * 7 + j] == states[b].getPlayer()) {
+        for (int i = 0; i < C4_NUM_ROWS; ++i) {
+            for (int j = 0; j < C4_NUM_COLS; ++j) {
+                if (board[ConnectFourNode::toIndex(i, j)] == piece) {
                     input[b][0][i][j] = 1.0f;
-                } else if (states[b].getBoard()[i * 7 + j] == 1 - states[b].getPlayer()) {
+
+                } else if (board[ConnectFourNode::toIndex(i, j)] == otherPiece(piece)) {
                     input[b][1][i][j] = 1.0f;
                 }
             }
         }
 
         // Color channel for which player you are
-        for (int i = 0; i < 6; ++i) {
-            for (int j = 0; j < 7; ++j) {
-                input[b][2][i][j] = ((states[b].getPlayer() == 0) ? 1.0f : 0.0f);
+        for (int i = 0; i < C4_NUM_ROWS; ++i) {
+            for (int j = 0; j < C4_NUM_COLS; ++j) {
+                input[b][2][i][j] = ((player == Player::ZERO) ? 1.0f : 0.0f);
             }
         }
     }
@@ -56,23 +62,21 @@ std::vector<std::pair<GameActionDist<7>, Value>> ConnectFourNetwork::evaluate(
     auto policyOutput = output->elements()[0].toTensor();
     auto valueOutput = output->elements()[1].toTensor();
 
-    std::vector<std::pair<GameActionDist<7>, Value>> results;
+    std::vector<std::pair<ActionDist, Value>> results;
     results.reserve(numStates);
 
     for (int b = 0; b < numStates; ++b) {
-        std::array<float, 7> policy;
-        for (int i = 0; i < 7; ++i) {
+        ActionDist policy;
+        for (int i = 0; i < C4_NUM_COLS; ++i) {
             policy[i] = policyOutput[b][i].item<float>();
         }
 
-        // Exponentiate the policy
-        for (int i = 0; i < 7; ++i) {
-            policy[i] = std::exp(policy[i]);
-        }
+        // Network returns logits, we need to exponentiate them
+        policy = policy.exp();
 
         // Mask out illegal actions
         int numLegal = 0;
-        for (int i = 0; i < 7; ++i) {
+        for (int i = 0; i < C4_NUM_COLS; ++i) {
             if (masks[b][i] == 0.0f) {
                 policy[i] = 0.0f;
             } else {
@@ -81,15 +85,12 @@ std::vector<std::pair<GameActionDist<7>, Value>> ConnectFourNetwork::evaluate(
         }
 
         // Compute the new sum
-        float sum = 0.0f;
-        for (int i = 0; i < 7; ++i) {
-            sum += policy[i];
-        }
+        float sum = policy.sum();
 
         if (sum == 0.0f) {
             // If somehow the sum is zero, uniform over legal actions
             float uniform = 1.0f / numLegal;
-            for (int i = 0; i < 7; ++i) {
+            for (int i = 0; i < C4_NUM_COLS; ++i) {
                 if (masks[b][i] == 0.0f) {
                     policy[i] = 0.0f;
                 } else {
@@ -100,9 +101,7 @@ std::vector<std::pair<GameActionDist<7>, Value>> ConnectFourNetwork::evaluate(
         } else {
             // Otherwise normalize the policy
             float norm = 1.0f / sum;
-            for (int i = 0; i < 7; ++i) {
-                policy[i] = policy[i] * norm;
-            }
+            policy = policy * norm;
         }
 
         // Append the policy and value to the results
