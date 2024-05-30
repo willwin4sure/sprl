@@ -40,6 +40,14 @@ using GridBoard = std::array<Piece, BS>;
 */
 template <int BS>
 class GridState {
+public:
+    /**
+     * Constructs a new grid state with the given history.
+    */
+    GridState(std::vector<GridBoard<BS>>&& history, Player player)
+        : m_history { std::move(history) }, m_player { player } {
+    }
+
 private:
     /// `history[0]` is the current state and higher indices move back in time.
     std::vector<GridBoard<BS>> m_history;

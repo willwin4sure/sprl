@@ -22,7 +22,7 @@ enum class Player : int8_t {
 /**
  * @returns The other player.
 */
-inline Player otherPlayer(Player player) {
+constexpr Player otherPlayer(Player player) {
     switch (player) {
     case Player::ZERO: return Player::ONE;
     case Player::ONE:  return Player::ZERO;
@@ -56,6 +56,8 @@ public:
     GameNode()
         : m_parent { nullptr }, m_action { 0 },
           m_player { Player::ZERO }, m_winner { Player::NONE }, m_isTerminal { false } {
+
+        m_children.fill(nullptr);
     }
 
     /**
@@ -74,6 +76,7 @@ public:
         : m_parent { parent }, m_action { action }, m_actionMask { actionMask },
           m_player { player }, m_winner { winner }, m_isTerminal { isTerminal } {
 
+        m_children.fill(nullptr);
     }
 
     virtual ~GameNode() { }
@@ -168,7 +171,7 @@ protected:
      * 
      * @param action The action to take. Must be legal.
     */
-    virtual std::unique_ptr<GameNode> getNextNode(ActionIdx action) const = 0;
+    virtual std::unique_ptr<GameNode> getNextNode(ActionIdx action) = 0;
 
     GameNode* m_parent;  // Raw pointer to the parent, nullptr if root.
     std::array<std::unique_ptr<GameNode>, AS> m_children;  // Parent owns children.

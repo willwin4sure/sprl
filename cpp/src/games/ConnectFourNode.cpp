@@ -9,19 +9,24 @@ int ConnectFourNode::toIndex(int row, int col) {
 }
 
 void ConnectFourNode::setStartNode() {
-    m_board.fill(Piece::NONE);
+    m_parent = nullptr;
+    m_action = 0;
+    m_actionMask.fill(1.0f);
     m_player = Player::ZERO;
     m_winner = Player::NONE;
     m_isTerminal = false;
-    m_actionMask = computeActionMask();
+    m_board.fill(Piece::NONE);
 }
 
-std::unique_ptr<ConnectFourNode::GNode> ConnectFourNode::getNextNode(ActionIdx action) const {
+std::unique_ptr<ConnectFourNode::GNode> ConnectFourNode::getNextNode(ActionIdx action) {
     assert(!m_isTerminal);
     assert(m_actionMask[action] > 0.0f);
 
-    Board newBoard = m_board;  // The board that we return, a copy of the original
+    Board newBoard = m_board;  // A copy of the original
+    ActionDist newActionMask = m_actionMask;  // A copy of the original
+
     assert(&newBoard != &m_board);
+    assert(&newActionMask != &m_actionMask);
 
     const Player player = m_player;
     const Player newPlayer = otherPlayer(player);
@@ -39,6 +44,11 @@ std::unique_ptr<ConnectFourNode::GNode> ConnectFourNode::getNextNode(ActionIdx a
     // Place the piece there
     newBoard[toIndex(row, col)] = piece;
 
+    // Update the action mask if necessary
+    if (row == 0) {
+        newActionMask[col] = 0.0f;
+    }
+
     // Check if the move wins the game
     Player winner = checkWin(newBoard, row, col, piece) ? player : Player::NONE;
 
@@ -51,53 +61,47 @@ std::unique_ptr<ConnectFourNode::GNode> ConnectFourNode::getNextNode(ActionIdx a
         }
     }
 
+    // Whether the game has ended
+    bool isTerminal = winner != Player::NONE || boardFilled;
+
+    // If game ended, should be no legal actions
+    if (isTerminal) {
+        newActionMask.fill(0.0f);
+    }
+
     return std::make_unique<ConnectFourNode>(
-        newBoard, newPlayer, winner, (winner != Player::NONE) || boardFilled);
+        this, action, newActionMask, newPlayer, winner, isTerminal, newBoard);
 }
 
-ConnectFour::ActionDist ConnectFour::actionMask(const State& state) const {
-    ActionDist mask {};
-    mask.fill(0.0f);
-
-    const State::Board& board = state.getBoard();
-    for (int col = 0; col < C4_NUM_COLS; col++) {
-        // Check if the top row has a piece for each column
-        if (board[col] == -1) {
-            mask[col] = 1.0f;
-        }
-    }
-
-    return mask;
+ConnectFourNode::State ConnectFourNode::getGameState() const {
+    std::vector<Board> history { m_board };
+    return State { std::move(history), m_player };
 }
 
-std::pair<Value, Value> ConnectFour::rewards(const State& state) const {
-    const Player winner = state.getWinner();
-    switch (winner) {
-    case 0:
-        return { 1.0f, -1.0f };
-    case 1:
-        return { -1.0f, 1.0f };
-    default:
-        return { 0.0f, 0.0f };
+std::array<Value, 2> ConnectFourNode::getRewards() const {
+    switch (m_winner) {
+    case Player::NONE: return { 0.0f, 0.0f };
+    case Player::ZERO: return { 1.0f, -1.0f };
+    case Player::ONE:  return { -1.0f, 1.0f };
+    default: assert(false);
     }
 }
 
-std::string ConnectFour::stateToString(const State& state) const {
+std::string ConnectFourNode::toString() const {
     std::string str = "";
 
-    const State::Board& board = state.getBoard();
     for (int row = 0; row < C4_NUM_ROWS; row++) {
         for (int col = 0; col < C4_NUM_COLS; col++) {
-            switch (board[row * C4_NUM_COLS + col]) {
-            case -1:
+            switch (m_board[row * C4_NUM_COLS + col]) {
+            case Piece::NONE:
                 str += ". ";
                 break;
-            case 0:
-                // colored red
+            case Piece::ZERO:
+                // O, colored red
                 str += "\033[31mO\033[0m ";
                 break;
-            case 1:
-                // colored yellow
+            case Piece::ONE:
+                // X, colored yellow
                 str += "\033[33mX\033[0m ";
                 break;
             default:
@@ -114,7 +118,7 @@ std::string ConnectFour::stateToString(const State& state) const {
     return str;
 }
 
-bool ConnectFour::checkWin(const State::Board& board, const int piece_row, const int piece_col, const Piece piece) const {
+bool ConnectFourNode::checkWin(const Board& board, const int piece_row, const int piece_col, const Piece piece) {
     // First, extend left and right
     int row_count = 1;
 

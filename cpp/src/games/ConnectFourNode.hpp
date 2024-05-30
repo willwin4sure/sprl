@@ -23,7 +23,7 @@ public:
     using GNode = GameNode<State, C4_AS>;
 
     /**
-     * Constructs a new Connect Four game node in the start state.
+     * Constructs a new Connect Four game node in the initial state (for root).
     */
     ConnectFourNode() {
         setStartNode();
@@ -32,21 +32,24 @@ public:
     /**
      * Constructs a new Connect Four game node with given parameters.
      * 
-     * @param board The new board state.
+     * @param parent The parent node.
+     * @param action The action taken to reach the new node.
+     * @param actionMask The action mask at the new node.
      * @param player The new player to move.
      * @param winner The new winner of the game, if any.
-     * @param terminal Whether the game had ended.
+     * @param isTerminal Whether the game had ended.
+     * @param board The new board state.
     */
-    ConnectFourNode(const Board& board, Player player, Player winner, bool terminal)
-        : m_board { board } {
+    ConnectFourNode(ConnectFourNode* parent, ActionIdx action, const ActionDist& actionMask,
+                    Player player, Player winner, bool isTerminal, const Board& board)
+        : GNode { parent, action, actionMask, player, winner, isTerminal },
+          m_board { board } {
 
-        m_player = player;
-        m_winner = winner;
-        m_isTerminal = terminal;
     }
 
     void setStartNode() override;
-    std::unique_ptr<GNode> getNextNode(ActionIdx action) const override;
+    std::unique_ptr<GNode> getNextNode(ActionIdx action) override;
+    
     State getGameState() const override;
     std::array<Value, 2> getRewards() const override;
 
@@ -54,7 +57,7 @@ public:
 
 private:
     static int toIndex(int row, int col);
-    bool checkWin(const Board& board, int row, int col, const Piece piece) const;
+    static bool checkWin(const Board& board, const int row, const int col, const Piece piece);
 
     Board m_board;
 };
