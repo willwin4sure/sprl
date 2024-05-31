@@ -1,5 +1,5 @@
-#ifndef SPRL_GO_HPP
-#define SPRL_GO_HPP
+#ifndef SPRL_GO_NODE_HPP
+#define SPRL_GO_NODE_HPP
 
 #include "GameNode.hpp"
 #include "GridState.hpp"

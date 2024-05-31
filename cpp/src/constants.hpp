@@ -2,14 +2,11 @@
 #define CONSTANTS_HPP
 
 constexpr int SEED = 0;
-constexpr int ZOBRIST_SEED = 31415;
 
 constexpr float EXPLORATION = 1.0f;
 
 constexpr float DIRICHLET_EPSILON = 0.25f;
 constexpr float DIRICHLET_ALPHA = 0.1f;
-
-constexpr int MAX_ZOBRIST = 19 * 19 * 2; // Go: 19x19 board, 2 players
 
 constexpr int EARLY_GAME_CUTOFF = 15;
 constexpr float EARLY_GAME_EXP = 0.98f;

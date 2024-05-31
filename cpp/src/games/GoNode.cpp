@@ -1,4 +1,4 @@
-#include "Go.hpp"
+#include "GoNode.hpp"
 
 #include <algorithm>
 #include <cassert>

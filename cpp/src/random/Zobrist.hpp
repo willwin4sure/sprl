@@ -1,71 +1,63 @@
-/*
-A Zobrist hash is a 64-bit hash value that is used to represent the state of a game.
-It works well when mutations of the game involve only a few commutative
-operations at a time. Then, each atomic element of the game state is assigned a random
-hash value, and the hash of the game state is the XOR of the hash values of all the
-elements. This way, the hash of the game state can be updated efficiently when a
-mutation occurs.
+#ifndef SPRL_ZOBRIST_HPP
+#define SPRL_ZOBRIST_HPP
 
-For example, in the game of Go, the game state is represented by a board of size 19x19.
-Each cell of the board can be empty, black, or white. We can assign a random 64-bit
-hash value to each of these three states. (For simplicity, the empty cell is assigned
-a value of 0). Then, the hash of the game state is the XOR of the hash values of all
-the cells on the board.
-
-Our Zobrist implementation will be a templated class, which takes in a parameter
-NUMBER_ATOMIC_ELEMENTS. Each query will be a modification which either adds or
-removes an element in the [0, NUMBER_ATOMIC_ELEMENTS) range. The class will have a method
-to get the hash value of the current state, and a method to update the hash value when a
-modification occurs.
-
-In particular, for determinism, the Zobrist hash values should be a static class variable
-(not re-generated for each instance!)
+/**
+ * @file Zobrist.hpp
+ * 
+ * Functionality for the Zobrist hashing scheme, described here:
+ * https://en.wikipedia.org/wiki/Zobrist_hashing.
 */
+
+#include "Random.hpp"
+#include "../constants.hpp"
 
 #include <array>
 #include <cstdint>
 #include <vector>
 
-#include "../constants.hpp"
-
 namespace SPRL {
 
-using ZobristHash = uint64_t;
-
-template <int NUMBER_ATOMIC_ELEMENTS>
+/**
+ * @brief A class that generates and holds Zobrist values for atomic elements.
+ * 
+ * @tparam NUM_ATOMS The number of atomic elements you want to hash.
+ * 
+ * @note In Go, each pair (Coord, Piece) is an atomic element that is
+ * assigned a random 64-bit unsigned integer. The Zobrist hash of a board
+ * is the XOR of the Zobrist values of all the atomic elements on it.
+ * This is used for efficient positional superko detection:
+ * https://en.wikipedia.org/wiki/Rules_of_Go#Ko.
+*/
+template <int NUM_ATOMS>
 class Zobrist {
 public:
-    // Static Zobrist hash values
-    static std::array<ZobristHash, NUMBER_ATOMIC_ELEMENTS> zobrist_values;
+    /// The type of a Zobrist hash value.
+    using Hash = uint64_t;
 
-    // Initialize the Zobrist hash values
-    // We do not use the GetRandom() function from Random, and instead instantiate a new seeded instance of Random, to ensure
-    // determinism even if other objects have used GetRandom() before we initialize.
-    static void InitializeZobristValues() {
-        for (int i = 0; i < NUMBER_ATOMIC_ELEMENTS; i++) {
-            zobrist_values[i] = Random(ZOBRIST_SEED, Random::kUniqueStream).UniformUint64(0, std::numeric_limits<uint64_t>::max());
+    /**
+     * Constructs a Zobrist object and initializes the hash values.
+    */
+    Zobrist() {
+        for (int i = 0; i < NUM_ATOMS; i++) {
+            m_zobrist_values[i] = GetRandom()
+                .UniformUint64(0, std::numeric_limits<uint64_t>::max());
         }
     }
 
-    // Get the Zobrist hash value of a provided state. O(NUMBER_ATOMIC_ELEMENTS), not recommended for performance.
-    ZobristHash GetHashValue(const std::vector<int>& state) const {
-        ZobristHash hash_value = 0;
-        for (int i = 0; i < state.size(); i++) {
-            hash_value ^= zobrist_values[i] * state[i];
-        }
-        return hash_value;
+    /**
+     * @param atomIdx The index of the atomic element to hash.
+     * 
+     * @returns The Zobrist value of the atomic element at the given index.
+    */
+    Hash operator[](int atomIdx) const {
+        return m_zobrist_values[atomIdx];
     }
     
-    // Modify the Zobrist hash value given the current hash value and the index of the element to modify. O(1).
-    ZobristHash ModifyHashValue(ZobristHash hash_value, int index) const {
-        return hash_value ^ (zobrist_values[index]);
-    }
+private:
+    /// Zobrist values for each atomic element you want to hash.
+    std::array<Hash, NUM_ATOMS> m_zobrist_values;
 };
 
-// GetZobrist() function which returns reference to a static Zobrist object
-Zobrist<MAX_ZOBRIST>& GetZobrist() {
-    static Zobrist<MAX_ZOBRIST> zobrist;
-    return zobrist;
-}
-
 } // namespace SPRL
+
+#endif
