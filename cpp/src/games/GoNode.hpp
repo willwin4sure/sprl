@@ -97,20 +97,6 @@ private:
      * A blank cell belongs to a player if all its neighbors belong to that player, computed using a BFS.
     */
     std::array<int32_t, 2> computeScore();
-
-private:
-    Board m_board;
-
-    Coord m_koCoord;  // The single position that would violate one-move ko.
-    std::array<ZobristHash, GO_HISTORY_LENGTH> m_zobristHistory;  // Zobrist hashes of recent boards for superko.
-
-    int8_t m_passes { 0 };  // Number of passes; 0, 1, or 2. If 2, the game is over.
-
-    mutable std::array<Coord, GO_BOARD_SIZE> m_dsu;  // TODO: make this a separate DSU class
-    std::array<LibertyCount, GO_BOARD_SIZE> m_liberties;
-
-    // Zobrist values for each connected component.
-    std::array<ZobristHash, GO_BOARD_SIZE> m_componentZobristValues; 
     
     Coord parent(const Coord coord) const {
         if (m_dsu[coord] == coord) return coord;
@@ -146,11 +132,26 @@ private:
     }
 
     ZobristHash getPieceHash(const Coord coordinate, const Player who) {
-        return GetZobrist().zobrist_values[coordinate + static_cast<int>(who) * GO_BOARD_SIZE];
+        return s_zobrist[coordinate + static_cast<int>(who) * GO_BOARD_SIZE];
     }
 
     ActionDist actionMask(const GoNode& state) const;
 
+private:
+    static const Zobrist<GO_BOARD_SIZE * 2> s_zobrist;
+
+    Board m_board;
+
+    Coord m_koCoord;  // The single position that would violate one-move ko.
+    std::array<ZobristHash, GO_HISTORY_LENGTH> m_zobristHistory;  // Zobrist hashes of recent boards for superko.
+
+    int8_t m_passes { 0 };  // Number of passes; 0, 1, or 2. If 2, the game is over.
+
+    mutable std::array<Coord, GO_BOARD_SIZE> m_dsu;  // TODO: make this a separate DSU class
+    std::array<LibertyCount, GO_BOARD_SIZE> m_liberties;
+
+    // Zobrist values for each connected component.
+    std::array<ZobristHash, GO_BOARD_SIZE> m_componentZobristValues; 
 };
 
 } // namespace SPRL

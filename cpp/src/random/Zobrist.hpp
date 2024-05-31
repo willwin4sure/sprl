@@ -17,6 +17,9 @@
 
 namespace SPRL {
 
+/// The type of a Zobrist hash value.
+using ZobristHash = uint64_t;
+
 /**
  * @brief A class that generates and holds Zobrist values for atomic elements.
  * 
@@ -31,8 +34,6 @@ namespace SPRL {
 template <int NUM_ATOMS>
 class Zobrist {
 public:
-    /// The type of a Zobrist hash value.
-    using Hash = uint64_t;
 
     /**
      * Constructs a Zobrist object and initializes the hash values.
@@ -49,13 +50,13 @@ public:
      * 
      * @returns The Zobrist value of the atomic element at the given index.
     */
-    Hash operator[](int atomIdx) const {
+    ZobristHash operator[](int atomIdx) const {
         return m_zobrist_values[atomIdx];
     }
     
 private:
     /// Zobrist values for each atomic element you want to hash.
-    std::array<Hash, NUM_ATOMS> m_zobrist_values;
+    std::array<ZobristHash, NUM_ATOMS> m_zobrist_values;
 };
 
 } // namespace SPRL
