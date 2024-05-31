@@ -1,6 +1,6 @@
 #include "Go.hpp"
 
-#include <aorithm>
+#include <algorithm>
 #include <cassert>
 #include <iostream>
 #include <queue>
@@ -20,9 +20,26 @@ ZobristHash GoNode::clearComponent(Coord coord, Player player) {
 
     m_liberties[coord] = 0;
 
+    // check for stones which belong to the opposite player, adjacent to the cleared component.
+    // each of these components should gain a liberty.
+
+    std::vector<int> opp_neighbor_groups;
+
     ZobristHash hash = getPieceHash(coord, player);
     for (Coord neighbor : neighbors(coord)) {
-        hash ^= clearComponent(neighbor, player);
+        if (m_board[neighbor] == Piece::NONE) {
+            continue;
+        }
+        if (m_board[neighbor] == static_cast<Piece>(player)) {
+            hash ^= clearComponent(neighbor, player);
+        } else {
+            if (std::find(opp_neighbor_groups.begin(), opp_neighbor_groups.end(), parent(neighbor)) != opp_neighbor_groups.end()) {
+                continue; // already counted
+            }
+            opp_neighbor_groups.push_back(parent(neighbor));
+            int32_t new_opp_liberties = getLiberties(neighbor) + 1;
+            setLiberties(neighbor, new_opp_liberties);
+        }
     }
     
     return hash;
@@ -36,10 +53,10 @@ ZobristHash GoNode::placePiece(const Coord coordinate, const Player who){
     ZobristHash hash = 0;
     m_koCoord = NO_KO_COORD;
 
-
+    std::vector<int> opp_neighbor_groups;
     for (Coord neighbor : neighbors(coordinate)) {
         if (m_board[neighbor] == Piece::NONE) {
-            new_liberties++;
+            // We need to determine if this is actually a new liberty. Postponed until we finish union-ing all the neighbors.
         } else if (m_board[neighbor] == static_cast<Piece>(who)) {
             if (parent(neighbor) != parent(coordinate)) {
                 // If two neighbors are part of the same component, then
@@ -62,6 +79,25 @@ ZobristHash GoNode::placePiece(const Coord coordinate, const Player who){
             }
         }
     }
+
+    for (Coord neighbor : neighbors(coordinate)) {
+        if (m_board[neighbor] == Piece::NONE) {
+            // This time, we need to check all neighbors of this neighbor.
+            // If *any* of them are part of the same group, then this is not a new liberty.
+            // Else, it is.
+            bool has_friendly_neighbor = false;
+            for (Coord neighbor_neighbor : neighbors(neighbor)) {
+                if (parent(neighbor_neighbor) == parent(coordinate) && neighbor_neighbor != coordinate) {
+                    has_friendly_neighbor = true;
+                    break;
+                }
+            }
+            if (!has_friendly_neighbor) {
+                new_liberties++;
+            }
+        }
+    }
+
     setLiberties(coordinate, new_liberties);
 
     hash ^= getPieceHash(coordinate, who);
