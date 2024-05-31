@@ -8,6 +8,7 @@
 namespace SPRL {
 
 ZobristHash GoNode::clearComponent(Coord coord, Player player) {
+    assert (m_board[coord] == static_cast<Piece>(player));
     if (m_koCoord == NO_KO_COORD) {
         m_koCoord = coord;
         
@@ -53,11 +54,12 @@ ZobristHash GoNode::placePiece(const Coord coordinate, const Player who){
     ZobristHash hash = 0;
     m_koCoord = NO_KO_COORD;
 
-    std::vector<int> opp_neighbor_groups;
+    /*
+    Phase one: check for friendly neighbors, and merge all of them together.
+    Add together all of the inherited liberties.
+    */
     for (Coord neighbor : neighbors(coordinate)) {
-        if (m_board[neighbor] == Piece::NONE) {
-            // We need to determine if this is actually a new liberty. Postponed until we finish union-ing all the neighbors.
-        } else if (m_board[neighbor] == static_cast<Piece>(who)) {
+        if (m_board[neighbor] == static_cast<Piece>(who)) {
             if (parent(neighbor) != parent(coordinate)) {
                 // If two neighbors are part of the same component, then
                 // the first guy gets evaluated and merged, and the
@@ -65,20 +67,12 @@ ZobristHash GoNode::placePiece(const Coord coordinate, const Player who){
                 new_liberties += getLiberties(neighbor) - 1;
                 m_dsu[parent(coordinate)] = parent(neighbor);
             }
-        } else {
-            // check if the parent of neighbor lies in opp_neighbor_groups
-            if (std::find(opp_neighbor_groups.begin(), opp_neighbor_groups.end(), parent(neighbor)) != opp_neighbor_groups.end()) {
-                continue; // already counted
-            }
-            opp_neighbor_groups.push_back(parent(neighbor));
-            
-            int32_t new_opp_liberties = getLiberties(neighbor) - 1;
-            setLiberties(neighbor, new_opp_liberties);
-            if(new_opp_liberties == 0){
-                hash ^= clearComponent(neighbor, otherPlayer(who));
-            }
         }
     }
+
+    /*
+    Phase two: check for empty neighbors, and add a liberty for each one.
+    */
 
     for (Coord neighbor : neighbors(coordinate)) {
         if (m_board[neighbor] == Piece::NONE) {
@@ -98,17 +92,48 @@ ZobristHash GoNode::placePiece(const Coord coordinate, const Player who){
         }
     }
 
+    /*
+    Update the liberties of the new component. At this stage, the liberty count for coordinate is correct,
+    assuming that no captured enemy stones have been removed yet.
+    */
+
     setLiberties(coordinate, new_liberties);
+
+    /*
+    Phase three: check for enemy neighbors, and deduct a liberty from those components.
+    If a component has no liberties left, it dies. In the process of removing the stones, we also:
+     - update the hash 
+     - update the ko coordinate
+     - update the liberties of the adjacent groups of player.
+    */
+
+
+    std::vector<int> opp_neighbor_groups;
+    for (Coord neighbor : neighbors(coordinate)) {
+        if (m_board[neighbor] != static_cast<Piece>(who)) {
+            // check if the parent of neighbor lies in opp_neighbor_groups
+            if (std::find(opp_neighbor_groups.begin(), opp_neighbor_groups.end(), parent(neighbor)) != opp_neighbor_groups.end()) {
+                continue; // already counted
+            }
+            opp_neighbor_groups.push_back(parent(neighbor));
+            
+            int32_t new_opp_liberties = getLiberties(neighbor) - 1;
+            setLiberties(neighbor, new_opp_liberties);
+            if(new_opp_liberties == 0){
+                hash ^= clearComponent(neighbor, otherPlayer(who));
+            }
+        }
+    }
 
     hash ^= getPieceHash(coordinate, who);
     // Right-shift the history, and append the new hash.
     for (int i = 0; i < GO_HISTORY_LENGTH - 1; i++) {
-        m_history[i + 1] = m_history[i];
+        m_zobristHistory[i + 1] = m_zobristHistory[i];
     }
-    m_history[9] ^= hash; // history[0] = history[1] ^ hash
+    m_zobristHistory[0] ^= hash; // history[0] = history[1] ^ hash
 
     // zero out the passes
-    passes = 0;
+    m_passes = 0;
 
     if(m_koCoord == MORE_THAN_ONE_CAPTURE_KO_COORD){ // account for the special value
         m_koCoord = NO_KO_COORD;
@@ -117,24 +142,24 @@ ZobristHash GoNode::placePiece(const Coord coordinate, const Player who){
 
 void GoNode::pass() {
     for (int i = 0; i < GO_HISTORY_LENGTH - 1; i++) {
-        m_history[i+1] = m_history[i];
+        m_zobristHistory[i+1] = m_zobristHistory[i];
     }
     // history[0] is already state.history[1]
-    passes++;
-    player = 1 - player;
+    m_passes++;
+    m_player = otherPlayer(m_player);
 }
 
-bool GoNode::checkSuicide(const int32_t coordinate, const int8_t who) const{
-    assert (m_board[coordinate] == -1); // empty square
-    assert (who == 0 || who == 1); // player 0 or 1
+bool GoNode::checkSuicide(const Coord coordinate, const Player player) const{
+    assert (m_board[coordinate] == Piece::NONE); // empty square
+    assert (player != Player::NONE); // player is either 0 or 1
     assert (m_koCoord != coordinate); // not an illegal move
     for (int32_t neighbor : neighbors(coordinate)) {
         if (neighbor == -1) {
             continue;
         }
-        if (m_board[neighbor] == -1) {
+        if (m_board[neighbor] == Piece::NONE) {
             return false; // Empty square
-        }else if (m_board[neighbor] == who) {
+        }else if (m_board[neighbor] == static_cast<Piece>(player)) {
             if (getLiberties(neighbor) > 1) {
                 return false;
                 // We have a liberty because we're attached to a
@@ -157,21 +182,21 @@ bool GoNode::checkSuicide(const int32_t coordinate, const int8_t who) const{
  * The algorithm is a WYSIWYG implementation of Go scoring. All stones of a particular color belong to that player.
  * A blank cell belongs to a player if all its neighbors belong to that player, computed using a BFS.
 */
-std::pair<int, int> GoNode::compute_score(){
+std::array<int32_t, 2> GoNode::computeScore(){
     using Board = std::array<int8_t, GO_BOARD_SIZE>;
     Board visited;
     visited.fill(0);
 
     // In this algorithm, visited[i] == 1 implies m_board[i] == -1.
 
-    std::pair<int, int> points = {0, 0};
+    std::array<int32_t, 2> points = {0, 0};
     for (int i = 0; i < GO_BOARD_SIZE; i++) {
-        if (m_board[i] == 0){
-            points.first++;
+        if (m_board[i] == Piece::ZERO) {
+            points[0]++;
             continue;
         }
-        if (m_board[i] == 1){
-            points.second++;
+        if (m_board[i] == Piece::ONE) {
+            points[1]++;
             continue;
         }
         
@@ -182,22 +207,22 @@ std::pair<int, int> GoNode::compute_score(){
         q.push(i);
         visited[i] = 1;
         int count = 0;
-        std::pair<bool, bool> possible_territory = {true, true}; // {black, white}.
+        std::array<bool, 2> possible_territory = {true, true}; // {black, white}.
         while (!q.empty()) {
             int current = q.front();
             q.pop();
             count++;
             // Some assert statements just to verify the correctness of the algorithm
-            assert (m_board[current] == -1);
+            assert (m_board[current] == Piece::NONE);
             assert (visited[current] == 1);
             for (int neighbor : neighbors(current)) {
-                if (m_board[neighbor] == 0) {
+                if (m_board[neighbor] == Piece::ZERO) {
                     // touches a black stone, hence it cannot be white territory
-                    possible_territory.second = false;
+                    possible_territory[1] = false;
                 }
-                else if (m_board[neighbor] == 1) {
+                else if (m_board[neighbor] == Piece::ONE) {
                     // touches a white stone, hence it cannot be black territory
-                    possible_territory.second = false;
+                    possible_territory[0] = false;
                 } else {
                     // vacant, continue BFS
                     if (visited[neighbor] != 0) {
@@ -208,15 +233,15 @@ std::pair<int, int> GoNode::compute_score(){
                 }
             }
         }
-        if (possible_territory.first) {
-            if (possible_territory.second) {
+        if (possible_territory[0]) {
+            if (possible_territory[1]) {
                 // The only situation in which this occurs is if the board is completely empty.
             }else{
-                points.first += count;
+                points[0] += count;
             }
         } else {
-            if (possible_territory.second) {
-                points.second += count;
+            if (possible_territory[1]) {
+                points[1] += count;
             } else {
                 // Neither black nor white territory
             }
@@ -227,32 +252,9 @@ std::pair<int, int> GoNode::compute_score(){
 
 
 
-
-
-GoState GoNode::startState() const {
-    return GoState {};
-}
-
-ActionIdx GoNode::actionToActionIdx(const GoGame::Action& action) const{
-    if (action.pass) {
-        assert (action.boardIdx == 0); // pass action has boardIdx = 0
-        return GO_BOARD_SIZE;
-    }
-    assert (action.boardIdx >= 0 && action.boardIdx < GO_BOARD_SIZE);
-    return action.boardIdx;
-}
-
-GoGame::Action GoNode::actionIdxToAction(const ActionIdx actionIdx) const {
-    if (actionIdx == GO_BOARD_SIZE) {
-        return {true, 0};
-    }
-    assert (actionIdx >= 0 && actionIdx < GO_BOARD_SIZE);
-    return {false, static_cast<int8_t>(actionIdx)};
-}
-
-GoState GoNode::nextState(const GoState& state, const ActionIdx actionIdx) const {
+std::unique_ptr<GameNode<GridState<GO_BOARD_SIZE>, GO_ACTION_SIZE>> GoNode::getNextNode(ActionIdx actionIdx) {
     using Board = std::array<int8_t, GO_BOARD_SIZE>;
-    GoState new_state = GoState(state);
+    GoNode new_state = GoNode(state);
     if (actionIdx == GO_BOARD_SIZE) {
         // pass
         new_state.pass();

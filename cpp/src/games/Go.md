@@ -15,4 +15,9 @@ Notes on Ko:
 
 ## Play Move
 
-The objective is to be able to play a move in O(boardsize) worst-case (polylog factors are suppressed), but also
+The objective is to be able to play a move in O(boardsize) worst-case (polylog factors are suppressed), but perform much better in practice. Copying the board etc are all fixed O(boardsize) costs. Here are the performance characteristics of operations made in addition to the fixed cost:
+
+-   If no captures are made on the move, then computation takes O(1).
+-   If captures are made, then computation takes O(captured region area).
+
+These are all just optimizations for speed.

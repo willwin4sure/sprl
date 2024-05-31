@@ -44,7 +44,7 @@ public:
 
     GoNode(GoNode* parent, ActionIdx action, const ActionDist& actionMask,
            Player player, Player winner, bool isTerminal, const Board& board,
-           int8_t koCoord, const std::array<int64_t, GO_HISTORY_LENGTH>& zobristHistory,
+           Coord koCoord, const std::array<ZobristHash, GO_HISTORY_LENGTH>& zobristHistory,
            int8_t passes)
         : GNode ( parent, action, actionMask, player, winner, isTerminal ),
           m_board { board }, m_koCoord { koCoord }, m_zobristHistory { zobristHistory }, m_passes { passes } {
@@ -66,10 +66,10 @@ private:
     bool checkSuicide(const Coord coord, const Player player) const;
 
     /**
-     * Slow O(component size) modificator which resets all nodes
-     * in the connected component of coord. Must be a piece there.
+     * Slow O(component size) modification which resets all nodes
+     * in the connected component of coord. m_board[coord] must be player.
      * 
-     * Edits the underlying board and koCoord.
+     * Edits the underlying board and koCoord. In addition, updates the liberties of all adjacent groups of the opposite player.
      * 
      * @returns The Zobrist modification you need to xor the current hash
      * with in order to get the hash of the new board.
