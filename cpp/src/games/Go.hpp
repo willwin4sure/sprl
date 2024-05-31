@@ -48,7 +48,6 @@ public:
            int8_t passes)
         : GNode ( parent, action, actionMask, player, winner, isTerminal ),
           m_board { board }, m_koCoord { koCoord }, m_zobristHistory { zobristHistory }, m_passes { passes } {
-
     }
 
     void setStartNode() override;
@@ -74,7 +73,7 @@ private:
      * @returns The Zobrist modification you need to xor the current hash
      * with in order to get the hash of the new board.
     */
-    ZobristHash clearComponent(Coord coord, Player player);
+    void clearComponent(Coord coord, Player player);
 
     /**
      * Places a piece in the given coordinate.
@@ -109,18 +108,21 @@ private:
 
     mutable std::array<Coord, GO_BOARD_SIZE> m_dsu;  // TODO: make this a separate DSU class
     std::array<LibertyCount, GO_BOARD_SIZE> m_liberties;
+
+    // Zobrist values for each connected component.
+    std::array<ZobristHash, GO_BOARD_SIZE> m_componentZobristValues; 
     
     Coord parent(const Coord coord) const {
         if (m_dsu[coord] == coord) return coord;
         return m_dsu[coord] = parent(m_dsu[coord]);
     }
 
-    LibertyCount getLiberties(const Coord coordinate) const {
-        return m_liberties[parent(coordinate)];
+    LibertyCount getLiberties(Coord coord) const {
+        return m_liberties[parent(coord)];
     }
 
-    void setLiberties(const Coord coordinate, const LibertyCount new_liberties) {
-        m_liberties[parent(coordinate)] = new_liberties;
+    LibertyCount& getLiberties(Coord coord) {
+        return m_liberties[parent(coord)];
     }
 
     std::vector<Coord> neighbors(const Coord coord) const{
@@ -146,6 +148,9 @@ private:
     ZobristHash getPieceHash(const Coord coordinate, const Player who) {
         return GetZobrist().zobrist_values[coordinate + static_cast<int>(who) * GO_BOARD_SIZE];
     }
+
+    ActionDist actionMask(const GoNode& state) const;
+
 };
 
 } // namespace SPRL
