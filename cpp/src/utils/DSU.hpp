@@ -34,7 +34,7 @@ public:
     /**
      * @returns The representative of the set containing `x`.
     */
-    int find(int x) {
+    int find(int x) const {
         if (m_parent[x] != x) {
             // Path compression
             m_parent[x] = find(m_parent[x]);
@@ -65,20 +65,20 @@ public:
     /**
      * @returns Whether `x` and `y` are in the same set.
     */
-    bool sameSet(int x, int y) {
+    bool sameSet(int x, int y) const {
         return find(x) == find(y);
     }
 
     /**
      * @returns The size of the set containing `x`.
     */
-    int getSize(int x) {
+    int getSize(int x) const {
         return m_size[find(x)];
     }
 
 private:
-    std::array<int, N> m_parent;  // The parent of each element.
-    std::array<int, N> m_size;    // The size of each set, indexed by representative.
+    mutable std::array<int, N> m_parent;  // The parent of each element.
+    std::array<int, N> m_size;  // The size of each set, indexed by representative.
 };
 
 } // namespace SPRL
