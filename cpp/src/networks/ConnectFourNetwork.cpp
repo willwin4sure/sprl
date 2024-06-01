@@ -33,7 +33,7 @@ std::vector<std::pair<ConnectFourNetwork::ActionDist, Value>> ConnectFourNetwork
 
     for (int b = 0; b < numStates; ++b) {
         Player player = states[b].getPlayer();
-        Piece piece = static_cast<Piece>(player);
+        Piece piece = pieceFromPlayer(player);
 
         GridBoard<C4_BS> board = states[b].getHistory()[0];
 

@@ -39,7 +39,7 @@
 //     const Player player = state.getPlayer();
 //     const Player newPlayer = 1 - player;
 
-//     const Piece piece = static_cast<Piece>(player);
+//     const Piece piece = pieceFromPlayer(player);
 
 //     Action action = actionIdxToAction(actionIdx);
 

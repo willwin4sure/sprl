@@ -93,7 +93,7 @@
 //     const Player player = state.getPlayer();
 //     const Player newPlayer = 1 - player;
 
-//     const Piece piece = static_cast<Piece>(player);
+//     const Piece piece = pieceFromPlayer(player);
 
 //     // Action index 64 is a pass
 //     if (action != OTH_SIZE * OTH_SIZE) {
@@ -139,8 +139,8 @@
 //     for (int row = 0; row < OTH_SIZE; ++row) {
 //         for (int col = 0; col < OTH_SIZE; ++col) {
 //             if (board[toIndex(row, col)] != -1) continue;
-//             // mask[toIndex(row, col)] = (captures(board, row, col, static_cast<Piece>(player)).size() > 0) ? 1.0f : 0.0f;
-//             mask[toIndex(row, col)] = canCapture(board, row, col, static_cast<Piece>(player)) ? 1.0f : 0.0f;
+//             // mask[toIndex(row, col)] = (captures(board, row, col, pieceFromPlayer(player)).size() > 0) ? 1.0f : 0.0f;
+//             mask[toIndex(row, col)] = canCapture(board, row, col, pieceFromPlayer(player)) ? 1.0f : 0.0f;
 //         }
 //     }
     

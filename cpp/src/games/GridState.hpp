@@ -35,6 +35,28 @@ constexpr Piece otherPiece(Piece piece) {
 }
 
 /**
+ * @returns The piece corresponding to the player.
+*/
+constexpr Piece pieceFromPlayer(Player player) {
+    switch (player) {
+    case Player::ZERO: return Piece::ZERO;
+    case Player::ONE:  return Piece::ONE;
+    default:          return Piece::NONE;
+    }
+}
+
+/**
+ * @returns The player corresponding to the piece.
+*/
+constexpr Player playerFromPiece(Piece piece) {
+    switch (piece) {
+    case Piece::ZERO: return Player::ZERO;
+    case Piece::ONE:  return Player::ONE;
+    default:          return Player::NONE;
+    }
+}
+
+/**
  * Represents a grid game board of pieces.
  * 
  * @tparam BS The size of the board.

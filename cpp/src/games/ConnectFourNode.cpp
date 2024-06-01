@@ -31,7 +31,7 @@ std::unique_ptr<ConnectFourNode::GNode> ConnectFourNode::getNextNode(ActionIdx a
     const Player player = m_player;
     const Player newPlayer = otherPlayer(player);
 
-    const Piece piece = static_cast<Piece>(player);
+    const Piece piece = pieceFromPlayer(player);
 
     int col = action;
 
@@ -82,10 +82,9 @@ ConnectFourNode::State ConnectFourNode::getGameState() const {
 
 std::array<Value, 2> ConnectFourNode::getRewards() const {
     switch (m_winner) {
-    case Player::NONE: return { 0.0f, 0.0f };
     case Player::ZERO: return { 1.0f, -1.0f };
     case Player::ONE:  return { -1.0f, 1.0f };
-    default: assert(false);
+    default:           return { 0.0f, 0.0f };
     }
 }
 
