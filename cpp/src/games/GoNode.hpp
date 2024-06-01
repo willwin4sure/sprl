@@ -4,7 +4,7 @@
 #include "GameNode.hpp"
 #include "GridState.hpp"
 
-#include "../random/Zobrist.hpp"
+#include "../utils/Zobrist.hpp"
 
 #include <cassert>
 #include <vector>
@@ -31,12 +31,6 @@ public:
 
     using Coord = int32_t;
     using LibertyCount = int32_t;
-
-    /// Special value meaning there is no one-move ko to potentially break
-    static constexpr Coord NO_KO_COORD = -1;
-
-    /// Special value meaning >1 stone has been captured
-    static constexpr Coord MORE_THAN_ONE_CAPTURE_KO_COORD = -2;
 
     GoNode() {
         setStartNode();
