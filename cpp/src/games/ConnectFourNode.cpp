@@ -70,7 +70,7 @@ std::unique_ptr<ConnectFourNode::GNode> ConnectFourNode::getNextNode(ActionIdx a
     }
 
     std::unique_ptr<GNode> newNode = std::make_unique<ConnectFourNode>(
-        this, action, newActionMask, newPlayer, winner, isTerminal, newBoard);
+        this, action, std::move(newActionMask), newPlayer, winner, isTerminal, std::move(newBoard));
 
     return std::move(newNode);
 }

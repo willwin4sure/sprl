@@ -40,10 +40,10 @@ public:
      * @param isTerminal Whether the game had ended.
      * @param board The new board state.
     */
-    ConnectFourNode(ConnectFourNode* parent, ActionIdx action, const ActionDist& actionMask,
-                    Player player, Player winner, bool isTerminal, const Board& board)
-        : GNode ( parent, action, actionMask, player, winner, isTerminal ),
-          m_board { board } {
+    ConnectFourNode(ConnectFourNode* parent, ActionIdx action, ActionDist&& actionMask,
+                    Player player, Player winner, bool isTerminal, Board&& board)
+        : GNode { parent, action, std::move(actionMask), player, winner, isTerminal },
+          m_board { std::move(board) } {
 
     }
 

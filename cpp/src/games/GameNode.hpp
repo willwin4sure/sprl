@@ -68,10 +68,10 @@ public:
      * @param winner The winner of the game in the new node.
      * @param isTerminal Whether the new node is terminal.
     */
-    GameNode(GameNode* parent, ActionIdx action, const ActionDist& actionMask,
+    GameNode(GameNode* parent, ActionIdx action, ActionDist&& actionMask,
              Player player, Player winner, bool isTerminal)
 
-        : m_parent { parent }, m_action { action }, m_actionMask { actionMask },
+        : m_parent { parent }, m_action { action }, m_actionMask { std::move(actionMask) },
           m_player { player }, m_winner { winner }, m_isTerminal { isTerminal } {
     }
 
