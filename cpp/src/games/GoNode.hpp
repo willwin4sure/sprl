@@ -17,6 +17,7 @@ constexpr int GO_BOARD_WIDTH = 9;
 constexpr int GO_BOARD_SIZE = GO_BOARD_WIDTH * GO_BOARD_WIDTH;
 constexpr int GO_ACTION_SIZE = GO_BOARD_SIZE + 1;  // Last index represents pass.
 constexpr int GO_HISTORY_LENGTH = 8;
+constexpr float GO_KOMI = 7.5;
 
 class GoNode : public GameNode<GridState<GO_BOARD_SIZE>, GO_ACTION_SIZE> {
 public:
@@ -94,6 +95,8 @@ private:
         
         if (row < GO_BOARD_WIDTH - 1) result.push_back(toCoord(row + 1, col));
         if (col < GO_BOARD_WIDTH - 1) result.push_back(toCoord(row, col + 1));
+
+        return result;
     }
 
     /**
@@ -170,13 +173,13 @@ private:
      * @returns The territory scores for the two players, which
      * should be integers in the range `[0, GO_BOARD_SIZE]`.
     */
-    std::array<int, 2> computeScore();
+    std::array<int, 2> countTerritory() const;
 
-    ActionDist actionMask(const GoNode& state) const;
+    ActionDist computeActionMask() const;
 
 private:
     /// Static Zobrist hashes for (Coord, Piece) pairs.
-    static const Zobrist<GO_BOARD_SIZE * 2> s_zobrist;
+    static inline const Zobrist<GO_BOARD_SIZE * 2> s_zobrist {};
 
     int m_depth;  // The depth of the node in the tree, starting at 0.
     

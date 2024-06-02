@@ -7,12 +7,14 @@
 #include <memory>
 
 #include "agents/HumanAgent.hpp"
+#include "agents/HumanGoAgent.hpp"
 #include "agents/UCTNetworkAgent.hpp"
 
 #include "evaluate/play.hpp"
 
 #include "games/GameNode.hpp"
 #include "games/ConnectFourNode.hpp"
+#include "games/GoNode.hpp"
 
 #include "interface/npy.hpp"
 
@@ -23,8 +25,8 @@
 #include "uct/UCTNode.hpp"
 #include "uct/UCTTree.hpp"
 
-constexpr int BS = SPRL::C4_BS;
-constexpr int AS = SPRL::C4_AS;
+constexpr int BS = SPRL::GO_BOARD_SIZE;
+constexpr int AS = SPRL::GO_ACTION_SIZE;
 
 int main(int argc, char* argv[]) {
     if (argc != 6) {
@@ -38,24 +40,25 @@ int main(int argc, char* argv[]) {
     int maxTraversals = std::stoi(argv[4]);
     int maxQueueSize = std::stoi(argv[5]);
 
-
     SPRL::Network<SPRL::GridState<BS>, AS>* network;
 
     SPRL::RandomNetwork<SPRL::GridState<BS>, AS> randomNetwork {};
-    SPRL::ConnectFourNetwork neuralNetwork { modelPath };
+    // SPRL::ConnectFourNetwork neuralNetwork { modelPath };
 
-    if (modelPath == "random") {
-        std::cout << "Using random network..." << std::endl;
-        network = &randomNetwork;
-    } else {
-        std::cout << "Using traced PyTorch network..." << std::endl;
-        network = &neuralNetwork;
-    }
+    // if (modelPath == "random") {
+    //     std::cout << "Using random network..." << std::endl;
+    //     network = &randomNetwork;
+    // } else {
+    //     std::cout << "Using traced PyTorch network..." << std::endl;
+    //     network = &neuralNetwork;
+    // }
+
+    network = &randomNetwork;
 
     SPRL::UCTTree<SPRL::GridState<BS>, AS> tree {
-        std::make_unique<SPRL::ConnectFourNode>(),
+        std::make_unique<SPRL::GoNode>(),
         0.25,
-        0.3,
+        0.1,
         SPRL::InitQ::PARENT,
         nullptr,
         true
@@ -69,7 +72,8 @@ int main(int argc, char* argv[]) {
         maxQueueSize
     };
 
-    SPRL::HumanAgent<SPRL::GridState<BS>, AS> humanAgent {};
+    // SPRL::HumanAgent<SPRL::GridState<BS>, AS> humanAgent {};
+    SPRL::HumanGoAgent humanAgent {};
 
     std::array<SPRL::Agent<SPRL::GridState<BS>, AS>*, 2> agents;
 
@@ -79,7 +83,7 @@ int main(int argc, char* argv[]) {
         agents = { &networkAgent, &humanAgent };
     }
 
-    SPRL::ConnectFourNode rootNode {};
+    SPRL::GoNode rootNode {};
 
     SPRL::playGame(&rootNode, agents, true);
 

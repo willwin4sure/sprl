@@ -73,6 +73,15 @@ public:
     void setParent(T x, T parent) {
         m_parent[x] = parent;
     }
+
+    /**
+     * Clears the DSU by setting each element as its own parent.
+    */
+    void clear() {
+        for (T i = 0; i < static_cast<T>(N); ++i) {
+            m_parent[i] = i;
+        }
+    }
     
 private:
     mutable std::array<T, N> m_parent;  // The parent of each element.

@@ -222,86 +222,92 @@ bool GoNode::checkLegalPlacement(const Coord coordinate, const Player player) co
 }
 
 
-std::array<int, 2> GoNode::computeScore() {
+std::array<int, 2> GoNode::countTerritory() const {
     std::array<bool, GO_BOARD_SIZE> visited;
     visited.fill(false);
 
     // In this algorithm, visited[i] == 1 implies m_board[i] == -1.
 
-    std::array<int, 2> points = {0, 0};
+    std::array<int, 2> points = { 0, 0 };
     for (int i = 0; i < GO_BOARD_SIZE; i++) {
         if (m_board[i] == Piece::ZERO) {
             points[0]++;
             continue;
         }
+
         if (m_board[i] == Piece::ONE) {
             points[1]++;
             continue;
         }
         
-        if (visited[i] != 0)
-            continue;
+        if (visited[i]) continue;
         
-        std::queue<int> q;
-        q.push(i);
-        visited[i] = 1;
+        std::deque<int> q;
+        visited[i] = true;
+        q.push_back(i);
+
         int count = 0;
-        std::array<bool, 2> possible_territory = {true, true}; // {black, white}.
+        std::array<bool, 2> possibleTerritory = { true, true };
+
         while (!q.empty()) {
             int current = q.front();
-            q.pop();
-            count++;
-            // Some assert statements just to verify the correctness of the algorithm
-            assert (m_board[current] == Piece::NONE);
-            assert (visited[current] == 1);
+            q.pop_front();
+            ++count;
+
+            assert(m_board[current] == Piece::NONE);
+            assert(visited[current] == true);
+
             for (int neighbor : neighbors(current)) {
                 if (m_board[neighbor] == Piece::ZERO) {
-                    // touches a black stone, hence it cannot be white territory
-                    possible_territory[1] = false;
-                }
-                else if (m_board[neighbor] == Piece::ONE) {
-                    // touches a white stone, hence it cannot be black territory
-                    possible_territory[0] = false;
+                    // Cannot be the territory of player 1.
+                    possibleTerritory[1] = false;
+
+                } else if (m_board[neighbor] == Piece::ONE) {
+                    // Cannot be the territory of player 0.
+                    possibleTerritory[0] = false;
+
                 } else {
-                    // vacant, continue BFS
-                    if (visited[neighbor] != 0) {
-                        continue;
-                    }
-                    visited[neighbor] = 1;
-                    q.push(neighbor);
+                    // Vacant, continue BFS.
+                    if (visited[neighbor]) continue;
+                    visited[neighbor] = true;
+                    q.push_back(neighbor);
                 }
             }
         }
-        if (possible_territory[0]) {
-            if (possible_territory[1]) {
-                // The only situation in which this occurs is if the board is completely empty.
-            }else{
-                points[0] += count;
-            }
-        } else {
-            if (possible_territory[1]) {
-                points[1] += count;
-            } else {
-                // Neither black nor white territory
-            }
-        }
+
+        if (possibleTerritory[0] && !possibleTerritory[1]) points[0] += count;
+        if (possibleTerritory[1] && !possibleTerritory[0]) points[1] += count;
     }
+
     return points;
 }
 
-GoNode::ActionDist GoNode::actionMask(const GoNode& state) const {
+GoNode::ActionDist GoNode::computeActionMask() const {
     GoNode::ActionDist mask;
     for (Coord i = 0; i < GO_BOARD_SIZE; i++) {
-        mask[i] = checkLegalPlacement(i, state.m_player);
+        mask[i] = checkLegalPlacement(i, m_player);
     }
-    mask[GO_BOARD_SIZE] = true; // pass is always a valid action
+
+    mask[GO_BOARD_SIZE] = true;
+
+    return mask;
 }
 
 
 void GoNode::setStartNode() {
-    // TODO @will fix this i dont really know how initialization works
     m_parent = nullptr;
     m_action = 0;
+    m_actionMask.fill(1.0f);
+    m_player = Player::ZERO;
+    m_winner = Player::NONE;
+    m_isTerminal = false;
+    m_board.fill(Piece::NONE);
+    m_hash = 0;
+    m_depth = 0;
+    m_zobristHistorySet.clear();
+    m_dsu.clear();
+    m_liberties.fill(0);
+    m_componentZobristValues.fill(0);
 }
 
 
@@ -316,7 +322,7 @@ std::unique_ptr<GoNode::GNode> GoNode::getNextNode(ActionIdx actionIdx) {
     std::array<LibertyCount, GO_BOARD_SIZE> newLiberties = m_liberties;
     std::array<ZobristHash, GO_BOARD_SIZE> newComponentZobristValues = m_componentZobristValues;
 
-    GoNode copyNode {
+    auto copyNode = std::make_unique<GoNode>(
         static_cast<GoNode*>(m_parent),
         m_action,
         std::move(newActionMask),
@@ -330,19 +336,173 @@ std::unique_ptr<GoNode::GNode> GoNode::getNextNode(ActionIdx actionIdx) {
         std::move(newDSU),
         std::move(newLiberties),
         std::move(newComponentZobristValues)
-    };
+    );
 
     if (actionIdx != GO_BOARD_SIZE) {
         // Handle a piece placement.
         assert(actionIdx >= 0 && actionIdx < GO_BOARD_SIZE);
-        assert(checkLegalPlacement(actionIdx, m_player));
+        assert(copyNode->checkLegalPlacement(actionIdx, m_player));
 
-        copyNode.placePiece(actionIdx, m_player);
+        copyNode->placePiece(actionIdx, m_player);
     }
 
-    // @rowechen
+    copyNode->m_parent = this;
+    copyNode->m_action = actionIdx;
+    copyNode->m_player = otherPlayer(m_player);
+    copyNode->m_actionMask = copyNode->computeActionMask();
+    ++copyNode->m_depth;
 
-    return std::make_unique<GoNode>(std::move(copyNode));
+    // Update winner and terminal status.
+    copyNode->m_isTerminal = m_action == GO_BOARD_SIZE && actionIdx == GO_BOARD_SIZE;
+    if (copyNode->m_isTerminal) {
+        std::array<int, 2> territory = copyNode->countTerritory();
+        std::array<float, 2> score = { static_cast<float>(territory[0]),
+                                       static_cast<float>(territory[1]) };
+
+        score[1] += GO_KOMI;
+
+        if (score[0] > score[1]) {
+            copyNode->m_winner = Player::ZERO;
+        } else if (score[1] > score[0]) {
+            copyNode->m_winner = Player::ONE;
+        } else {
+            copyNode->m_winner = Player::NONE;
+        }
+    }
+
+    return copyNode;
+}
+
+GoNode::State GoNode::getGameState() const {
+    std::vector<Board> history;
+
+    const GoNode* current = this;
+
+    for (int t = 0; t < GO_HISTORY_LENGTH; t++) {
+        if (current == nullptr) {
+            break;
+        }
+
+        history.push_back(current->m_board);
+        current = static_cast<GoNode*>(current->m_parent);
+    }
+
+    return State { std::move(history), m_player };
+}
+
+std::array<Value, 2> GoNode::getRewards() const {
+    switch (m_winner) {
+    case Player::ZERO: return { 1.0f, -1.0f };
+    case Player::ONE:  return { -1.0f, 1.0f };
+    default:           return { 0.0f, 0.0f };
+    }
+}
+
+std::string GoNode::toString() const {
+    std::string str = "Player: " + std::to_string(static_cast<int>(m_player)) + "\n";
+    str += "Winner: " + std::to_string(static_cast<int>(m_winner)) + "\n";
+    str += "IsTerminal: " + std::to_string(m_isTerminal) + "\n";
+    str += "Action: " + std::to_string(m_action) + "\n";
+    str += "Depth: " + std::to_string(m_depth) + "\n";
+    str += "Hash: " + std::to_string(m_hash) + "\n";
+    str += "Board:\n";
+    
+    str += "  ";
+    for (int col = 0; col < GO_BOARD_WIDTH; col++) {
+        str += ('A' + col);
+        str += " ";
+    }
+    str += "\n";
+    
+    for (int row = 0; row < GO_BOARD_WIDTH; row++) {
+        str += std::to_string(row) + " ";
+        for (int col = 0; col < GO_BOARD_WIDTH; col++) {
+            switch (m_board[toCoord(row, col)]) {
+            case Piece::NONE:
+                str += "+ ";
+                break;
+            case Piece::ZERO:
+                // colored red
+                str += "\033[31mO\033[0m ";
+                break;
+            case Piece::ONE:
+                // colored yellow
+                str += "\033[33mX\033[0m ";
+                break;
+            default:
+                assert(false);
+            }
+        }
+        str += std::to_string(row);
+        str += "\n";   
+    }
+
+    str += "  ";
+    for (int col = 0; col < GO_BOARD_WIDTH; col++) {
+        str += ('A' + col);
+        str += " ";
+    }
+    str += "\n";
+
+    str += "ActionMask:\n";
+
+    str += "  ";
+    for (int col = 0; col < GO_BOARD_WIDTH; col++) {
+        str += ('A' + col);
+        str += " ";
+    }
+    str += "\n";    
+
+    for (int i = 0; i < GO_BOARD_WIDTH; i++) {
+        str += std::to_string(i) + " ";
+        for (int j = 0; j < GO_BOARD_WIDTH; j++) {
+            if(m_actionMask[toCoord(i, j)] == 1.0f) {
+                str += "1 ";
+            } else {
+                str += "0 ";
+            }
+        }
+        str += std::to_string(i);
+        str += "\n";
+    }
+    
+    str += "  ";
+    for (int col = 0; col < GO_BOARD_WIDTH; col++) {
+        str += ('A' + col);
+        str += " ";
+    }
+    str += "\n";
+
+    str += "Liberties:\n";
+
+    str += "  ";
+    for (int col = 0; col < GO_BOARD_WIDTH; col++) {
+        str += ('A' + col);
+        str += " ";
+    }
+    str += "\n";
+    
+
+    for (int i = 0; i < GO_BOARD_WIDTH; i++) {
+        str += std::to_string(i) + " ";
+        for (int j = 0; j < GO_BOARD_WIDTH; j++) {
+            str += std::to_string(getLiberties(toCoord(i, j))) + " ";
+        }
+        str += std::to_string(i);
+        str += "\n";
+    }
+
+    str += "  ";
+    for (int col = 0; col < GO_BOARD_WIDTH; col++) {
+        str += ('A' + col);
+        str += " ";
+    }
+    str += "\n";
+    
+    str += "  ";
+
+    str += "Territories: " + std::to_string(countTerritory()[0]) + " " + std::to_string(countTerritory()[1]) + "\n";
+    return str;
 }
 
 } // namespace SPRL
