@@ -422,12 +422,24 @@ std::string GoNode::toString() const {
                 str += "+ ";
                 break;
             case Piece::ZERO:
-                // colored red
-                str += "\033[31mO\033[0m ";
+                // colored red. If it was the previous move, then bold it as well.
+                if (m_action == toCoord(row, col)) {
+                    // print a O, colored red, in bold
+                    // Console.WriteLine("\x1b[1mTEST\x1b[0m"); this bolds things
+                    // to make things red, wrap with \x1b[31m and \033[0m
+                    str += "\x1b[31m\x1b[1mO\x1b[0m\033[0m ";
+                } else {
+                    str += "\x1b[31mO\033[0m ";
+                }
                 break;
             case Piece::ONE:
                 // colored yellow
-                str += "\033[33mX\033[0m ";
+                if (m_action == toCoord(row, col)) {
+                    // print a X, colored yellow, in bold
+                    str += "\x1b[33m\x1b[1mX\x1b[0m\033[0m ";
+                } else {
+                    str += "\x1b[33mX\033[0m ";
+                }
                 break;
             default:
                 assert(false);

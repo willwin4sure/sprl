@@ -150,7 +150,7 @@ private:
     bool checkLegalPlacement(Coord coord, Player player) const;
 
     /**
-     * Mutator helper function that removes the group of a particular coodinate.
+     * Mutator helper function that removes the group of a particular coordinate.
      * `m_board[coord]` must be a piece owned by `player`.
      * 
      * Edits the board, hash, DSU, and liberty/Zobrist values.
