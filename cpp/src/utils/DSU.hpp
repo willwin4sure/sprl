@@ -17,7 +17,7 @@ namespace SPRL {
  * Disjoint set union with path compression.
  * 
  * @tparam T The type of the indices in the DSU, e.g. `uint8_t`, etc.
- *           Should be able to hold the range `[0, N]`.
+ *           Must be able to hold the range of values `[0, N]`.
  * 
  * @tparam N The number of elements in the DSU.
 */
@@ -66,6 +66,14 @@ public:
         return find(x) == find(y);
     }
 
+    /**
+     * Manually sets the value of the underlying parent array.
+     * Useful when e.g. clearing a subtree of the DSU.
+    */
+    void setParent(T x, T parent) {
+        m_parent[x] = parent;
+    }
+    
 private:
     mutable std::array<T, N> m_parent;  // The parent of each element.
 };

@@ -7,87 +7,23 @@
 
 namespace SPRL {
 
-void GoNode::clearComponent(Coord coord, Player player) {
-    assert (m_board[coord] == pieceFromPlayer(player));
-    if (m_koCoord == NO_KO_COORD) {
-        m_koCoord = coord;
-        
-    } else {
-        m_koCoord = MORE_THAN_ONE_CAPTURE_KO_COORD; 
+GoNode::LibertyCount GoNode::computeLiberties(Coord coord) const {
+    Player player = playerFromPiece(m_board[coord]);
+    
+    if (player == Player::NONE) {
+        return 0;
     }
 
-    m_dsu[coord] = coord;
-    m_board[coord] = Piece::NONE;
-    m_componentZobristValues[coord] = 0;
-
-    m_liberties[coord] = 0;
-
-    // Check for stones which belong to the opposite player
-    // adjacent to the current stone in the removed component.
-    // Each of these components should gain a liberty.
-
-    std::vector<Coord> opp_neighbor_groups;
-    opp_neighbor_groups.reserve(4);
-
-    // ZobristHash state_hash_update = getPieceHash(coord, player);
-    for (Coord neighbor : neighbors(coord)) {
-        if (m_board[neighbor] == Piece::NONE) {
-            continue;
-        }
-
-        if (m_board[neighbor] == pieceFromPlayer(player)) {
-            clearComponent(neighbor, player);
-            
-        } else {
-            Coord group = parent(neighbor);
-
-            if (std::find(opp_neighbor_groups.begin(), opp_neighbor_groups.end(), group) != opp_neighbor_groups.end()) {
-                continue;  // Already counted
-            }
-            opp_neighbor_groups.push_back(group);
-            
-            ++getLiberties(neighbor);
-        }
-    }
+    // Run a BFS.
     
-    // return state_hash_update;
-}
+    std::array<bool, GO_BOARD_SIZE> visited;
+    visited.fill(false);
 
-ZobristHash GoNode::placePiece(const Coord coordinate, const Player player){
-    assert(m_board[coordinate] == Piece::NONE);
-    m_board[coordinate] = pieceFromPlayer(player);
-    
-    m_koCoord = NO_KO_COORD;
-
-
-    /*
-     * Phase one: check for friendly neighbors, and merge all of them together.
-    */
-    ZobristHash component_hash_update = getPieceHash(coordinate, player);
-    
-    for (Coord neighbor : neighbors(coordinate)) {
-        if (parent(coordinate) == parent(neighbor)){
-            // Have already merged this component
-            continue;
-        }
-        
-        if (m_board[neighbor] == pieceFromPlayer(player)) {
-            component_hash_update ^= m_componentZobristValues[parent(neighbor)];
-            m_dsu[parent(coordinate)] = parent(neighbor);
-        }
-    }
-    
-    m_componentZobristValues[parent(coordinate)] = component_hash_update;
-    
-
-    LibertyCount new_liberties = 0;
-
-    // BFS to re-evaluate the liberties of the new component
-
-    std::vector<bool> visited(GO_BOARD_SIZE, false);
     std::deque<Coord> q;
-    visited[coordinate] = true;
-    q.push_back(coordinate);
+    visited[coord] = true;
+    q.push_back(coord);
+
+    LibertyCount liberties = 0;
     
     while (!q.empty()) {
         Coord current = q.front();
@@ -105,115 +41,194 @@ ZobristHash GoNode::placePiece(const Coord coordinate, const Player player){
                 
             } else if (m_board[neighbor] == Piece::NONE) {
                 if (!visited[neighbor]) {
-                    visited[neighbor] = true;  // Don't double count liberties
-                    ++new_liberties;
+                    visited[neighbor] = true;  // Don't double count liberties.
+                    ++liberties;
                 }
             }
         }
     }
 
-    /*
-    Update the liberties of the new component. At this stage, the liberty count for coordinate is correct,
-    assuming that no captured enemy stones have been removed yet.
+    return liberties;
+}
 
-    (The reason we don't add in the new liberties from the deleted components at this stage is because in the next
-    stage we'll add them, plus possible other liberties to other unrelated friendly components).
-    */
-
-    getLiberties(coordinate) = new_liberties;
-
-    /*
-    Phase two: check for enemy neighbors, and deduct a liberty from those components.
-    If a component has no liberties left, it dies. In the process of removing the stones, we also:
-     - update the state_hash_update 
-     - update the ko coordinate
-     - update the liberties of the adjacent groups of player.
-    */
-
-    ZobristHash state_hash_update = getPieceHash(coordinate, player); // this is the state_hash_update update for the entire state.
-
-    std::vector<int> opp_neighbor_groups;
-    for (Coord neighbor : neighbors(coordinate)) {
-        if (m_board[neighbor] != pieceFromPlayer(player)) {
-            // check if the parent of neighbor lies in opp_neighbor_groups
-            if (std::find(opp_neighbor_groups.begin(), opp_neighbor_groups.end(), parent(neighbor)) != opp_neighbor_groups.end()) {
-                continue; // already counted
-            }
-            opp_neighbor_groups.push_back(parent(neighbor));
-            
-            --getLiberties(neighbor);
-            if (getLiberties(neighbor) == 0){
-                state_hash_update ^= m_componentZobristValues[parent(neighbor)];
-                clearComponent(neighbor, otherPlayer(player));
-            }
-        }
-    }
-
+void GoNode::clearComponent(Coord coord, Player player) {
+    assert(m_board[coord] == pieceFromPlayer(player));
     
-    // Right-shift the history, and append the new state_hash_update.
-    for (int i = 0; i < GO_HISTORY_LENGTH - 1; i++) {
-        m_zobristHistory[i + 1] = m_zobristHistory[i];
-    }
-    m_zobristHistory[0] ^= state_hash_update; // history[0] = history[1] ^ state_hash_update
+    m_board[coord] = Piece::NONE;
 
-    // zero out the passes
-    m_passes = 0;
+    // Update all the DSU state to denote empty.
 
-    if(m_koCoord == MORE_THAN_ONE_CAPTURE_KO_COORD){ // account for the special value
-        m_koCoord = NO_KO_COORD;
-    }
-}
+    m_dsu.setParent(coord, coord);
+    liberties(coord) = 0;
+    componentZobristValue(coord) = 0;
 
-void GoNode::pass() {
-    for (int i = 0; i < GO_HISTORY_LENGTH - 1; i++) {
-        m_zobristHistory[i+1] = m_zobristHistory[i];
-    }
-    // history[0] is already state.history[1]
-    m_passes++;
-    m_player = otherPlayer(m_player);
-}
+    /*
+     * Check for stones which belong to the opposite player
+     * adjacent to the current stone in the removed component.
+     * Each of these components should gain a liberty.
+    */
 
-bool GoNode::checkSuicide(const Coord coordinate, const Player player) const{
-    assert (m_board[coordinate] == Piece::NONE); // empty square
-    assert (player != Player::NONE); // player is either 0 or 1
-    assert (m_koCoord != coordinate); // not an illegal move
-    for (int32_t neighbor : neighbors(coordinate)) {
-        if (neighbor == -1) {
+    std::vector<Coord> oppNeighborGroups;
+    oppNeighborGroups.reserve(4);
+
+    for (Coord neighbor : neighbors(coord)) {
+        if (m_board[neighbor] == Piece::NONE) {
             continue;
         }
+
+        if (m_board[neighbor] == pieceFromPlayer(player)) {
+            clearComponent(neighbor, player);
+            
+        } else {
+            Coord group = m_dsu.find(neighbor);
+
+            if (std::find(oppNeighborGroups.begin(), oppNeighborGroups.end(), group) != oppNeighborGroups.end()) {
+                continue;  // Already counted.
+            }
+            oppNeighborGroups.push_back(group);
+            
+            ++liberties(group);
+        }
+    }
+}
+
+void GoNode::placePiece(Coord coord, Player player){
+    assert(m_board[coord] == Piece::NONE);
+    m_board[coord] = pieceFromPlayer(player);
+    
+    /*
+     * Phase One: check for friendly neighbors, and merge all of them together.
+     * In addition, we will compute the Zobrist hash of the new component.
+    */
+
+    ZobristHash newComponentHash = getPieceHash(coord, player);
+    
+    for (Coord neighbor : neighbors(coord)) {
+        if (m_board[neighbor] == pieceFromPlayer(player)) {
+            if (m_dsu.sameSet(neighbor, coord)) {
+                continue;  // Already counted.
+            }
+            newComponentHash ^= getComponentZobristValue(neighbor);
+            m_dsu.unite(neighbor, coord);
+        }
+    }
+
+    componentZobristValue(coord) = newComponentHash;
+
+    /*
+     * Update the liberties of the new component.
+     * It is too difficult to update the liberties in O(1), so instead
+     * we will BFS to re-evaluate the liberties of the new component.
+     * At this stage, the liberty count for component is correct,
+     * assuming that no captured enemy stones have been removed yet.
+     *
+     * (The reason we don't add in the new liberties from the
+     * captured components at this stage is because in the next
+     * stage we'll add them, plus possible other liberties
+     * to other unrelated friendly components).
+    */
+
+    liberties(coord) = computeLiberties(coord);
+
+    /*
+     * Phase Two: check for enemy neighbors, and deduct
+     * a liberty from those components.
+     * If a component has no liberties left, it dies,
+     * which also updates friendly liberties.
+    */
+    
+    // Hash update for entire state, begins with the new piece we placed.
+    ZobristHash stateHashUpdate = getPieceHash(coord, player);
+
+    std::vector<Coord> oppNeighborGroups;
+    oppNeighborGroups.reserve(4);
+
+    for (Coord neighbor : neighbors(coord)) {
+        if (m_board[neighbor] == pieceFromPlayer(otherPlayer(player))) {
+            Coord group = m_dsu.find(neighbor);
+
+            if (std::find(oppNeighborGroups.begin(), oppNeighborGroups.end(), group) != oppNeighborGroups.end()) {
+                continue;  // Already counted.
+            }
+            oppNeighborGroups.push_back(group);
+
+            // Remove a liberty from this gruop.            
+            --liberties(group);
+
+            // Kill the component if necessary.
+            if (getLiberties(group) == 0) {
+                stateHashUpdate ^= getComponentZobristValue(group);
+                clearComponent(group, otherPlayer(player));
+            }
+        }
+    }
+
+    // Update the Zobrist value.
+    m_hash ^= stateHashUpdate;
+
+    // For positional super-ko detection.
+    assert(m_zobristHistorySet.find(m_hash) == m_zobristHistorySet.end());
+    m_zobristHistorySet.insert(m_hash);
+}
+
+bool GoNode::checkLegalPlacement(const Coord coordinate, const Player player) const {
+    assert(player == m_player);  // Correct player.
+
+    if (m_board[coordinate] != Piece::NONE) {
+        // Position is already occupied.
+        return false;
+    }
+
+    ZobristHash newHash = m_hash ^ getPieceHash(coordinate, player);
+    bool hasLiberties = false;
+
+    std::vector<Coord> oppNeighborGroups;
+    oppNeighborGroups.reserve(4);
+
+    for (Coord neighbor : neighbors(coordinate)) {
         if (m_board[neighbor] == Piece::NONE) {
-            return false; // Empty square
-        }else if (m_board[neighbor] == pieceFromPlayer(player)) {
+            // Empty neighbor
+            hasLiberties = true;
+
+        } else if (m_board[neighbor] == pieceFromPlayer(player)) {
+            // Friendly neighbor
             if (getLiberties(neighbor) > 1) {
-                return false;
+
                 // We have a liberty because we're attached to a
                 // friendly piece with more than one liberty
                 // (and we've only consumed one of them, leaving at least one)
+
+                hasLiberties = true;
             }
-        }else{
+
+        } else {
+            // Enemy neighbor
             if (getLiberties(neighbor) == 1) {
-                return false; // We just captured a piece
+                // We would capture the enemy piece, so we must have a liberty.
+                hasLiberties = true;
+                Coord group = m_dsu.find(neighbor);
+                if (std::find(oppNeighborGroups.begin(), oppNeighborGroups.end(), group) == oppNeighborGroups.end()) {
+                    oppNeighborGroups.push_back(group);
+
+                    // Hash update
+                    newHash ^= getComponentZobristValue(group);
+                }
             }
         }
     }
-    // We have no liberties and we're not capturing anything
-    return true;
+
+    // If we have liberties and the new state hash is not in the history (we haven't seen this state before)
+    return hasLiberties && m_zobristHistorySet.find(newHash) == m_zobristHistorySet.end();
 }
 
-/**
- * Returns the rewards for player 0 and 1, which are in (-1, 0, 1) for loss, draw, win.
- * 
- * The algorithm is a WYSIWYG implementation of Go scoring. All stones of a particular color belong to that player.
- * A blank cell belongs to a player if all its neighbors belong to that player, computed using a BFS.
-*/
-std::array<int32_t, 2> GoNode::computeScore(){
-    using Board = std::array<int8_t, GO_BOARD_SIZE>;
-    Board visited;
-    visited.fill(0);
+
+std::array<int, 2> GoNode::computeScore() {
+    std::array<bool, GO_BOARD_SIZE> visited;
+    visited.fill(false);
 
     // In this algorithm, visited[i] == 1 implies m_board[i] == -1.
 
-    std::array<int32_t, 2> points = {0, 0};
+    std::array<int, 2> points = {0, 0};
     for (int i = 0; i < GO_BOARD_SIZE; i++) {
         if (m_board[i] == Piece::ZERO) {
             points[0]++;
@@ -274,62 +289,60 @@ std::array<int32_t, 2> GoNode::computeScore(){
     return points;
 }
 
-
 GoNode::ActionDist GoNode::actionMask(const GoNode& state) const {
     GoNode::ActionDist mask;
-    for (int32_t i = 0; i < GO_BOARD_SIZE; i++) {
-        mask[i] = state.m_board[i] == Piece::NONE && !state.checkSuicide(i, state.m_player);
+    for (Coord i = 0; i < GO_BOARD_SIZE; i++) {
+        mask[i] = checkLegalPlacement(i, state.m_player);
     }
-    mask[m_koCoord] = false; // simple Ko rule
     mask[GO_BOARD_SIZE] = true; // pass is always a valid action
 }
 
+
 void GoNode::setStartNode() {
+    // TODO @will fix this i dont really know how initialization works
     m_parent = nullptr;
     m_action = 0;
-    m_board.fill(Piece::NONE);
-    m_dsu.fill(-1);
-    m_liberties.fill(0);
-    m_zobristHistory.fill(0);
-    m_koCoord = NO_KO_COORD;
-    m_passes = 0;
-    m_player = Player::ZERO;
-    m_actionMask = actionMask(*this);
 }
 
 
+std::unique_ptr<GoNode::GNode> GoNode::getNextNode(ActionIdx actionIdx) {
 
+    // Copy the state.
 
-std::unique_ptr<GameNode<GridState<GO_BOARD_SIZE>, GO_ACTION_SIZE>> GoNode::getNextNode(ActionIdx actionIdx) {
-    using Board = std::array<int8_t, GO_BOARD_SIZE>;
-    // GoNode(GoNode* parent, ActionIdx action, const ActionDist& actionMask,
-    //        Player player, Player winner, bool isTerminal, const Board& board,
-    //        Coord koCoord, const std::array<ZobristHash, GO_HISTORY_LENGTH>& zobristHistory,
-    //        int8_t passes)
-    GoNode new_state(
-        this,
-        actionIdx,
-        m_actionMask,  // Needs to be updated
-        otherPlayer(m_player),
-        Player::NONE,
-        false,
-        m_board,  // Under here needs to be updated
-        m_koCoord, 
-        m_zobristHistory,
-        m_passes
-    );
-    if (actionIdx == GO_BOARD_SIZE) {
-        // pass
-        new_state.pass();
-    }else{
-        // place piece
-        assert (actionIdx >= 0 && actionIdx < GO_BOARD_SIZE);
-        assert (state.owners[actionIdx] == Player::NONE);
+    ActionDist newActionMask = m_actionMask;
+    Board newBoard = m_board;
+    std::unordered_set<ZobristHash> newZobristHistorySet = m_zobristHistorySet;
+    DSU<Coord, GO_BOARD_SIZE> newDSU = m_dsu;
+    std::array<LibertyCount, GO_BOARD_SIZE> newLiberties = m_liberties;
+    std::array<ZobristHash, GO_BOARD_SIZE> newComponentZobristValues = m_componentZobristValues;
 
-        new_state.placePiece(actionIdx, state.player);
+    GoNode copyNode {
+        static_cast<GoNode*>(m_parent),
+        m_action,
+        std::move(newActionMask),
+        m_player,
+        m_winner,
+        m_isTerminal,
+        std::move(newBoard),
+        m_hash,
+        m_depth,
+        std::move(newZobristHistorySet),
+        std::move(newDSU),
+        std::move(newLiberties),
+        std::move(newComponentZobristValues)
+    };
 
+    if (actionIdx != GO_BOARD_SIZE) {
+        // Handle a piece placement.
+        assert(actionIdx >= 0 && actionIdx < GO_BOARD_SIZE);
+        assert(checkLegalPlacement(actionIdx, m_player));
+
+        copyNode.placePiece(actionIdx, m_player);
     }
-    return new_state;
+
+    // @rowechen
+
+    return std::make_unique<GoNode>(std::move(copyNode));
 }
 
 } // namespace SPRL

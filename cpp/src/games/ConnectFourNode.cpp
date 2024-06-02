@@ -5,6 +5,8 @@
 namespace SPRL {
 
 int ConnectFourNode::toIndex(int row, int col) {
+    assert(row >= 0 && row < C4_NUM_ROWS);
+    assert(col >= 0 && col < C4_NUM_COLS);
     return row * C4_NUM_COLS + col;
 }
 
@@ -69,7 +71,7 @@ std::unique_ptr<ConnectFourNode::GNode> ConnectFourNode::getNextNode(ActionIdx a
         newActionMask.fill(0.0f);
     }
 
-    std::unique_ptr<GNode> newNode = std::make_unique<ConnectFourNode>(
+    std::unique_ptr<ConnectFourNode> newNode = std::make_unique<ConnectFourNode>(
         this, action, std::move(newActionMask), newPlayer, winner, isTerminal, std::move(newBoard));
 
     return std::move(newNode);

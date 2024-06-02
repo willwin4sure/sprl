@@ -4,44 +4,49 @@
 #include "GameNode.hpp"
 #include "GridState.hpp"
 
+#include "../utils/DSU.hpp"
 #include "../utils/Zobrist.hpp"
 
 #include <cassert>
+#include <unordered_set>
 #include <vector>
 
 namespace SPRL {
 
 constexpr int GO_BOARD_WIDTH = 9; 
 constexpr int GO_BOARD_SIZE = GO_BOARD_WIDTH * GO_BOARD_WIDTH;
-constexpr int GO_ACTION_SIZE = GO_BOARD_SIZE + 1; // + 1 for pass
+constexpr int GO_ACTION_SIZE = GO_BOARD_SIZE + 1;  // Last index represents pass.
 constexpr int GO_HISTORY_LENGTH = 8;
 
-/**
- * GoState needs to also include a history of 8 numbers
- * (which will be Zobrist hashes of the the current state and 7 preceding states for PSK)
- * and a coordinate for fast ko detection
- * 
- * GoState also contains some logic for DSU queries.
-*/
 class GoNode : public GameNode<GridState<GO_BOARD_SIZE>, GO_ACTION_SIZE> {
 public:
     using Board = GridBoard<GO_BOARD_SIZE>;
     using State = GridState<GO_BOARD_SIZE>;
     using GNode = GameNode<State, GO_ACTION_SIZE>;
 
-    using Coord = int32_t;
-    using LibertyCount = int32_t;
+    // Following data types need to be increased in size if the board size is increased.
+    
+    using Coord = int8_t;
+    using LibertyCount = int8_t;
 
     GoNode() {
         setStartNode();
     }
 
-    GoNode(GoNode* parent, ActionIdx action, const ActionDist& actionMask,
-           Player player, Player winner, bool isTerminal, const Board& board,
-           Coord koCoord, const std::array<ZobristHash, GO_HISTORY_LENGTH>& zobristHistory,
-           int8_t passes)
-        : GNode ( parent, action, actionMask, player, winner, isTerminal ),
-          m_board { board }, m_koCoord { koCoord }, m_zobristHistory { zobristHistory }, m_passes { passes } {
+    GoNode(GoNode* parent, ActionIdx action, ActionDist&& actionMask,
+           Player player, Player winner, bool isTerminal,
+           Board&& board, ZobristHash hash, int depth,
+           std::unordered_set<ZobristHash>&& zobristHistorySet,
+           DSU<Coord, GO_BOARD_SIZE>&& dsu,
+           std::array<LibertyCount, GO_BOARD_SIZE>&& liberties,
+           std::array<ZobristHash, GO_BOARD_SIZE>&& componentZobristValues)
+
+        : GNode { parent, action, std::move(actionMask), player, winner, isTerminal },
+          m_board { std::move(board) }, m_hash { hash }, m_depth { depth },
+          m_zobristHistorySet { std::move(zobristHistorySet) },
+          m_dsu { std::move(dsu) }, m_liberties { std::move(liberties) },
+          m_componentZobristValues { std::move(componentZobristValues) } {
+
     }
 
     void setStartNode() override;
@@ -54,97 +59,141 @@ public:
 
 private:
     /**
-     * Checks is placing a piece in this coordinate would exhaust all liberties of the region it is part of.
+     * @param row The row from the top, must be in the range `[0, GO_BOARD_WIDTH)`.
+     * @param col The column from the left, must be in the range `[0, GO_BOARD_WIDTH)`.
+     * 
+     * @returns The coordinate index of the given row and column.
     */
-    bool checkSuicide(const Coord coord, const Player player) const;
+    static Coord toCoord(int row, int col) {
+        assert(row >= 0 && row < GO_BOARD_WIDTH);
+        assert(col >= 0 && col < GO_BOARD_WIDTH);
+        return row * GO_BOARD_WIDTH + col;
+    }
 
     /**
-     * Slow O(component size) modification which resets all nodes
-     * in the connected component of coord. m_board[coord] must be player.
+     * @param coord The coordinate index, must be in the range `[0, GO_BOARD_SIZE)`.
      * 
-     * Edits the underlying board and koCoord. In addition, updates the liberties of all adjacent groups of the opposite player.
+     * @returns The row and column of the given coordinate.
+    */
+    static std::pair<int, int> toRowCol(Coord coord) {
+        assert(coord >= 0 && coord < GO_BOARD_SIZE);
+        return { coord / GO_BOARD_WIDTH, coord % GO_BOARD_WIDTH };
+    }
+
+    /**
+     * @returns All the in-bounds neighbors of a coordinate.
+    */
+    std::vector<Coord> neighbors(Coord coord) const {
+        std::vector<Coord> result;
+        result.reserve(4);
+
+        auto [row, col] = toRowCol(coord);
+
+        if (row > 0) result.push_back(toCoord(row - 1, col));
+        if (col > 0) result.push_back(toCoord(row, col - 1));
+        
+        if (row < GO_BOARD_WIDTH - 1) result.push_back(toCoord(row + 1, col));
+        if (col < GO_BOARD_WIDTH - 1) result.push_back(toCoord(row, col + 1));
+    }
+
+    /**
+     * @returns The Zobrist hash for a piece at a particular coordinate.
+    */
+    ZobristHash getPieceHash(Coord coord, Player player) const {
+        return s_zobrist[coord + static_cast<int>(player) * GO_BOARD_SIZE];
+    }
+
+    /**
+     * @returns The liberty count of the group of a coordinate.
+    */
+    LibertyCount getLiberties(Coord coord) const {
+        return m_liberties[m_dsu.find(coord)];
+    }
+
+    /**
+     * @returns A reference to the liberty count of the group of a coordinate.
+    */
+    LibertyCount& liberties(Coord coord) {
+        return m_liberties[m_dsu.find(coord)];
+    }
+
+    /**
+     * @returns The Zobrist hash of the group of a coordinate.
+    */
+    ZobristHash getComponentZobristValue(Coord coord) const {
+        return m_componentZobristValues[m_dsu.find(coord)];
+    }
+
+    /**
+     * @returns A reference to the Zobrist hash of the group of a coordinate.
+    */
+    ZobristHash& componentZobristValue(Coord coord) {
+        return m_componentZobristValues[m_dsu.find(coord)];
+    }
+
+    /**
+     * @returns The number of liberties of the group of a coordinate,
+     * given the current board state.
+    */
+    LibertyCount computeLiberties(Coord coord) const;
+
+    /**
+     * Observer helper function that detects illegal suicides and violations of PSK.
      * 
-     * @returns The Zobrist modification you need to xor the current hash
-     * with in order to get the hash of the new board.
+     * @returns False if the placement of a piece at `coord` by `player`
+     * would immediately result in that piece being captured,
+     * or if the move violates the PSK rule.
+    */
+    bool checkLegalPlacement(Coord coord, Player player) const;
+
+    /**
+     * Mutator helper function that removes the group of a particular coodinate.
+     * `m_board[coord]` must be a piece owned by `player`.
+     * 
+     * Edits the board, hash, DSU, and liberty/Zobrist values.
     */
     void clearComponent(Coord coord, Player player);
 
     /**
      * Places a piece in the given coordinate.
      * 
-     * Edits the underlying board and koCoord.
-     * 
-     * @returns The Zobrist modification you need to xor the current hash
-     * with in order to get the hash of the new board.
+     * Edits the underlying state.
     */
-    ZobristHash placePiece(const Coord coord, const Player player);
-    
+    void placePiece(Coord coord, Player player);
+
     /**
-    * Simulates a pass.
-    */
-    void pass();
-    
-    /**
-     * Returns the territory score for player 0 and 1, which are integers in [0, GO_BOARD_SIZE].
+     * Observer helper function that computes Tromp-Taylor scoring:
+     * all stones count as points to respective players, and empty
+     * cells count as points for a color if and only if
+     * there is no path of empty cells to a stone of the opposite color.
      * 
-     * The algorithm is a WYSIWYG implementation of Go scoring. All stones of a particular color belong to that player.
-     * A blank cell belongs to a player if all its neighbors belong to that player, computed using a BFS.
+     * @returns The territory scores for the two players, which
+     * should be integers in the range `[0, GO_BOARD_SIZE]`.
     */
-    std::array<int32_t, 2> computeScore();
-    
-    Coord parent(const Coord coord) const {
-        if (m_dsu[coord] == coord) return coord;
-        return m_dsu[coord] = parent(m_dsu[coord]);
-    }
-
-    LibertyCount getLiberties(Coord coord) const {
-        return m_liberties[parent(coord)];
-    }
-
-    LibertyCount& getLiberties(Coord coord) {
-        return m_liberties[parent(coord)];
-    }
-
-    std::vector<Coord> neighbors(const Coord coord) const{
-        std::vector<Coord> result;
-
-        if (coord % GO_BOARD_WIDTH > 0) {
-            result.push_back(coord - 1);
-        }
-
-        if (coord % GO_BOARD_WIDTH < GO_BOARD_WIDTH - 1) {
-            result.push_back(coord + 1);
-        }
-
-        if (coord >= GO_BOARD_WIDTH) {
-            result.push_back(coord - GO_BOARD_WIDTH);
-        }
-        
-        if (coord < GO_BOARD_SIZE - GO_BOARD_WIDTH) {
-            result.push_back(coord + GO_BOARD_WIDTH);
-        }
-    }
-
-    ZobristHash getPieceHash(const Coord coordinate, const Player who) {
-        return s_zobrist[coordinate + static_cast<int>(who) * GO_BOARD_SIZE];
-    }
+    std::array<int, 2> computeScore();
 
     ActionDist actionMask(const GoNode& state) const;
 
 private:
+    /// Static Zobrist hashes for (Coord, Piece) pairs.
     static const Zobrist<GO_BOARD_SIZE * 2> s_zobrist;
 
-    Board m_board;
+    int m_depth;  // The depth of the node in the tree, starting at 0.
+    
+    Board m_board;       // The current board state.
+    ZobristHash m_hash;  // The hash of the current board.
 
-    Coord m_koCoord;  // The single position that would violate one-move ko.
-    std::array<ZobristHash, GO_HISTORY_LENGTH> m_zobristHistory;  // Zobrist hashes of recent boards for superko.
+    /// Set of Zobrist hashes along path to root, inclusive. 
+    /// Non-empty sets will only exist when m_depth % L == 0,
+    /// for O(L) query time complexity. For now, L = 1.
+    std::unordered_set<ZobristHash> m_zobristHistorySet;
 
-    int8_t m_passes { 0 };  // Number of passes; 0, 1, or 2. If 2, the game is over.
+    DSU<Coord, GO_BOARD_SIZE> m_dsu;  // DSU holding connected groups of stones.
 
-    mutable std::array<Coord, GO_BOARD_SIZE> m_dsu;  // TODO: make this a separate DSU class
+    /// Liberty count for each group, indexed by representatives.
     std::array<LibertyCount, GO_BOARD_SIZE> m_liberties;
 
-    // Zobrist values for each connected component.
+    /// Total Zobrist hash for each group, indexed by representatives.
     std::array<ZobristHash, GO_BOARD_SIZE> m_componentZobristValues; 
 };
 
