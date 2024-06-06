@@ -10,13 +10,12 @@ namespace SPRL {
 /**
  * Agent that prompts the terminal for input.
 */
-template <typename State, int AS>
-class HumanAgent : public Agent<State, AS> {
+template <typename ImplNode, typename State, int AS>
+class HumanAgent : public Agent<ImplNode, State, AS> {
 public:
-    using GNode = GameNode<State, AS>;
     using ActionDist = GameActionDist<AS>;
 
-    ActionIdx act(const GNode* gameNode, bool verbose = false) const override {
+    ActionIdx act(const ImplNode* gameNode, bool verbose = false) const override {
 
         while (true) {
             ActionIdx action {};

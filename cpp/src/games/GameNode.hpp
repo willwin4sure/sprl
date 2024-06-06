@@ -44,14 +44,15 @@ using Value = float;
  * 
  * @tparam State The state of the game.
  * @tparam AS The size of the action space.
+ * @tparam ImplNode The implementation of the game node, e.g. GoNode, for purposes of CRTP.
 */
-template <typename State, int AS>
+template <typename ImplNode, typename State, int AS>
 class GameNode {
 public:
     using ActionDist = GameActionDist<AS>;
 
     /**
-     * Constructs a new game node,
+     * Constructs a new game node.
     */
     GameNode()
         : m_parent { nullptr }, m_action { 0 },
@@ -68,7 +69,7 @@ public:
      * @param winner The winner of the game in the new node.
      * @param isTerminal Whether the new node is terminal.
     */
-    GameNode(GameNode* parent, ActionIdx action, ActionDist&& actionMask,
+    GameNode(ImplNode* parent, ActionIdx action, ActionDist&& actionMask,
              Player player, Player winner, bool isTerminal)
 
         : m_parent { parent }, m_action { action }, m_actionMask { std::move(actionMask) },
@@ -80,7 +81,7 @@ public:
     /**
      * @returns A raw pointer to the parent of the current node.
     */
-    GameNode* getParent() const {
+    ImplNode* getParent() const {
         return m_parent;
     }
 
@@ -91,7 +92,7 @@ public:
      * 
      * @note If the child does not already exist, creates it.
     */
-    GameNode* getAddChild(ActionIdx action) {
+    ImplNode* getAddChild(ActionIdx action) {
         assert(!m_isTerminal);
         assert(m_actionMask[action] > 0.0f);
 
@@ -174,10 +175,10 @@ protected:
      * 
      * @param action The action to take. Must be legal.
     */
-    virtual std::unique_ptr<GameNode> getNextNode(ActionIdx action) = 0;
+    virtual std::unique_ptr<ImplNode> getNextNode(ActionIdx action) = 0;
 
-    GameNode* m_parent;  // Raw pointer to the parent, nullptr if root.
-    std::array<std::unique_ptr<GameNode>, AS> m_children;  // Parent owns children.
+    ImplNode* m_parent;  // Raw pointer to the parent, nullptr if root.
+    std::array<std::unique_ptr<ImplNode>, AS> m_children;  // Parent owns children.
 
     ActionIdx m_action;       // Action index taken into this node, 0 if root.
     ActionDist m_actionMask;  // Current action mask of legal moves.

@@ -20,7 +20,7 @@ void ConnectFourNode::setStartNode() {
     m_board.fill(Piece::NONE);
 }
 
-std::unique_ptr<ConnectFourNode::GNode> ConnectFourNode::getNextNode(ActionIdx action) {
+std::unique_ptr<ConnectFourNode> ConnectFourNode::getNextNode(ActionIdx action) {
     assert(!m_isTerminal);
     assert(m_actionMask[action] > 0.0f);
 

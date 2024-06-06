@@ -55,7 +55,7 @@ int main(int argc, char* argv[]) {
 
     network = &randomNetwork;
 
-    SPRL::UCTTree<SPRL::GridState<BS>, AS> tree {
+    SPRL::UCTTree<SPRL::GoNode, SPRL::GridState<BS>, AS> tree {
         std::make_unique<SPRL::GoNode>(),
         0.25,
         0.1,
@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
         true
     };
 
-    SPRL::UCTNetworkAgent<SPRL::GridState<BS>, AS> networkAgent {
+    SPRL::UCTNetworkAgent<SPRL::GoNode, SPRL::GridState<BS>, AS> networkAgent {
         network,
         &tree,
         numIters,
@@ -75,7 +75,7 @@ int main(int argc, char* argv[]) {
     // SPRL::HumanAgent<SPRL::GridState<BS>, AS> humanAgent {};
     SPRL::HumanGoAgent humanAgent {};
 
-    std::array<SPRL::Agent<SPRL::GridState<BS>, AS>*, 2> agents;
+    std::array<SPRL::Agent<SPRL::GoNode, SPRL::GridState<BS>, AS>*, 2> agents;
 
     if (player == 0) {
         agents = { &humanAgent, &networkAgent };

@@ -10,9 +10,8 @@
 
 #include "evaluate/play.hpp"
 
-#include "games/GameState.hpp"
-#include "games/Game.hpp"
-#include "games/ConnectFour.hpp"
+#include "games/GameNode.hpp"
+#include "games/ConnectFourNode.hpp"
 
 #include "interface/npy.hpp"
 
@@ -37,19 +36,24 @@ int main(int argc, char* argv[]) {
     int maxTraversals = std::stoi(argv[3]);
     int maxQueueSize = std::stoi(argv[4]);
 
-    auto game = std::make_unique<SPRL::ConnectFour>();
-
     SPRL::ConnectFourNetwork network { modelPath };
 
     float totalTime = 0.0f;
     Timer t {};
 
-    SPRL::GameState<42> state = game->startState();
-    SPRL::UCTTree<42, 7> tree { game.get(), state, false }; 
+    SPRL::UCTTree<SPRL::ConnectFourNode, SPRL::GridState<42>, 7> tree { 
+        std::make_unique<SPRL::ConnectFourNode>(),
+        0.25f,
+        0.3f,
+        SPRL::InitQ::PARENT,
+        nullptr,
+        false
+    };
 
-    while (!state.isTerminal()) {
-        SPRL::GameActionDist<7> actionMask = game->actionMask(state);
+    SPRL::ConnectFourNode rootNode {};
+    SPRL::ConnectFourNode* currentNode = &rootNode;
 
+    while (!currentNode->isTerminal()) {
         t.reset();
 
         int iters = 0;
@@ -63,21 +67,20 @@ int main(int argc, char* argv[]) {
             iters += iter;
         }
 
-        auto priors = tree.getRoot()->getEdgeStatistics()->m_childPriors;
-        auto values = tree.getRoot()->getEdgeStatistics()->m_totalValues;
-        auto visits = tree.getRoot()->getEdgeStatistics()->m_numberVisits;
+        auto priors = tree.getDecisionNode()->getEdgeStatistics()->m_childPriors;
+        auto values = tree.getDecisionNode()->getEdgeStatistics()->m_totalValues;
+        auto visits = tree.getDecisionNode()->getEdgeStatistics()->m_numVisits;
 
         SPRL::ActionIdx action = std::distance(visits.begin(), std::max_element(visits.begin(), visits.end()));
 
-        state = game->nextState(state, action);
+        currentNode = static_cast<SPRL::ConnectFourNode*>(currentNode->getAddChild(action));
 
-        // tree.rerootTree(action);
-        tree = SPRL::UCTTree<42, 7> { game.get(), state, false };
+        tree.advanceDecision(action);
 
         totalTime += t.elapsed();
 
         std::cout << "Action: " << action << '\n';
-        std::cout << "State:\n" << game->stateToString(state) << '\n';
+        std::cout << "State:\n" << currentNode->toString() << '\n';
     }
 
     std::cout << "Total time: " << totalTime << '\n';

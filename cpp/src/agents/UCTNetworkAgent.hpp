@@ -9,20 +9,19 @@
 
 namespace SPRL {
 
-template <typename State, int AS>
-class UCTNetworkAgent : public Agent<State, AS> {
+template <typename ImplNode, typename State, int AS>
+class UCTNetworkAgent : public Agent<ImplNode, State, AS> {
 public:
-    using GNode = GameNode<State, AS>;
     using ActionDist = GameActionDist<AS>;
 
     UCTNetworkAgent(Network<State, AS>* network,
-                    UCTTree<State, AS>* tree,
+                    UCTTree<ImplNode, State, AS>* tree,
                     int numIters, int maxTraversals, int maxQueueSize)
         : m_network(network), m_tree(tree), m_numIters(numIters),
           m_maxTraversals(maxTraversals), m_maxQueueSize(maxQueueSize) {}
 
 
-    ActionIdx act(const GNode* gameNode,
+    ActionIdx act(const ImplNode* gameNode,
                   bool verbose = false) const override {
         
         int iters = 0;
@@ -86,7 +85,7 @@ public:
 
 private:
     Network<State, AS>* m_network;
-    UCTTree<State, AS>* m_tree;
+    UCTTree<ImplNode, State, AS>* m_tree;
     int m_numIters {};
     int m_maxTraversals {};
     int m_maxQueueSize {};

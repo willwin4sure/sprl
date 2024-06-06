@@ -8,10 +8,9 @@ namespace SPRL {
 /**
  * Interface class for agents that play a game.
 */
-template <typename State, int AS>
+template <typename ImplNode, typename State, int AS>
 class Agent {
 public:
-    using GNode = GameNode<State, AS>;
     using ActionDist = GameActionDist<AS>;
 
     virtual ~Agent() = default;
@@ -21,7 +20,7 @@ public:
      * 
      * Requires that the state is non-terminal.
     */
-    virtual ActionIdx act(const GNode* gameNode, bool verbose = false) const = 0;
+    virtual ActionIdx act(const ImplNode* gameNode, bool verbose = false) const = 0;
 
     /**
      * Processes an opponent's action if necessary to update state.

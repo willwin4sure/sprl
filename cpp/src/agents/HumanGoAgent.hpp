@@ -8,13 +8,12 @@
 
 namespace SPRL {
 
-class HumanGoAgent : public Agent<GridState<GO_BOARD_SIZE>, GO_ACTION_SIZE> {
+class HumanGoAgent : public Agent<GoNode, GridState<GO_BOARD_SIZE>, GO_ACTION_SIZE> {
 public:
     using State = GridState<GO_BOARD_SIZE>;
-    using GNode = GameNode<State, GO_ACTION_SIZE>;
     using ActionDist = GameActionDist<GO_ACTION_SIZE>;
 
-    ActionIdx act(const GNode* gameNode, bool verbose = false) const override {
+    ActionIdx act(const GoNode* gameNode, bool verbose = false) const override {
         while (true) {
             ActionIdx action {};
 

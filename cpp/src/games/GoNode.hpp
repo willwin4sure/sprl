@@ -19,11 +19,10 @@ constexpr int GO_ACTION_SIZE = GO_BOARD_SIZE + 1;  // Last index represents pass
 constexpr int GO_HISTORY_LENGTH = 8;
 constexpr float GO_KOMI = 7.5;
 
-class GoNode : public GameNode<GridState<GO_BOARD_SIZE>, GO_ACTION_SIZE> {
+class GoNode : public GameNode<GoNode, GridState<GO_BOARD_SIZE>, GO_ACTION_SIZE> {
 public:
     using Board = GridBoard<GO_BOARD_SIZE>;
     using State = GridState<GO_BOARD_SIZE>;
-    using GNode = GameNode<State, GO_ACTION_SIZE>;
 
     // Following data types need to be increased in size if the board size is increased.
     
@@ -42,7 +41,7 @@ public:
            std::array<LibertyCount, GO_BOARD_SIZE>&& liberties,
            std::array<ZobristHash, GO_BOARD_SIZE>&& componentZobristValues)
 
-        : GNode { parent, action, std::move(actionMask), player, winner, isTerminal },
+        : GameNode<GoNode, State, GO_ACTION_SIZE> { parent, action, std::move(actionMask), player, winner, isTerminal },
           m_board { std::move(board) }, m_hash { hash }, m_depth { depth },
           m_zobristHistorySet { std::move(zobristHistorySet) },
           m_dsu { std::move(dsu) }, m_liberties { std::move(liberties) },
@@ -51,7 +50,7 @@ public:
     }
 
     void setStartNode() override;
-    std::unique_ptr<GNode> getNextNode(ActionIdx action) override;
+    std::unique_ptr<GoNode> getNextNode(ActionIdx action) override;
     
     State getGameState() const override;
     std::array<Value, 2> getRewards() const override;

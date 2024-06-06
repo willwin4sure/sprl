@@ -13,16 +13,15 @@
 
 namespace SPRL {
 
-template <typename State, int AS>
+template <typename ImplNode, typename State, int AS>
 class UCTTree {
 public:
-    using GNode = GameNode<State, AS>;
-    using UNode = UCTNode<State, AS>;
+    using UNode = UCTNode<ImplNode, State, AS>;
 
     /**
      * Constructs a UCT tree rooted at the initial state of the game.
     */
-    UCTTree(std::unique_ptr<GNode> gameRoot,
+    UCTTree(std::unique_ptr<ImplNode> gameRoot,
             float dirEps, float dirAlpha, InitQ initQMethod,
             ISymmetrizer<State, AS>* symmetrizer, bool addNoise = true)
 
@@ -271,7 +270,7 @@ private:
     UNode::EdgeStatistics m_edgeStatistics {};
 
     /// A unique pointer to the root node of the game tree; we own it.
-    std::unique_ptr<GNode> m_gameRoot;
+    std::unique_ptr<ImplNode> m_gameRoot;
 
     /// A unique pointer to the root node of the UCT tree; we own it.
     std::unique_ptr<UNode> m_uctRoot;

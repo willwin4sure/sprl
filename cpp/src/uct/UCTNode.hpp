@@ -14,7 +14,7 @@
 
 namespace SPRL { 
 
-template<typename State, int AS>
+template<typename ImplNode, typename State, int AS>
 class UCTTree;
 
 /**
@@ -28,14 +28,14 @@ enum class InitQ {
 /**
  * Class representing a node in the tree for the UCT algorithm.
  * 
+ * @tparam ImplNode The implementation of the game node, e.g. GoNode.
  * @tparam State The state of the game.
  * @tparam AS The size of the action space.
 */
-template <typename State, int AS>
+template <typename ImplNode, typename State, int AS>
 class UCTNode {
 public:
     using ActionDist = GameActionDist<AS>;
-    using GNode = GameNode<State, AS>;
 
     /**
      * Holds statistics for the edges coming out of this node in the UCT tree.
@@ -66,7 +66,7 @@ public:
      * @param dirAlpha The alpha parameter for Dirichlet noise.
      * @param initQMethod The method to use for initializing the Q values of the nodes.
     */
-    UCTNode(EdgeStatistics* edgeStats, GNode* gameNode,
+    UCTNode(EdgeStatistics* edgeStats, ImplNode* gameNode,
             float dirEps = 0.25f, float dirAlpha = 0.1f, InitQ initQMethod = InitQ::PARENT)
         : m_gameNode { gameNode }, m_parentEdgeStatistics { edgeStats },
           m_dirEps { dirEps }, m_dirAlpha { dirAlpha }, m_initQMethod { initQMethod },
@@ -83,7 +83,7 @@ public:
      * @param dirAlpha The alpha parameter for Dirichlet noise.
      * @param initQMethod The method to use for initializing the Q values of the nodes.
     */
-    UCTNode(UCTNode* parent, ActionIdx action, GNode* gameNode,
+    UCTNode(UCTNode* parent, ActionIdx action, ImplNode* gameNode,
             float dirEps = 0.25f, float dirAlpha = 0.1f, InitQ initQMethod = InitQ::PARENT)
         : m_parent { parent }, m_action { action }, m_gameNode { gameNode },
           m_dirEps { dirEps }, m_dirAlpha { dirAlpha }, m_initQMethod { initQMethod },
@@ -337,7 +337,7 @@ private:
     std::array<std::unique_ptr<UCTNode>, AS> m_children {};  // Parent owns children.
 
     ActionIdx m_action { 0 };        // Action index taken into this node, 0 if root.
-    GNode* m_gameNode;                // Pointer to current game node.
+    ImplNode* m_gameNode;                // Pointer to current game node.
     bool m_isTerminal;               // Whether the current node is terminal.
     const ActionDist& m_actionMask;  // Mask of legal actions.
 
@@ -354,7 +354,7 @@ private:
     float m_dirAlpha {};                    // Dirichlet noise alpha.
     InitQ m_initQMethod { InitQ::PARENT };  // Method to use for initializing Q values.
 
-    friend class UCTTree<State, AS>;
+    friend class UCTTree<ImplNode, State, AS>;
 };
 
 } // namespace SPRL

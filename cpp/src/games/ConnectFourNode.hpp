@@ -16,11 +16,10 @@ constexpr int C4_AS = C4_NUM_COLS;
  * 
  * See https://en.wikipedia.org/wiki/Connect_Four for details.
 */
-class ConnectFourNode : public GameNode<GridState<C4_BS>, C4_AS> {
+class ConnectFourNode : public GameNode<ConnectFourNode, GridState<C4_BS>, C4_AS> {
 public:
     using Board = GridBoard<C4_BS>;
     using State = GridState<C4_BS>;
-    using GNode = GameNode<State, C4_AS>;
 
     /**
      * Constructs a new Connect Four game node in the initial state (for root).
@@ -42,13 +41,13 @@ public:
     */
     ConnectFourNode(ConnectFourNode* parent, ActionIdx action, ActionDist&& actionMask,
                     Player player, Player winner, bool isTerminal, Board&& board)
-        : GNode { parent, action, std::move(actionMask), player, winner, isTerminal },
+        : GameNode<ConnectFourNode, State, C4_AS> { parent, action, std::move(actionMask), player, winner, isTerminal },
           m_board { std::move(board) } {
 
     }
 
     void setStartNode() override;
-    std::unique_ptr<GNode> getNextNode(ActionIdx action) override;
+    std::unique_ptr<ConnectFourNode> getNextNode(ActionIdx action) override;
     
     State getGameState() const override;
     std::array<Value, 2> getRewards() const override;

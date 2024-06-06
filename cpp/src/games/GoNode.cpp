@@ -311,7 +311,7 @@ void GoNode::setStartNode() {
 }
 
 
-std::unique_ptr<GoNode::GNode> GoNode::getNextNode(ActionIdx actionIdx) {
+std::unique_ptr<GoNode> GoNode::getNextNode(ActionIdx actionIdx) {
 
     // Copy the state.
 
@@ -323,7 +323,7 @@ std::unique_ptr<GoNode::GNode> GoNode::getNextNode(ActionIdx actionIdx) {
     std::array<ZobristHash, GO_BOARD_SIZE> newComponentZobristValues = m_componentZobristValues;
 
     auto copyNode = std::make_unique<GoNode>(
-        static_cast<GoNode*>(m_parent),
+        m_parent,
         m_action,
         std::move(newActionMask),
         m_player,
@@ -384,7 +384,7 @@ GoNode::State GoNode::getGameState() const {
         }
 
         history.push_back(current->m_board);
-        current = static_cast<GoNode*>(current->m_parent);
+        current = current->m_parent;
     }
 
     return State { std::move(history), m_player };

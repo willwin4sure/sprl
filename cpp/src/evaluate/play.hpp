@@ -29,9 +29,9 @@ namespace SPRL {
 /**
  * Plays a game with two agents.
 */
-template <typename State, int AS>
-Player playGame(GameNode<State, AS>* rootNode,
-             std::array<Agent<State, AS>*, 2> agents,
+template <typename ImplNode, typename State, int AS>
+Player playGame(ImplNode* rootNode,
+             std::array<Agent<ImplNode, State, AS>*, 2> agents,
              bool verbose = false) {
 
     using ActionDist = SPRL::GameActionDist<AS>;
@@ -39,7 +39,7 @@ Player playGame(GameNode<State, AS>* rootNode,
     float totalTime = 0.0f;
     Timer t {};
 
-    GameNode<State, AS>* curNode = rootNode;
+    ImplNode* curNode = rootNode;
 
     while (!curNode->isTerminal()) {
         if (verbose) {
