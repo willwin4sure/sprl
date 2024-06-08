@@ -39,7 +39,7 @@ public:
      * Constructs a Zobrist object and initializes the hash values.
     */
     Zobrist() {
-        for (int i = 0; i < NUM_ATOMS; i++) {
+        for (int i = 0; i < NUM_ATOMS; ++i) {
             m_zobrist_values[i] = GetRandom()
                 .UniformUint64(0, std::numeric_limits<uint64_t>::max());
         }

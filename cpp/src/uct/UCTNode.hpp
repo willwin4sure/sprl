@@ -14,7 +14,8 @@
 
 namespace SPRL { 
 
-template<typename ImplNode, typename State, int AS>
+// Forward declaration of the UCT tree class.
+template<typename ImplNode, typename State, int ACTION_SIZE>
 class UCTTree;
 
 /**
@@ -32,10 +33,10 @@ enum class InitQ {
  * @tparam State The state of the game.
  * @tparam AS The size of the action space.
 */
-template <typename ImplNode, typename State, int AS>
+template <typename ImplNode, typename State, int ACTION_SIZE>
 class UCTNode {
 public:
-    using ActionDist = GameActionDist<AS>;
+    using ActionDist = GameActionDist<ACTION_SIZE>;
 
     /**
      * Holds statistics for the edges coming out of this node in the UCT tree.
@@ -66,7 +67,7 @@ public:
      * @param dirAlpha The alpha parameter for Dirichlet noise.
      * @param initQMethod The method to use for initializing the Q values of the nodes.
     */
-    UCTNode(EdgeStatistics* edgeStats, ImplNode* gameNode,
+    UCTNode(EdgeStatistics* edgeStats, GameNode<ImplNode, State, ACTION_SIZE>* gameNode,
             float dirEps = 0.25f, float dirAlpha = 0.1f, InitQ initQMethod = InitQ::PARENT)
         : m_gameNode { gameNode }, m_parentEdgeStatistics { edgeStats },
           m_dirEps { dirEps }, m_dirAlpha { dirAlpha }, m_initQMethod { initQMethod },
@@ -83,7 +84,7 @@ public:
      * @param dirAlpha The alpha parameter for Dirichlet noise.
      * @param initQMethod The method to use for initializing the Q values of the nodes.
     */
-    UCTNode(UCTNode* parent, ActionIdx action, ImplNode* gameNode,
+    UCTNode(UCTNode* parent, ActionIdx action, GameNode<ImplNode, State, ACTION_SIZE>* gameNode,
             float dirEps = 0.25f, float dirAlpha = 0.1f, InitQ initQMethod = InitQ::PARENT)
         : m_parent { parent }, m_action { action }, m_gameNode { gameNode },
           m_dirEps { dirEps }, m_dirAlpha { dirAlpha }, m_initQMethod { initQMethod },
@@ -200,7 +201,7 @@ public:
         std::vector<ActionIdx> bestActions;
         float bestValue = -std::numeric_limits<float>::infinity();
 
-        for (ActionIdx action = 0; action < AS; ++action) {
+        for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
             if (m_actionMask[action] == 0.0f) {
                 // Illegal action, skip
                 continue;
@@ -284,7 +285,7 @@ public:
         m_isExpanded = true;
 
         int numLegal = 0;
-        for (ActionIdx action = 0; action < AS; ++action) {
+        for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
             if (m_actionMask[action] == 0.0f) {
                 // Illegal action, skip
                 continue;
@@ -299,7 +300,7 @@ public:
             GetRandom().Dirichlet(m_dirAlpha, noise);
 
             int readIdx = 0;
-            for (ActionIdx action = 0; action < AS; ++action) {
+            for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
                 if (m_actionMask[action] == 0.0f) {
                     // Illegal action, skip
                     continue;
@@ -323,7 +324,7 @@ public:
     void pruneChildrenExcept(ActionIdx action) {
         assert(!m_isTerminal);
 
-        for (ActionIdx i = 0; i < AS; ++i) {
+        for (ActionIdx i = 0; i < ACTION_SIZE; ++i) {
             if (i != action) {
                 m_children[i] = nullptr;
             }
@@ -334,12 +335,12 @@ public:
 
 private:
     UCTNode* m_parent { nullptr };  // Raw pointer to the parent, nullptr if root.
-    std::array<std::unique_ptr<UCTNode>, AS> m_children {};  // Parent owns children.
+    std::array<std::unique_ptr<UCTNode>, ACTION_SIZE> m_children {};  // Parent owns children.
 
-    ActionIdx m_action { 0 };        // Action index taken into this node, 0 if root.
-    ImplNode* m_gameNode;                // Pointer to current game node.
-    bool m_isTerminal;               // Whether the current node is terminal.
-    const ActionDist& m_actionMask;  // Mask of legal actions.
+    ActionIdx m_action { 0 };                            // Action index taken into this node, 0 if root.
+    GameNode<ImplNode, State, ACTION_SIZE>* m_gameNode;  // Pointer to current game node.
+    bool m_isTerminal;                                   // Whether the current node is terminal.
+    const ActionDist& m_actionMask;                      // Mask of legal actions.
 
     bool m_isExpanded { false };          // Whether node has been expanded.
     bool m_isNetworkEvaluated { false };  // Whether node has been evaluated by the network.
@@ -354,7 +355,7 @@ private:
     float m_dirAlpha {};                    // Dirichlet noise alpha.
     InitQ m_initQMethod { InitQ::PARENT };  // Method to use for initializing Q values.
 
-    friend class UCTTree<ImplNode, State, AS>;
+    friend class UCTTree<ImplNode, State, ACTION_SIZE>;
 };
 
 } // namespace SPRL

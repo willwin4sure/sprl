@@ -13,17 +13,17 @@
 
 namespace SPRL {
 
-template <typename ImplNode, typename State, int AS>
+template <typename ImplNode, typename State, int ACTION_SIZE>
 class UCTTree {
 public:
-    using UNode = UCTNode<ImplNode, State, AS>;
+    using UNode = UCTNode<ImplNode, State, ACTION_SIZE>;
 
     /**
      * Constructs a UCT tree rooted at the initial state of the game.
     */
-    UCTTree(std::unique_ptr<ImplNode> gameRoot,
+    UCTTree(std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> gameRoot,
             float dirEps, float dirAlpha, InitQ initQMethod,
-            ISymmetrizer<State, AS>* symmetrizer, bool addNoise = true)
+            ISymmetrizer<State, ACTION_SIZE>* symmetrizer, bool addNoise = true)
 
         : m_edgeStatistics {},
           m_gameRoot { std::move(gameRoot) },
@@ -55,7 +55,7 @@ public:
      * Returns this batch of empty leaves, as well as the number of leaf selections performed.
     */
     std::pair<std::vector<UNode*>, int> searchAndGetLeaves(
-        int maxTraversals, int maxQueueSize, Network<State, AS>* network, float uWeight = 1.0f) {
+        int maxTraversals, int maxQueueSize, Network<State, ACTION_SIZE>* network, float uWeight = 1.0f) {
 
         std::vector<UNode*> leaves;
 
@@ -99,14 +99,14 @@ public:
      * 
      * Inputs must be leaves that are all empty, as in the return value from searchAndGetLeaves.
     */
-    void evaluateAndBackpropLeaves(const std::vector<UNode*>& leaves, Network<State, AS>* network) {
+    void evaluateAndBackpropLeaves(const std::vector<UNode*>& leaves, Network<State, ACTION_SIZE>* network) {
         int numLeaves = leaves.size();
 
         assert(numLeaves > 0);
 
         // Assemble a vector of states and masks for input into the NN
         std::vector<State> states;
-        std::vector<GameActionDist<AS>> masks;
+        std::vector<GameActionDist<ACTION_SIZE>> masks;
 
         states.reserve(numLeaves);
         masks.reserve(numLeaves);
@@ -127,11 +127,11 @@ public:
         }
 
         // Perform batched evaluation of the states
-        std::vector<std::pair<GameActionDist<AS>, Value>> outputs = network->evaluate(states, masks);
+        std::vector<std::pair<GameActionDist<ACTION_SIZE>, Value>> outputs = network->evaluate(states, masks);
 
         for (int i = 0; i < numLeaves; ++i) {
             UNode* leaf = leaves[i];
-            std::pair<GameActionDist<AS>, Value> output = outputs[i];
+            std::pair<GameActionDist<ACTION_SIZE>, Value> output = outputs[i];
 
             GameActionDist policy = output.first;
             Value value = output.second;
@@ -270,7 +270,7 @@ private:
     UNode::EdgeStatistics m_edgeStatistics {};
 
     /// A unique pointer to the root node of the game tree; we own it.
-    std::unique_ptr<ImplNode> m_gameRoot;
+    std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> m_gameRoot;
 
     /// A unique pointer to the root node of the UCT tree; we own it.
     std::unique_ptr<UNode> m_uctRoot;
@@ -284,7 +284,7 @@ private:
 
     bool m_addNoise { true };
 
-    ISymmetrizer<State, AS>* m_symmetrizer { nullptr };
+    ISymmetrizer<State, ACTION_SIZE>* m_symmetrizer { nullptr };
 };
 
 } // namespace SPRL

@@ -7,17 +7,24 @@
 namespace SPRL {
 
 /**
- * Represents any array of floats with length `AS`,
+ * Represents any array of floats with length `ACTION_SIZE`,
  * e.g. could correspond to a probability distribution over actions.
  * 
- * @tparam AS The size of the action space.
+ * @tparam ACTION_SIZE The size of the action space.
  * 
  * @note Equipped with operations to manipulate
  * action distributions with pointwise operations.
 */
-template <int AS>
+template <int ACTION_SIZE>
 class GameActionDist {
 public:
+    /**
+     * Constructs a new action distribution with all zeros.
+    */
+    GameActionDist() {
+        m_data.fill(0.0f);
+    }
+
     /**
      * @returns The value at the given index.
     */
@@ -43,7 +50,7 @@ public:
      * @returns The size of the action distribution.
     */
     int size() const {
-        return AS;
+        return ACTION_SIZE;
     }
 
     /**
@@ -80,7 +87,7 @@ public:
     float sum() const {
         float result = 0.0;
 
-        for (int i = 0; i < AS; ++i) {
+        for (int i = 0; i < ACTION_SIZE; ++i) {
             result += m_data[i];
         }
 
@@ -90,10 +97,10 @@ public:
     /**
      * @returns The action distribution exponentiated, element-wise.
     */
-    GameActionDist<AS> exp() const {
-        GameActionDist<AS> result {};
+    GameActionDist<ACTION_SIZE> exp() const {
+        GameActionDist<ACTION_SIZE> result {};
 
-        for (int i = 0; i < AS; ++i) {
+        for (int i = 0; i < ACTION_SIZE; ++i) {
             result[i] = std::exp(m_data[i]);
         }
 
@@ -103,10 +110,10 @@ public:
     /**
      * @returns The action distribution exponentiated by the constant, element-wise.
     */
-    GameActionDist<AS> pow(float rhs) const {
-        GameActionDist<AS> result {};
+    GameActionDist<ACTION_SIZE> pow(float rhs) const {
+        GameActionDist<ACTION_SIZE> result {};
 
-        for (int i = 0; i < AS; ++i) {
+        for (int i = 0; i < ACTION_SIZE; ++i) {
             result[i] = std::pow(m_data[i], rhs);
         }
 
@@ -114,23 +121,23 @@ public:
     }
 
 private:
-    std::array<float, AS> m_data {};
+    std::array<float, ACTION_SIZE> m_data {};
 };
 
 
 /**
- * @tparam AS The size of the action space.
+ * @tparam ACTION_SIZE The size of the action space.
  * 
  * @param lhs The left-hand side action distribution.
  * @param rhs The right-hand side action distribution.
  * 
  * @returns The sum of the two action distributions element-wise.
 */
-template <int AS>
-GameActionDist<AS> operator+(const GameActionDist<AS>& lhs, const GameActionDist<AS>& rhs) {
-    GameActionDist<AS> result {};
+template <int ACTION_SIZE>
+GameActionDist<ACTION_SIZE> operator+(const GameActionDist<ACTION_SIZE>& lhs, const GameActionDist<ACTION_SIZE>& rhs) {
+    GameActionDist<ACTION_SIZE> result {};
 
-    for (int i = 0; i < AS; ++i) {
+    for (int i = 0; i < ACTION_SIZE; ++i) {
         result[i] = lhs[i] + rhs[i];
     }
 
@@ -138,18 +145,18 @@ GameActionDist<AS> operator+(const GameActionDist<AS>& lhs, const GameActionDist
 }
 
 /**
- * @tparam AS The size of the action space.
+ * @tparam ACTION_SIZE The size of the action space.
  * 
  * @param lhs The left-hand side action distribution.
  * @param rhs The right-hand side action distribution.
  * 
  * @returns The difference of the two action distributions element-wise.
 */
-template <int AS>
-GameActionDist<AS> operator-(const GameActionDist<AS>& lhs, const GameActionDist<AS>& rhs) {
-    GameActionDist<AS> result {};
+template <int ACTION_SIZE>
+GameActionDist<ACTION_SIZE> operator-(const GameActionDist<ACTION_SIZE>& lhs, const GameActionDist<ACTION_SIZE>& rhs) {
+    GameActionDist<ACTION_SIZE> result {};
 
-    for (int i = 0; i < AS; ++i) {
+    for (int i = 0; i < ACTION_SIZE; ++i) {
         result[i] = lhs[i] - rhs[i];
     }
 
@@ -157,18 +164,18 @@ GameActionDist<AS> operator-(const GameActionDist<AS>& lhs, const GameActionDist
 }
 
 /**
- * @tparam AS The size of the action space.
+ * @tparam ACTION_SIZE The size of the action space.
  * 
  * @param lhs The left-hand side action distribution.
  * @param rhs The right-hand side action distribution.
  * 
  * @returns The product of the two action distributions element-wise.
 */
-template <int AS>
-GameActionDist<AS> operator*(const GameActionDist<AS>& lhs, const GameActionDist<AS>& rhs) {
-    GameActionDist<AS> result {};
+template <int ACTION_SIZE>
+GameActionDist<ACTION_SIZE> operator*(const GameActionDist<ACTION_SIZE>& lhs, const GameActionDist<ACTION_SIZE>& rhs) {
+    GameActionDist<ACTION_SIZE> result {};
 
-    for (int i = 0; i < AS; ++i) {
+    for (int i = 0; i < ACTION_SIZE; ++i) {
         result[i] = lhs[i] * rhs[i];
     }
 
@@ -176,18 +183,18 @@ GameActionDist<AS> operator*(const GameActionDist<AS>& lhs, const GameActionDist
 }
 
 /**
- * @tparam AS The size of the action space.
+ * @tparam ACTION_SIZE The size of the action space.
  * 
  * @param lhs The left-hand side action distribution.
  * @param rhs The right-hand side action distribution.
  * 
  * @returns The quotient of the two action distributions element-wise.
 */
-template <int AS>
-GameActionDist<AS> operator/(const GameActionDist<AS>& lhs, const GameActionDist<AS>& rhs) {
-    GameActionDist<AS> result {};
+template <int ACTION_SIZE>
+GameActionDist<ACTION_SIZE> operator/(const GameActionDist<ACTION_SIZE>& lhs, const GameActionDist<ACTION_SIZE>& rhs) {
+    GameActionDist<ACTION_SIZE> result {};
 
-    for (int i = 0; i < AS; ++i) {
+    for (int i = 0; i < ACTION_SIZE; ++i) {
         result[i] = lhs[i] / rhs[i];
     }
 
@@ -195,18 +202,18 @@ GameActionDist<AS> operator/(const GameActionDist<AS>& lhs, const GameActionDist
 }
 
 /**
- * @tparam AS The size of the action space.
+ * @tparam ACTION_SIZE The size of the action space.
  * 
  * @param lhs The action distribution.
  * @param rhs The constant to add.
  * 
  * @returns The sum of the action distribution and the constant.
 */
-template <int AS>
-GameActionDist<AS> operator+(const GameActionDist<AS>& lhs, float rhs) {
-    GameActionDist<AS> result {};
+template <int ACTION_SIZE>
+GameActionDist<ACTION_SIZE> operator+(const GameActionDist<ACTION_SIZE>& lhs, float rhs) {
+    GameActionDist<ACTION_SIZE> result {};
 
-    for (int i = 0; i < AS; ++i) {
+    for (int i = 0; i < ACTION_SIZE; ++i) {
         result[i] = lhs[i] + rhs;
     }
 
@@ -214,18 +221,18 @@ GameActionDist<AS> operator+(const GameActionDist<AS>& lhs, float rhs) {
 }
 
 /**
- * @tparam AS The size of the action space.
+ * @tparam ACTION_SIZE The size of the action space.
  * 
  * @param lhs The action distribution.
  * @param rhs The constant to subtract.
  * 
  * @returns The difference of the action distribution and the constant.
 */
-template <int AS>
-GameActionDist<AS> operator-(const GameActionDist<AS>& lhs, float rhs) {
-    GameActionDist<AS> result {};
+template <int ACTION_SIZE>
+GameActionDist<ACTION_SIZE> operator-(const GameActionDist<ACTION_SIZE>& lhs, float rhs) {
+    GameActionDist<ACTION_SIZE> result {};
 
-    for (int i = 0; i < AS; ++i) {
+    for (int i = 0; i < ACTION_SIZE; ++i) {
         result[i] = lhs[i] - rhs;
     }
 
@@ -233,18 +240,18 @@ GameActionDist<AS> operator-(const GameActionDist<AS>& lhs, float rhs) {
 }
 
 /**
- * @tparam AS The size of the action space.
+ * @tparam ACTION_SIZE The size of the action space.
  * 
  * @param lhs The action distribution.
  * @param rhs The constant to multiply by.
  * 
  * @returns The product of the action distribution and the constant.
 */
-template <int AS>
-GameActionDist<AS> operator*(const GameActionDist<AS>& lhs, float rhs) {
-    GameActionDist<AS> result {};
+template <int ACTION_SIZE>
+GameActionDist<ACTION_SIZE> operator*(const GameActionDist<ACTION_SIZE>& lhs, float rhs) {
+    GameActionDist<ACTION_SIZE> result {};
 
-    for (int i = 0; i < AS; ++i) {
+    for (int i = 0; i < ACTION_SIZE; ++i) {
         result[i] = lhs[i] * rhs;
     }
 
@@ -252,18 +259,18 @@ GameActionDist<AS> operator*(const GameActionDist<AS>& lhs, float rhs) {
 }
 
 /**
- * @tparam AS The size of the action space.
+ * @tparam ACTION_SIZE The size of the action space.
  * 
  * @param lhs The action distribution.
  * @param rhs The constant to divide by.
  * 
  * @returns The quotient of the action distribution and the constant.
 */
-template <int AS>
-GameActionDist<AS> operator/(const GameActionDist<AS>& lhs, float rhs) {
-    GameActionDist<AS> result {};
+template <int ACTION_SIZE>
+GameActionDist<ACTION_SIZE> operator/(const GameActionDist<ACTION_SIZE>& lhs, float rhs) {
+    GameActionDist<ACTION_SIZE> result {};
 
-    for (int i = 0; i < AS; ++i) {
+    for (int i = 0; i < ACTION_SIZE; ++i) {
         result[i] = lhs[i] / rhs;
     }
 

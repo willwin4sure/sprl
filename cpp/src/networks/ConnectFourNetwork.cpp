@@ -35,7 +35,7 @@ std::vector<std::pair<ConnectFourNetwork::ActionDist, Value>> ConnectFourNetwork
         Player player = states[b].getPlayer();
         Piece piece = pieceFromPlayer(player);
 
-        GridBoard<C4_BS> board = states[b].getHistory()[0];
+        GridBoard<C4_BOARD_SIZE> board = states[b].getHistory()[0];
 
         // Stone bitmask channels for current player and opponent player
         for (int i = 0; i < C4_NUM_ROWS; ++i) {

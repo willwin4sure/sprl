@@ -8,12 +8,19 @@
 
 namespace SPRL {
 
+/**
+ * Agent that prompts the terminal for playing Go, so a human can play.
+ * 
+ * Asks for a square on a Go board (e.g. `C5`), or `XX` for pass.
+*/
 class HumanGoAgent : public Agent<GoNode, GridState<GO_BOARD_SIZE>, GO_ACTION_SIZE> {
 public:
     using State = GridState<GO_BOARD_SIZE>;
     using ActionDist = GameActionDist<GO_ACTION_SIZE>;
 
-    ActionIdx act(const GoNode* gameNode, bool verbose = false) const override {
+    ActionIdx act(const GameNode<GoNode, GridState<GO_BOARD_SIZE>, GO_ACTION_SIZE>* gameNode,
+                  bool verbose = false) const override {
+
         while (true) {
             ActionIdx action {};
 

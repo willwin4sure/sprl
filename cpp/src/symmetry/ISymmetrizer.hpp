@@ -17,10 +17,10 @@ using SymmetryIdx = int8_t;
  * @tparam AS The size of the action space.
  * @tparam State The state that the symmetrizer operates on.
 */
-template <typename State, int AS>
+template <typename State, int ACTION_SIZE>
 class ISymmetrizer {
 public:
-    using ActionDist = GameActionDist<AS>;
+    using ActionDist = GameActionDist<ACTION_SIZE>;
 
     /**
      * @returns The number of symmetries this symmetrizer can apply.

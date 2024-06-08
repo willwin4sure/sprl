@@ -7,11 +7,14 @@ namespace SPRL {
 
 /**
  * Interface for neural networks that evaluate game states.
+ * 
+ * @tparam State The state of the game.
+ * @tparam ACTION_SIZE The number of possible actions in the game.
 */
-template <typename State, int AS>
+template <typename State, int ACTION_SIZE>
 class Network {
 public:
-    using ActionDist = GameActionDist<AS>;
+    using ActionDist = GameActionDist<ACTION_SIZE>;
 
     virtual ~Network() = default;
 

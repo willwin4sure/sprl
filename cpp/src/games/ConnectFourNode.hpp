@@ -8,18 +8,18 @@ namespace SPRL {
 constexpr int C4_NUM_ROWS = 6;
 constexpr int C4_NUM_COLS = 7;
 
-constexpr int C4_BS = C4_NUM_ROWS * C4_NUM_COLS;
-constexpr int C4_AS = C4_NUM_COLS;
+constexpr int C4_BOARD_SIZE = C4_NUM_ROWS * C4_NUM_COLS;
+constexpr int C4_ACTION_SIZE = C4_NUM_COLS;
 
 /**
  * Implementation of the classic Connect Four game.
  * 
  * See https://en.wikipedia.org/wiki/Connect_Four for details.
 */
-class ConnectFourNode : public GameNode<ConnectFourNode, GridState<C4_BS>, C4_AS> {
+class ConnectFourNode : public GameNode<ConnectFourNode, GridState<C4_BOARD_SIZE>, C4_ACTION_SIZE> {
 public:
-    using Board = GridBoard<C4_BS>;
-    using State = GridState<C4_BS>;
+    using Board = GridBoard<C4_BOARD_SIZE>;
+    using State = GridState<C4_BOARD_SIZE>;
 
     /**
      * Constructs a new Connect Four game node in the initial state (for root).
@@ -30,29 +30,31 @@ public:
 
     /**
      * Constructs a new Connect Four game node with given parameters.
+     * Large mutable objects need to be moved in.
      * 
      * @param parent The parent node.
      * @param action The action taken to reach the new node.
      * @param actionMask The action mask at the new node.
      * @param player The new player to move.
      * @param winner The new winner of the game, if any.
-     * @param isTerminal Whether the game had ended.
+     * @param isTerminal Whether the game has ended.
      * @param board The new board state.
     */
     ConnectFourNode(ConnectFourNode* parent, ActionIdx action, ActionDist&& actionMask,
                     Player player, Player winner, bool isTerminal, Board&& board)
-        : GameNode<ConnectFourNode, State, C4_AS> { parent, action, std::move(actionMask), player, winner, isTerminal },
+        : GameNode<ConnectFourNode, State, C4_ACTION_SIZE> { parent, action, std::move(actionMask), player, winner, isTerminal },
           m_board { std::move(board) } {
 
     }
 
-    void setStartNode() override;
-    std::unique_ptr<ConnectFourNode> getNextNode(ActionIdx action) override;
+private:
+    void setStartNodeImpl();
+    std::unique_ptr<ConnectFourNode> getNextNodeImpl(ActionIdx action);
     
-    State getGameState() const override;
-    std::array<Value, 2> getRewards() const override;
+    State getGameStateImpl() const;
+    std::array<Value, 2> getRewardsImpl() const;
 
-    std::string toString() const override;
+    std::string toStringImpl() const;
 
 private:
     static int toIndex(int row, int col);
@@ -60,6 +62,7 @@ private:
 
     Board m_board;
 
+    friend class GameNode<ConnectFourNode, State, C4_ACTION_SIZE>;
     friend class ConnectFourNetwork;
 };
 

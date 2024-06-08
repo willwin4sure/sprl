@@ -5,7 +5,7 @@
 TEST_CASE( "Handles a basic horizontal victory" ) {
     SPRL::ConnectFourNode rootNode;
 
-    SPRL::GameNode<SPRL::ConnectFourNode, SPRL::ConnectFourNode::State, SPRL::C4_AS>* curNode = &rootNode;
+    SPRL::GameNode<SPRL::ConnectFourNode, SPRL::ConnectFourNode::State, SPRL::C4_ACTION_SIZE>* curNode = &rootNode;
 
     std::vector<SPRL::ActionIdx> actions { 3, 3, 4, 4, 2, 3, 1 };
 

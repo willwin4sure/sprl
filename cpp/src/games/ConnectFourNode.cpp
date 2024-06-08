@@ -10,7 +10,7 @@ int ConnectFourNode::toIndex(int row, int col) {
     return row * C4_NUM_COLS + col;
 }
 
-void ConnectFourNode::setStartNode() {
+void ConnectFourNode::setStartNodeImpl() {
     m_parent = nullptr;
     m_action = 0;
     m_actionMask.fill(1.0f);
@@ -20,7 +20,7 @@ void ConnectFourNode::setStartNode() {
     m_board.fill(Piece::NONE);
 }
 
-std::unique_ptr<ConnectFourNode> ConnectFourNode::getNextNode(ActionIdx action) {
+std::unique_ptr<ConnectFourNode> ConnectFourNode::getNextNodeImpl(ActionIdx action) {
     assert(!m_isTerminal);
     assert(m_actionMask[action] > 0.0f);
 
@@ -77,12 +77,12 @@ std::unique_ptr<ConnectFourNode> ConnectFourNode::getNextNode(ActionIdx action) 
     return std::move(newNode);
 }
 
-ConnectFourNode::State ConnectFourNode::getGameState() const {
+ConnectFourNode::State ConnectFourNode::getGameStateImpl() const {
     std::vector<Board> history { m_board };
     return State { std::move(history), m_player };
 }
 
-std::array<Value, 2> ConnectFourNode::getRewards() const {
+std::array<Value, 2> ConnectFourNode::getRewardsImpl() const {
     switch (m_winner) {
     case Player::ZERO: return { 1.0f, -1.0f };
     case Player::ONE:  return { -1.0f, 1.0f };
@@ -90,9 +90,10 @@ std::array<Value, 2> ConnectFourNode::getRewards() const {
     }
 }
 
-std::string ConnectFourNode::toString() const {
+std::string ConnectFourNode::toStringImpl() const {
     std::string str = "";
 
+    bool shouldBold = true;
     for (int row = 0; row < C4_NUM_ROWS; row++) {
         for (int col = 0; col < C4_NUM_COLS; col++) {
             switch (m_board[row * C4_NUM_COLS + col]) {
@@ -100,12 +101,22 @@ std::string ConnectFourNode::toString() const {
                 str += ". ";
                 break;
             case Piece::ZERO:
-                // O, colored red
-                str += "\033[31mO\033[0m ";
+                // O, colored red. If the last move, then bold it as well.
+                if (shouldBold && m_player == Player::ONE && m_action == col) {
+                    str += "\x1b[31m\x1b[1mO\x1b[0m\033[0m ";
+                    shouldBold = false;
+                } else {
+                    str += "\x1b[31mO\033[0m ";
+                }
                 break;
             case Piece::ONE:
-                // X, colored yellow
-                str += "\033[33mX\033[0m ";
+                // X, colored yellow. If the last move, then bold it as well.
+                if (shouldBold && m_player == Player::ZERO && m_action == col) {
+                    str += "\x1b[33m\x1b[1mX\x1b[0m\033[0m ";
+                    shouldBold = false;
+                } else {
+                    str += "\x1b[33mX\033[0m ";
+                }
                 break;
             default:
                 assert(false);

@@ -17,22 +17,48 @@ constexpr int GO_BOARD_WIDTH = 9;
 constexpr int GO_BOARD_SIZE = GO_BOARD_WIDTH * GO_BOARD_WIDTH;
 constexpr int GO_ACTION_SIZE = GO_BOARD_SIZE + 1;  // Last index represents pass.
 constexpr int GO_HISTORY_LENGTH = 8;
-constexpr float GO_KOMI = 7.5;
+constexpr float GO_KOMI = 7.5f;
 
+/**
+ * Implementation of the game of Go.
+ * 
+ * See https://en.wikipedia.org/wiki/Go_(game) for details.
+*/
 class GoNode : public GameNode<GoNode, GridState<GO_BOARD_SIZE>, GO_ACTION_SIZE> {
 public:
     using Board = GridBoard<GO_BOARD_SIZE>;
     using State = GridState<GO_BOARD_SIZE>;
 
-    // Following data types need to be increased in size if the board size is increased.
+    // Following data types need to be increased in size if the board size is increased too much.
     
     using Coord = int8_t;
     using LibertyCount = int8_t;
 
+    /**
+     * Constructs a new Go game node in the initial state (for root).
+    */
     GoNode() {
         setStartNode();
     }
 
+    /**
+     * Constructs a new Go game node with given parameters.
+     * Large mutable objects need to be moved in.
+     * 
+     * @param parent The parent node.
+     * @param action The action taken to reach the new node.
+     * @param actionMask The action mask at the new node.
+     * @param player The new player to move.
+     * @param winner The new winner of the game, if any.
+     * @param isTerminal Whether the new state is terminal.
+     * @param board The new board state.
+     * @param hash The Zobrist hash of the new board state.
+     * @param depth The depth of the node in the tree.
+     * @param zobristHistorySet The set of Zobrist hashes along the path to the root.
+     * @param dsu The DSU holding connected groups of stones.
+     * @param liberties The liberty count for each group.
+     * @param componentZobristValues The total Zobrist hash for each group.
+    */
     GoNode(GoNode* parent, ActionIdx action, ActionDist&& actionMask,
            Player player, Player winner, bool isTerminal,
            Board&& board, ZobristHash hash, int depth,
@@ -41,7 +67,9 @@ public:
            std::array<LibertyCount, GO_BOARD_SIZE>&& liberties,
            std::array<ZobristHash, GO_BOARD_SIZE>&& componentZobristValues)
 
-        : GameNode<GoNode, State, GO_ACTION_SIZE> { parent, action, std::move(actionMask), player, winner, isTerminal },
+        : GameNode<GoNode, State, GO_ACTION_SIZE> {
+            parent, action, std::move(actionMask), player, winner, isTerminal },
+
           m_board { std::move(board) }, m_hash { hash }, m_depth { depth },
           m_zobristHistorySet { std::move(zobristHistorySet) },
           m_dsu { std::move(dsu) }, m_liberties { std::move(liberties) },
@@ -49,13 +77,14 @@ public:
 
     }
 
-    void setStartNode() override;
-    std::unique_ptr<GoNode> getNextNode(ActionIdx action) override;
+private:
+    void setStartNodeImpl();
+    std::unique_ptr<GoNode> getNextNodeImpl(ActionIdx action);
     
-    State getGameState() const override;
-    std::array<Value, 2> getRewards() const override;
+    State getGameStateImpl() const;
+    std::array<Value, 2> getRewardsImpl() const;
 
-    std::string toString() const override;
+    std::string toStringImpl() const;
 
 private:
     /**
@@ -83,7 +112,7 @@ private:
     /**
      * @returns All the in-bounds neighbors of a coordinate.
     */
-    std::vector<Coord> neighbors(Coord coord) const {
+    static std::vector<Coord> neighbors(Coord coord) {
         std::vector<Coord> result;
         result.reserve(4);
 
@@ -101,8 +130,8 @@ private:
     /**
      * @returns The Zobrist hash for a piece at a particular coordinate.
     */
-    ZobristHash getPieceHash(Coord coord, Player player) const {
-        return s_zobrist[coord + static_cast<int>(player) * GO_BOARD_SIZE];
+    static ZobristHash getPieceHash(Coord coord, Piece piece) {
+        return s_zobrist[coord + static_cast<int>(piece) * GO_BOARD_SIZE];
     }
 
     /**
@@ -146,7 +175,7 @@ private:
      * would immediately result in that piece being captured,
      * or if the move violates the PSK rule.
     */
-    bool checkLegalPlacement(Coord coord, Player player) const;
+    bool checkLegalPlacement(Coord coord, Piece piece) const;
 
     /**
      * Mutator helper function that removes the group of a particular coordinate.
@@ -154,14 +183,14 @@ private:
      * 
      * Edits the board, hash, DSU, and liberty/Zobrist values.
     */
-    void clearComponent(Coord coord, Player player);
+    void clearComponent(Coord coord, Piece piece);
 
     /**
      * Places a piece in the given coordinate.
      * 
-     * Edits the underlying state.
+     * Edits the board, hash, DSU, liberty/Zobrist values, and Zobrist history.
     */
-    void placePiece(Coord coord, Player player);
+    void placePiece(Coord coord, Piece piece);
 
     /**
      * Observer helper function that computes Tromp-Taylor scoring:
@@ -196,7 +225,9 @@ private:
     std::array<LibertyCount, GO_BOARD_SIZE> m_liberties;
 
     /// Total Zobrist hash for each group, indexed by representatives.
-    std::array<ZobristHash, GO_BOARD_SIZE> m_componentZobristValues; 
+    std::array<ZobristHash, GO_BOARD_SIZE> m_componentZobristValues;
+
+    friend class GameNode<GoNode, State, GO_ACTION_SIZE>;
 };
 
 } // namespace SPRL

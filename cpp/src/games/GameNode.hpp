@@ -43,13 +43,13 @@ using Value = float;
  * available on the current game board.
  * 
  * @tparam State The state of the game.
- * @tparam AS The size of the action space.
+ * @tparam ACTION_SIZE The size of the action space.
  * @tparam ImplNode The implementation of the game node, e.g. GoNode, for purposes of CRTP.
 */
-template <typename ImplNode, typename State, int AS>
+template <typename ImplNode, typename State, int ACTION_SIZE>
 class GameNode {
 public:
-    using ActionDist = GameActionDist<AS>;
+    using ActionDist = GameActionDist<ACTION_SIZE>;
 
     /**
      * Constructs a new game node.
@@ -113,7 +113,7 @@ public:
         assert(!m_isTerminal);
         assert(m_actionMask[action] > 0.0f);
 
-        for (ActionIdx i = 0; i < AS; ++i) {
+        for (ActionIdx i = 0; i < ACTION_SIZE; ++i) {
             if (i != action) {
                 m_children[i] = nullptr;
             }
@@ -152,33 +152,43 @@ public:
      * @returns The game state at this node, e.g. a short history of board states
      * that can be fed into the neural network.
     */
-    virtual State getGameState() const = 0;
+    State getGameState() const {
+        return static_cast<const ImplNode*>(this)->getGameStateImpl();
+    }
 
     /**
      * @returns The rewards for the two players at this node.
     */
-    virtual std::array<Value, 2> getRewards() const = 0;
+    std::array<Value, 2> getRewards() const {
+        return static_cast<const ImplNode*>(this)->getRewardsImpl();
+    }
 
     /**
      * @returns A string representation of the node, for display purposes.
     */
-    virtual std::string toString() const = 0;
+    std::string toString() const {
+        return static_cast<const ImplNode*>(this)->toStringImpl();
+    }
 
 protected:
     /**
      * Mutates this node to the initial state of the game.
     */
-    virtual void setStartNode() = 0;
+    void setStartNode() {
+        return static_cast<ImplNode*>(this)->setStartNodeImpl();
+    }
 
     /**
      * @returns The node that would result from taking the given action.
      * 
      * @param action The action to take. Must be legal.
     */
-    virtual std::unique_ptr<ImplNode> getNextNode(ActionIdx action) = 0;
+    std::unique_ptr<ImplNode> getNextNode(ActionIdx action) {
+        return static_cast<ImplNode*>(this)->getNextNodeImpl(action);
+    }
 
     ImplNode* m_parent;  // Raw pointer to the parent, nullptr if root.
-    std::array<std::unique_ptr<ImplNode>, AS> m_children;  // Parent owns children.
+    std::array<std::unique_ptr<ImplNode>, ACTION_SIZE> m_children;  // Parent owns children.
 
     ActionIdx m_action;       // Action index taken into this node, 0 if root.
     ActionDist m_actionMask;  // Current action mask of legal moves.

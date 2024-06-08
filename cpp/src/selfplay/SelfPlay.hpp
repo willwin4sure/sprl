@@ -1,5 +1,5 @@
 /**
- * SelfPlay.cpp
+ * @file SelfPlay.cpp
  * 
  * Provides functionality to generate self-play data.
  */
@@ -25,11 +25,11 @@ namespace SPRL {
 /**
  * Generates self-play data using the given game and network, improved with UCT.
  * 
- * Returns a tuple of:
- * - A vector of states, where each state is a symmetrized version of the game state over time
- * - A vector of action distributions, where each distribution is a symmetrized version
- *   of the action distribution produced by UCT
- * - The outcome of the game (reward for the first player)
+ * @returns A tuple of:
+ * 1. A vector of states, where each state is a symmetrized version of the game state over time.
+ * 2. A vector of action distributions, where each distribution is a symmetrized version
+ *    of the action distribution produced by UCT.
+ * 3. The outcome of the game (reward for the first player).
 */
 template <int BOARD_SIZE, int ACTION_SIZE>
 std::tuple<std::vector<GameState<BOARD_SIZE>>, std::vector<GameActionDist<ACTION_SIZE>>, float>

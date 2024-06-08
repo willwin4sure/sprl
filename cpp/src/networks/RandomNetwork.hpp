@@ -5,10 +5,16 @@
 
 namespace SPRL {
 
-template <typename State, int AS>
-class RandomNetwork : public Network<State, AS> {
+/**
+ * A network that returns a uniform distribution and a value of 0 for every state.
+ * 
+ * @tparam State The state of the game.
+ * @tparam ACTION_SIZE The size of the action space.
+*/
+template <typename State, int ACTION_SIZE>
+class RandomNetwork : public Network<State, ACTION_SIZE> {
 public:
-    using ActionDist = GameActionDist<AS>;
+    using ActionDist = GameActionDist<ACTION_SIZE>;
 
     RandomNetwork() {}
 
@@ -26,7 +32,7 @@ public:
 
         for (int b = 0; b < numStates; ++b) {
             int numLegal = 0;
-            for (int i = 0; i < AS; ++i) {
+            for (int i = 0; i < ACTION_SIZE; ++i) {
                 if (masks[0][i] == 1.0f) {
                     ++numLegal;
                 }
@@ -35,7 +41,7 @@ public:
             float uniform = 1.0f / numLegal;
 
             ActionDist uniformDist;
-            for (int i = 0; i < AS; ++i) {
+            for (int i = 0; i < ACTION_SIZE; ++i) {
                 if (masks[0][i] == 1.0f) {
                     uniformDist[i] = uniform;
                 } else {

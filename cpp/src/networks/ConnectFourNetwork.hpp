@@ -9,9 +9,12 @@
 
 namespace SPRL {
 
-class ConnectFourNetwork : public Network<GridState<C4_BS>, C4_AS> {
+/**
+ * A network that evaluates Connect Four game states.
+*/
+class ConnectFourNetwork : public Network<GridState<C4_BOARD_SIZE>, C4_ACTION_SIZE> {
 public:
-    using State = GridState<C4_BS>;
+    using State = GridState<C4_BOARD_SIZE>;
 
     ConnectFourNetwork(std::string path);
 

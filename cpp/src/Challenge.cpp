@@ -26,7 +26,7 @@
 #include "uct/UCTTree.hpp"
 
 constexpr int BS = SPRL::GO_BOARD_SIZE;
-constexpr int AS = SPRL::GO_ACTION_SIZE;
+constexpr int ACTION_SIZE = SPRL::GO_ACTION_SIZE;
 
 int main(int argc, char* argv[]) {
     if (argc != 6) {
@@ -40,9 +40,9 @@ int main(int argc, char* argv[]) {
     int maxTraversals = std::stoi(argv[4]);
     int maxQueueSize = std::stoi(argv[5]);
 
-    SPRL::Network<SPRL::GridState<BS>, AS>* network;
+    SPRL::Network<SPRL::GridState<BS>, ACTION_SIZE>* network;
 
-    SPRL::RandomNetwork<SPRL::GridState<BS>, AS> randomNetwork {};
+    SPRL::RandomNetwork<SPRL::GridState<BS>, ACTION_SIZE> randomNetwork {};
     // SPRL::ConnectFourNetwork neuralNetwork { modelPath };
 
     // if (modelPath == "random") {
@@ -55,7 +55,7 @@ int main(int argc, char* argv[]) {
 
     network = &randomNetwork;
 
-    SPRL::UCTTree<SPRL::GoNode, SPRL::GridState<BS>, AS> tree {
+    SPRL::UCTTree<SPRL::GoNode, SPRL::GridState<BS>, ACTION_SIZE> tree {
         std::make_unique<SPRL::GoNode>(),
         0.25,
         0.1,
@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
         true
     };
 
-    SPRL::UCTNetworkAgent<SPRL::GoNode, SPRL::GridState<BS>, AS> networkAgent {
+    SPRL::UCTNetworkAgent<SPRL::GoNode, SPRL::GridState<BS>, ACTION_SIZE> networkAgent {
         network,
         &tree,
         numIters,
@@ -72,10 +72,10 @@ int main(int argc, char* argv[]) {
         maxQueueSize
     };
 
-    // SPRL::HumanAgent<SPRL::GridState<BS>, AS> humanAgent {};
+    // SPRL::HumanAgent<SPRL::GridState<BS>, ACTION_SIZE> humanAgent {};
     SPRL::HumanGoAgent humanAgent {};
 
-    std::array<SPRL::Agent<SPRL::GoNode, SPRL::GridState<BS>, AS>*, 2> agents;
+    std::array<SPRL::Agent<SPRL::GoNode, SPRL::GridState<BS>, ACTION_SIZE>*, 2> agents;
 
     if (player == 0) {
         agents = { &humanAgent, &networkAgent };

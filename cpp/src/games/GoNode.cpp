@@ -8,9 +8,9 @@
 namespace SPRL {
 
 GoNode::LibertyCount GoNode::computeLiberties(Coord coord) const {
-    Player player = playerFromPiece(m_board[coord]);
+    Piece piece = m_board[coord];
     
-    if (player == Player::NONE) {
+    if (piece == Piece::NONE) {
         return 0;
     }
 
@@ -30,10 +30,10 @@ GoNode::LibertyCount GoNode::computeLiberties(Coord coord) const {
         q.pop_front();
         
         assert(visited[current]);
-        assert(m_board[current] == pieceFromPlayer(player));
+        assert(m_board[current] == piece);
 
         for (Coord neighbor : neighbors(current)) {
-            if (m_board[neighbor] == pieceFromPlayer(player)) {
+            if (m_board[neighbor] == piece) {
                 if (!visited[neighbor]) {
                     visited[neighbor] = true;
                     q.push_back(neighbor);
@@ -51,8 +51,8 @@ GoNode::LibertyCount GoNode::computeLiberties(Coord coord) const {
     return liberties;
 }
 
-void GoNode::clearComponent(Coord coord, Player player) {
-    assert(m_board[coord] == pieceFromPlayer(player));
+void GoNode::clearComponent(Coord coord, Piece piece) {
+    assert(m_board[coord] == piece);
     
     m_board[coord] = Piece::NONE;
 
@@ -76,13 +76,14 @@ void GoNode::clearComponent(Coord coord, Player player) {
             continue;
         }
 
-        if (m_board[neighbor] == pieceFromPlayer(player)) {
-            clearComponent(neighbor, player);
+        if (m_board[neighbor] == piece) {
+            clearComponent(neighbor, piece);
             
         } else {
             Coord group = m_dsu.find(neighbor);
 
-            if (std::find(oppNeighborGroups.begin(), oppNeighborGroups.end(), group) != oppNeighborGroups.end()) {
+            if (std::find(oppNeighborGroups.begin(), oppNeighborGroups.end(),
+                          group) != oppNeighborGroups.end()) {
                 continue;  // Already counted.
             }
             oppNeighborGroups.push_back(group);
@@ -92,19 +93,21 @@ void GoNode::clearComponent(Coord coord, Player player) {
     }
 }
 
-void GoNode::placePiece(Coord coord, Player player){
+void GoNode::placePiece(Coord coord, Piece piece) {
     assert(m_board[coord] == Piece::NONE);
-    m_board[coord] = pieceFromPlayer(player);
+
+    m_board[coord] = piece;
     
     /*
      * Phase One: check for friendly neighbors, and merge all of them together.
      * In addition, we will compute the Zobrist hash of the new component.
     */
 
-    ZobristHash newComponentHash = getPieceHash(coord, player);
+    // New hash for the component that this piece is joining.
+    ZobristHash newComponentHash = getPieceHash(coord, piece);
     
     for (Coord neighbor : neighbors(coord)) {
-        if (m_board[neighbor] == pieceFromPlayer(player)) {
+        if (m_board[neighbor] == piece) {
             if (m_dsu.sameSet(neighbor, coord)) {
                 continue;  // Already counted.
             }
@@ -138,16 +141,17 @@ void GoNode::placePiece(Coord coord, Player player){
     */
     
     // Hash update for entire state, begins with the new piece we placed.
-    ZobristHash stateHashUpdate = getPieceHash(coord, player);
+    ZobristHash stateHashUpdate = getPieceHash(coord, piece);
 
     std::vector<Coord> oppNeighborGroups;
     oppNeighborGroups.reserve(4);
 
     for (Coord neighbor : neighbors(coord)) {
-        if (m_board[neighbor] == pieceFromPlayer(otherPlayer(player))) {
+        if (m_board[neighbor] == otherPiece(piece)) {
             Coord group = m_dsu.find(neighbor);
 
-            if (std::find(oppNeighborGroups.begin(), oppNeighborGroups.end(), group) != oppNeighborGroups.end()) {
+            if (std::find(oppNeighborGroups.begin(), oppNeighborGroups.end(),
+                          group) != oppNeighborGroups.end()) {
                 continue;  // Already counted.
             }
             oppNeighborGroups.push_back(group);
@@ -158,7 +162,7 @@ void GoNode::placePiece(Coord coord, Player player){
             // Kill the component if necessary.
             if (getLiberties(group) == 0) {
                 stateHashUpdate ^= getComponentZobristValue(group);
-                clearComponent(group, otherPlayer(player));
+                clearComponent(group, otherPiece(piece));
             }
         }
     }
@@ -171,15 +175,15 @@ void GoNode::placePiece(Coord coord, Player player){
     m_zobristHistorySet.insert(m_hash);
 }
 
-bool GoNode::checkLegalPlacement(const Coord coordinate, const Player player) const {
-    assert(player == m_player);  // Correct player.
+bool GoNode::checkLegalPlacement(Coord coordinate, Piece piece) const {
+    assert(playerFromPiece(piece) == m_player);  // Correct player.
 
     if (m_board[coordinate] != Piece::NONE) {
         // Position is already occupied.
         return false;
     }
 
-    ZobristHash newHash = m_hash ^ getPieceHash(coordinate, player);
+    ZobristHash newHash = m_hash ^ getPieceHash(coordinate, piece);
     bool hasLiberties = false;
 
     std::vector<Coord> oppNeighborGroups;
@@ -187,40 +191,41 @@ bool GoNode::checkLegalPlacement(const Coord coordinate, const Player player) co
 
     for (Coord neighbor : neighbors(coordinate)) {
         if (m_board[neighbor] == Piece::NONE) {
-            // Empty neighbor
+            // Empty neighbor, must have liberties.
             hasLiberties = true;
 
-        } else if (m_board[neighbor] == pieceFromPlayer(player)) {
-            // Friendly neighbor
+        } else if (m_board[neighbor] == piece) {
+            // Friendly neighbor, see if it keeps us alive.
             if (getLiberties(neighbor) > 1) {
 
                 // We have a liberty because we're attached to a
-                // friendly piece with more than one liberty
-                // (and we've only consumed one of them, leaving at least one)
+                // friendly piece with more than one liberty (and we've
+                // only consumed one of them, leaving at least one).
 
                 hasLiberties = true;
             }
 
         } else {
-            // Enemy neighbor
+            // Enemy neighbor, see if we capture its group.
             if (getLiberties(neighbor) == 1) {
                 // We would capture the enemy piece, so we must have a liberty.
                 hasLiberties = true;
                 Coord group = m_dsu.find(neighbor);
-                if (std::find(oppNeighborGroups.begin(), oppNeighborGroups.end(), group) == oppNeighborGroups.end()) {
-                    oppNeighborGroups.push_back(group);
-
-                    // Hash update
-                    newHash ^= getComponentZobristValue(group);
+                if (std::find(oppNeighborGroups.begin(), oppNeighborGroups.end(),
+                              group) != oppNeighborGroups.end()) {
+                    continue;  // Already counted.
                 }
+                oppNeighborGroups.push_back(group);
+
+                // Hash update that would occur from capturing enemy group.
+                newHash ^= getComponentZobristValue(group);
             }
         }
     }
 
-    // If we have liberties and the new state hash is not in the history (we haven't seen this state before)
+    // If we have liberties and the new state hash is not in the history (PSK)
     return hasLiberties && m_zobristHistorySet.find(newHash) == m_zobristHistorySet.end();
 }
-
 
 std::array<int, 2> GoNode::countTerritory() const {
     std::array<bool, GO_BOARD_SIZE> visited;
@@ -228,19 +233,21 @@ std::array<int, 2> GoNode::countTerritory() const {
 
     // In this algorithm, visited[i] == 1 implies m_board[i] == -1.
 
-    std::array<int, 2> points = { 0, 0 };
-    for (int i = 0; i < GO_BOARD_SIZE; i++) {
+    std::array<int, 2> territory = { 0, 0 };
+    for (int i = 0; i < GO_BOARD_SIZE; ++i) {
         if (m_board[i] == Piece::ZERO) {
-            points[0]++;
+            territory[0]++;
             continue;
         }
 
         if (m_board[i] == Piece::ONE) {
-            points[1]++;
+            territory[1]++;
             continue;
         }
         
         if (visited[i]) continue;
+
+        // Run a BFS. 
         
         std::deque<int> q;
         visited[i] = true;
@@ -275,17 +282,17 @@ std::array<int, 2> GoNode::countTerritory() const {
             }
         }
 
-        if (possibleTerritory[0] && !possibleTerritory[1]) points[0] += count;
-        if (possibleTerritory[1] && !possibleTerritory[0]) points[1] += count;
+        if (possibleTerritory[0] && !possibleTerritory[1]) territory[0] += count;
+        if (possibleTerritory[1] && !possibleTerritory[0]) territory[1] += count;
     }
 
-    return points;
+    return territory;
 }
 
 GoNode::ActionDist GoNode::computeActionMask() const {
     GoNode::ActionDist mask;
-    for (Coord i = 0; i < GO_BOARD_SIZE; i++) {
-        mask[i] = checkLegalPlacement(i, m_player);
+    for (Coord i = 0; i < GO_BOARD_SIZE; ++i) {
+        mask[i] = checkLegalPlacement(i, pieceFromPlayer(m_player));
     }
 
     mask[GO_BOARD_SIZE] = true;
@@ -293,8 +300,7 @@ GoNode::ActionDist GoNode::computeActionMask() const {
     return mask;
 }
 
-
-void GoNode::setStartNode() {
+void GoNode::setStartNodeImpl() {
     m_parent = nullptr;
     m_action = 0;
     m_actionMask.fill(1.0f);
@@ -310,8 +316,7 @@ void GoNode::setStartNode() {
     m_componentZobristValues.fill(0);
 }
 
-
-std::unique_ptr<GoNode> GoNode::getNextNode(ActionIdx actionIdx) {
+std::unique_ptr<GoNode> GoNode::getNextNodeImpl(ActionIdx actionIdx) {
 
     // Copy the state.
 
@@ -343,17 +348,19 @@ std::unique_ptr<GoNode> GoNode::getNextNode(ActionIdx actionIdx) {
         assert(actionIdx >= 0 && actionIdx < GO_BOARD_SIZE);
         assert(copyNode->checkLegalPlacement(actionIdx, m_player));
 
-        copyNode->placePiece(actionIdx, m_player);
+        copyNode->placePiece(actionIdx, pieceFromPlayer(m_player));
     }
 
     copyNode->m_parent = this;
     copyNode->m_action = actionIdx;
     copyNode->m_player = otherPlayer(m_player);
-    copyNode->m_actionMask = copyNode->computeActionMask();
     ++copyNode->m_depth;
 
-    // Update winner and terminal status.
     copyNode->m_isTerminal = m_action == GO_BOARD_SIZE && actionIdx == GO_BOARD_SIZE;
+    copyNode->m_actionMask = !copyNode->m_isTerminal ? copyNode->computeActionMask()
+                                                     : ActionDist {};
+
+    // Update winner and terminal status.
     if (copyNode->m_isTerminal) {
         std::array<int, 2> territory = copyNode->countTerritory();
         std::array<float, 2> score = { static_cast<float>(territory[0]),
@@ -361,9 +368,9 @@ std::unique_ptr<GoNode> GoNode::getNextNode(ActionIdx actionIdx) {
 
         score[1] += GO_KOMI;
 
-        if (score[0] > score[1]) {
+        if (score[0] > score[1] + 0.1) {
             copyNode->m_winner = Player::ZERO;
-        } else if (score[1] > score[0]) {
+        } else if (score[1] > score[0] + 0.1) {
             copyNode->m_winner = Player::ONE;
         } else {
             copyNode->m_winner = Player::NONE;
@@ -373,7 +380,7 @@ std::unique_ptr<GoNode> GoNode::getNextNode(ActionIdx actionIdx) {
     return copyNode;
 }
 
-GoNode::State GoNode::getGameState() const {
+GoNode::State GoNode::getGameStateImpl() const {
     std::vector<Board> history;
 
     const GoNode* current = this;
@@ -390,7 +397,7 @@ GoNode::State GoNode::getGameState() const {
     return State { std::move(history), m_player };
 }
 
-std::array<Value, 2> GoNode::getRewards() const {
+std::array<Value, 2> GoNode::getRewardsImpl() const {
     switch (m_winner) {
     case Player::ZERO: return { 1.0f, -1.0f };
     case Player::ONE:  return { -1.0f, 1.0f };
@@ -398,13 +405,17 @@ std::array<Value, 2> GoNode::getRewards() const {
     }
 }
 
-std::string GoNode::toString() const {
-    std::string str = "Player: " + std::to_string(static_cast<int>(m_player)) + "\n";
+std::string GoNode::toStringImpl() const {
+    std::string str = "";
+
+    str += "Player: " + std::to_string(static_cast<int>(m_player)) + "\n";
     str += "Winner: " + std::to_string(static_cast<int>(m_winner)) + "\n";
     str += "IsTerminal: " + std::to_string(m_isTerminal) + "\n";
     str += "Action: " + std::to_string(m_action) + "\n";
     str += "Depth: " + std::to_string(m_depth) + "\n";
     str += "Hash: " + std::to_string(m_hash) + "\n";
+
+
     str += "Board:\n";
     
     str += "  ";
@@ -421,26 +432,25 @@ std::string GoNode::toString() const {
             case Piece::NONE:
                 str += "+ ";
                 break;
+                
             case Piece::ZERO:
-                // colored red. If it was the previous move, then bold it as well.
+                // O, colored red. If the last move, then bold it as well.
                 if (m_action == toCoord(row, col)) {
-                    // print a O, colored red, in bold
-                    // Console.WriteLine("\x1b[1mTEST\x1b[0m"); this bolds things
-                    // to make things red, wrap with \x1b[31m and \033[0m
                     str += "\x1b[31m\x1b[1mO\x1b[0m\033[0m ";
                 } else {
                     str += "\x1b[31mO\033[0m ";
                 }
                 break;
+
             case Piece::ONE:
-                // colored yellow
+                // X, colored yellow. If the last move, then bold it as well.
                 if (m_action == toCoord(row, col)) {
-                    // print a X, colored yellow, in bold
                     str += "\x1b[33m\x1b[1mX\x1b[0m\033[0m ";
                 } else {
                     str += "\x1b[33mX\033[0m ";
                 }
                 break;
+
             default:
                 assert(false);
             }
@@ -456,6 +466,7 @@ std::string GoNode::toString() const {
     }
     str += "\n";
 
+
     str += "ActionMask:\n";
 
     str += "  ";
@@ -465,7 +476,7 @@ std::string GoNode::toString() const {
     }
     str += "\n";    
 
-    for (int i = 0; i < GO_BOARD_WIDTH; i++) {
+    for (int i = 0; i < GO_BOARD_WIDTH; ++i) {
         str += std::to_string(i) + " ";
         for (int j = 0; j < GO_BOARD_WIDTH; j++) {
             if(m_actionMask[toCoord(i, j)] == 1.0f) {
@@ -485,6 +496,7 @@ std::string GoNode::toString() const {
     }
     str += "\n";
 
+
     str += "Liberties:\n";
 
     str += "  ";
@@ -495,7 +507,7 @@ std::string GoNode::toString() const {
     str += "\n";
     
 
-    for (int i = 0; i < GO_BOARD_WIDTH; i++) {
+    for (int i = 0; i < GO_BOARD_WIDTH; ++i) {
         str += std::to_string(i) + " ";
         for (int j = 0; j < GO_BOARD_WIDTH; j++) {
             str += std::to_string(getLiberties(toCoord(i, j))) + " ";
@@ -513,7 +525,10 @@ std::string GoNode::toString() const {
     
     str += "  ";
 
-    str += "Territories: " + std::to_string(countTerritory()[0]) + " " + std::to_string(countTerritory()[1]) + "\n";
+
+    str += "Territories: " + std::to_string(countTerritory()[0])
+                     + " " + std::to_string(countTerritory()[1]) + "\n";
+
     return str;
 }
 

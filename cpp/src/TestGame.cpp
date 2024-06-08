@@ -1,8 +1,10 @@
+#include "agents/HumanAgent.hpp"
 #include "agents/HumanGoAgent.hpp"
 
 #include "evaluate/play.hpp"
 
 #include "games/GameNode.hpp"
+#include "games/ConnectFourNode.hpp"
 #include "games/GoNode.hpp"
 
 #include <array>
