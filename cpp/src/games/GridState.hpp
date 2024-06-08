@@ -59,32 +59,32 @@ constexpr Player playerFromPiece(Piece piece) {
 /**
  * Represents a grid game board of pieces.
  * 
- * @tparam BS The size of the board.
+ * @tparam BOARD_SIZE The size of the board.
 */
-template <int BS>
-using GridBoard = std::array<Piece, BS>;
+template <int BOARD_SIZE>
+using GridBoard = std::array<Piece, BOARD_SIZE>;
 
 /**
  * Immutable state of a grid game as a short history of board states.
  * 
  * Used as input into the neural network.
  * 
- * @tparam BS The size of the board.
+ * @tparam BOARD_SIZE The size of the board.
 */
-template <int BS>
+template <int BOARD_SIZE>
 class GridState {
 public:
     /**
      * Constructs a new grid state with the given history.
     */
-    GridState(std::vector<GridBoard<BS>>&& history, Player player)
+    GridState(std::vector<GridBoard<BOARD_SIZE>>&& history, Player player)
         : m_history { std::move(history) }, m_player { player } {
     }
 
     /**
      * @returns A readonly reference to the history of board states.
     */
-    const std::vector<GridBoard<BS>>& getHistory() const {
+    const std::vector<GridBoard<BOARD_SIZE>>& getHistory() const {
         return m_history;
     }
 
@@ -97,7 +97,7 @@ public:
 
 private:
     /// `history[0]` is the current state and higher indices move back in time.
-    std::vector<GridBoard<BS>> m_history;
+    std::vector<GridBoard<BOARD_SIZE>> m_history;
 
     /// The current player to move.
     Player m_player { Player::NONE };
