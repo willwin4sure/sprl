@@ -78,8 +78,8 @@ std::unique_ptr<ConnectFourNode> ConnectFourNode::getNextNodeImpl(ActionIdx acti
 }
 
 ConnectFourNode::State ConnectFourNode::getGameStateImpl() const {
-    std::vector<Board> history { m_board };
-    return State { std::move(history), m_player };
+    std::array<Board, C4_HISTORY_SIZE> history { m_board };
+    return State { std::move(history), C4_HISTORY_SIZE, m_player };
 }
 
 std::array<Value, 2> ConnectFourNode::getRewardsImpl() const {

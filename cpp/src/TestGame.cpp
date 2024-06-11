@@ -12,7 +12,7 @@
 
 int main(int argc, char* argv[]) {
     SPRL::HumanGoAgent humanAgent {};
-    std::array<SPRL::Agent<SPRL::GoNode, SPRL::GridState<SPRL::GO_BOARD_SIZE>, SPRL::GO_ACTION_SIZE>*, 2> agents = { &humanAgent, &humanAgent };
+    std::array<SPRL::Agent<SPRL::GoNode, SPRL::GridState<SPRL::GO_BOARD_SIZE, SPRL::GO_HISTORY_SIZE>, SPRL::GO_ACTION_SIZE>*, 2> agents = { &humanAgent, &humanAgent };
     
     SPRL::GoNode rootNode {};
 

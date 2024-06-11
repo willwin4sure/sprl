@@ -10,8 +10,6 @@
 
 #include "GameNode.hpp"
 
-#include <vector>
-
 namespace SPRL {
 
 /**
@@ -70,22 +68,34 @@ using GridBoard = std::array<Piece, BOARD_SIZE>;
  * Used as input into the neural network.
  * 
  * @tparam BOARD_SIZE The size of the board.
+ * @tparam HISTORY_SIZE The maximum size of the history.
 */
-template <int BOARD_SIZE>
+template <int BOARD_SIZE, int HISTORY_SIZE>
 class GridState {
 public:
     /**
      * Constructs a new grid state with the given history.
+     * 
+     * @param history The history of board states.
+     * @param size The length of the valid history.
+     * @param player The player to move.
     */
-    GridState(std::vector<GridBoard<BOARD_SIZE>>&& history, Player player)
-        : m_history { std::move(history) }, m_player { player } {
+    GridState(std::array<GridBoard<BOARD_SIZE>, HISTORY_SIZE>&& history, int size, Player player)
+        : m_history { std::move(history) }, m_size { size }, m_player { player } {
     }
 
     /**
      * @returns A readonly reference to the history of board states.
     */
-    const std::vector<GridBoard<BOARD_SIZE>>& getHistory() const {
+    const std::array<GridBoard<BOARD_SIZE>, HISTORY_SIZE>& getHistory() const {
         return m_history;
+    }
+
+    /**
+     * @returns The size of the history.
+    */
+    int size() const {
+        return m_size;
     }
 
     /**
@@ -97,7 +107,11 @@ public:
 
 private:
     /// `history[0]` is the current state and higher indices move back in time.
-    std::vector<GridBoard<BOARD_SIZE>> m_history;
+    std::array<GridBoard<BOARD_SIZE>, HISTORY_SIZE> m_history;
+
+    /// The length of the history, i.e. only indices up to `m_length - 1` are valid.
+    /// May have garbage in the higher indices.
+    int m_size { 0 };
 
     /// The current player to move.
     Player m_player { Player::NONE };

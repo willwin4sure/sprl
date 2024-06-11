@@ -381,20 +381,18 @@ std::unique_ptr<GoNode> GoNode::getNextNodeImpl(ActionIdx actionIdx) {
 }
 
 GoNode::State GoNode::getGameStateImpl() const {
-    std::vector<Board> history;
+    std::array<Board, GO_HISTORY_SIZE> history;
 
     const GoNode* current = this;
 
-    for (int t = 0; t < GO_HISTORY_LENGTH; t++) {
-        if (current == nullptr) {
-            break;
-        }
-
-        history.push_back(current->m_board);
+    int t = 0;
+    while (t < GO_HISTORY_SIZE && current != nullptr) {
+        history[t] = current->m_board;
         current = current->m_parent;
+        ++t;
     }
 
-    return State { std::move(history), m_player };
+    return State { std::move(history), t, m_player };
 }
 
 std::array<Value, 2> GoNode::getRewardsImpl() const {

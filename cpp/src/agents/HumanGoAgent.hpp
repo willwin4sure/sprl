@@ -13,12 +13,12 @@ namespace SPRL {
  * 
  * Asks for a square on a Go board (e.g. `C5`), or `XX` for pass.
 */
-class HumanGoAgent : public Agent<GoNode, GridState<GO_BOARD_SIZE>, GO_ACTION_SIZE> {
+class HumanGoAgent : public Agent<GoNode, GridState<GO_BOARD_SIZE, GO_HISTORY_SIZE>, GO_ACTION_SIZE> {
 public:
-    using State = GridState<GO_BOARD_SIZE>;
+    using State = GridState<GO_BOARD_SIZE, GO_HISTORY_SIZE>;
     using ActionDist = GameActionDist<GO_ACTION_SIZE>;
 
-    ActionIdx act(const GameNode<GoNode, GridState<GO_BOARD_SIZE>, GO_ACTION_SIZE>* gameNode,
+    ActionIdx act(const GameNode<GoNode, GridState<GO_BOARD_SIZE, GO_HISTORY_SIZE>, GO_ACTION_SIZE>* gameNode,
                   bool verbose = false) const override {
 
         while (true) {

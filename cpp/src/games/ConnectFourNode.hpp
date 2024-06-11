@@ -10,16 +10,17 @@ constexpr int C4_NUM_COLS = 7;
 
 constexpr int C4_BOARD_SIZE = C4_NUM_ROWS * C4_NUM_COLS;
 constexpr int C4_ACTION_SIZE = C4_NUM_COLS;
+constexpr int C4_HISTORY_SIZE = 1;
 
 /**
  * Implementation of the classic Connect Four game.
  * 
  * See https://en.wikipedia.org/wiki/Connect_Four for details.
 */
-class ConnectFourNode : public GameNode<ConnectFourNode, GridState<C4_BOARD_SIZE>, C4_ACTION_SIZE> {
+class ConnectFourNode : public GameNode<ConnectFourNode, GridState<C4_BOARD_SIZE, C4_HISTORY_SIZE>, C4_ACTION_SIZE> {
 public:
     using Board = GridBoard<C4_BOARD_SIZE>;
-    using State = GridState<C4_BOARD_SIZE>;
+    using State = GridState<C4_BOARD_SIZE, C4_HISTORY_SIZE>;
 
     /**
      * Constructs a new Connect Four game node in the initial state (for root).
@@ -64,6 +65,7 @@ private:
 
     friend class GameNode<ConnectFourNode, State, C4_ACTION_SIZE>;
     friend class ConnectFourNetwork;
+    friend class ConnectFourSymmetrizer;
 };
 
 } // namespace SPRL

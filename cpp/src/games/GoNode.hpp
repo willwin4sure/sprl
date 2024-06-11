@@ -13,21 +13,21 @@
 
 namespace SPRL {
 
-constexpr int GO_BOARD_WIDTH = 9; 
+constexpr int GO_BOARD_WIDTH = 5; 
 constexpr int GO_BOARD_SIZE = GO_BOARD_WIDTH * GO_BOARD_WIDTH;
 constexpr int GO_ACTION_SIZE = GO_BOARD_SIZE + 1;  // Last index represents pass.
-constexpr int GO_HISTORY_LENGTH = 8;
-constexpr float GO_KOMI = 7.5f;
+constexpr int GO_HISTORY_SIZE = 8;
+constexpr float GO_KOMI = 25.0f;
 
 /**
  * Implementation of the game of Go.
  * 
  * See https://en.wikipedia.org/wiki/Go_(game) for details.
 */
-class GoNode : public GameNode<GoNode, GridState<GO_BOARD_SIZE>, GO_ACTION_SIZE> {
+class GoNode : public GameNode<GoNode, GridState<GO_BOARD_SIZE, GO_HISTORY_SIZE>, GO_ACTION_SIZE> {
 public:
     using Board = GridBoard<GO_BOARD_SIZE>;
-    using State = GridState<GO_BOARD_SIZE>;
+    using State = GridState<GO_BOARD_SIZE, GO_HISTORY_SIZE>;
 
     // Following data types need to be increased in size if the board size is increased too much.
     

@@ -41,7 +41,7 @@ int main(int argc, char* argv[]) {
     float totalTime = 0.0f;
     Timer t {};
 
-    SPRL::UCTTree<SPRL::ConnectFourNode, SPRL::GridState<42>, 7> tree { 
+    SPRL::UCTTree<SPRL::ConnectFourNode, SPRL::GridState<SPRL::C4_BOARD_SIZE, SPRL::C4_HISTORY_SIZE>, SPRL::C4_ACTION_SIZE> tree { 
         std::make_unique<SPRL::ConnectFourNode>(),
         0.25f,
         0.3f,

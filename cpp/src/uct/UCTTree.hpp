@@ -13,6 +13,13 @@
 
 namespace SPRL {
 
+/**
+ * Class representing a UCT tree for a game.
+ * 
+ * @tparam ImplNode The implementation of the game node.
+ * @tparam State The state of the game.
+ * @tparam ACTION_SIZE The number of actions in the game.
+*/
 template <typename ImplNode, typename State, int ACTION_SIZE>
 class UCTTree {
 public:
@@ -20,6 +27,13 @@ public:
 
     /**
      * Constructs a UCT tree rooted at the initial state of the game.
+     * 
+     * @param gameRoot The root node of the game tree.
+     * @param dirEps The epsilon value for the Dirichlet noise.
+     * @param dirAlpha The alpha value for the Dirichlet noise.
+     * @param initQMethod The method for initializing Q values.
+     * @param symmetrizer The symmetrizer for the game state.
+     * @param addNoise Whether to add Dirichlet noise to the decision node.
     */
     UCTTree(std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> gameRoot,
             float dirEps, float dirAlpha, InitQ initQMethod,
@@ -28,7 +42,7 @@ public:
         : m_edgeStatistics {},
           m_gameRoot { std::move(gameRoot) },
           m_uctRoot { std::make_unique<UNode>(
-            &m_edgeStatistics, m_gameRoot.get(), dirEps, dirAlpha, initQMethod ) },
+            &m_edgeStatistics, m_gameRoot.get(), dirEps, dirAlpha, initQMethod) },
           m_decisionNode { m_uctRoot.get() },
           m_dirEps { dirEps },
           m_dirAlpha { dirAlpha },
@@ -39,7 +53,7 @@ public:
     }
 
     /**
-     * Returns a readonly pointer to the decision node.
+     * @returns A readonly pointer to the decision node.
     */
     const UNode* getDecisionNode() {
         return m_decisionNode;
@@ -52,7 +66,12 @@ public:
      * When leaves are terminal or gray, immediately backpropagates the result.
      * When leaves are empty, appends them to a vector for batched NN evaluation.
      * 
-     * Returns this batch of empty leaves, as well as the number of leaf selections performed.
+     * @param maxTraversals The maximum number of traversals to perform.
+     * @param maxQueueSize The maximum number of leaves to evaluate in a batch.
+     * @param network The network to evaluate the leaves with.
+     * @param uWeight The weight of the U value in the selection compared to the Q value.
+     * 
+     * @returns This batch of empty leaves, as well as the number of leaf selections performed.
     */
     std::pair<std::vector<UNode*>, int> searchAndGetLeaves(
         int maxTraversals, int maxQueueSize, Network<State, ACTION_SIZE>* network, float uWeight = 1.0f) {
@@ -97,7 +116,10 @@ public:
     /**
      * Takes in queued leaves and evaluates them with the network, then backpropagates the results.
      * 
-     * Inputs must be leaves that are all empty, as in the return value from searchAndGetLeaves.
+     * Requires that leaves are all empty, as in the return value from searchAndGetLeaves.
+     * 
+     * @param leaves The leaves to evaluate and backpropagate.
+     * @param network The network to evaluate the leaves with.
     */
     void evaluateAndBackpropLeaves(const std::vector<UNode*>& leaves, Network<State, ACTION_SIZE>* network) {
         int numLeaves = leaves.size();
@@ -169,6 +191,8 @@ public:
      * Clears all the statistics and expanded bits in the subtree,
      * but leaves the network evaluations intact. In particular, all
      * active nodes are turned gray.
+     * 
+     * @param action The action to advance the decision node using.
     */
     void advanceDecision(ActionIdx action) {
         assert(!m_decisionNode->m_isTerminal);
@@ -193,7 +217,9 @@ private:
      * Adds virtual losses while traveling down the tree, to all nodes
      * from the root to the leaf, inclusive.
      * 
-     * @returns A node that is terminal, empty, or gray. Must be the first
+     * @param uWeight The weight of the U value in the selection compared to the Q value.
+     * 
+     * @returns A pointer to a node that is terminal, empty, or gray. Must be the first
      * such node along the path down from the root.
     */
     UNode* selectLeaf(float uWeight) {
@@ -228,6 +254,9 @@ private:
      * Undoes the virtual loss penalty from the node to the root, inclusive.
      * 
      * The node at the bottom must be terminal or active.
+     * 
+     * @param node The node to backpropagate from.
+     * @param valueEstimate The value estimate to backpropagate.
     */
     void backup(UNode* node, float valueEstimate) {
         assert(node->m_isTerminal || (node->m_isNetworkEvaluated && node->m_isExpanded));
@@ -248,6 +277,8 @@ private:
      * as well as setting them all to un-expanded (but keeping the network evaluation).
      * 
      * Turns all active nodes to gray.
+     * 
+     * @param node The node to clear the subtree of.
     */
     void clearSubtree(UNode* node) {
         if (!node->m_isExpanded) {
