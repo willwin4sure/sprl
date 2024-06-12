@@ -12,6 +12,8 @@
 
 #include "evaluate/play.hpp"
 
+#include "selfplay/SelfPlay.hpp"
+
 #include "games/GameNode.hpp"
 #include "games/ConnectFourNode.hpp"
 #include "games/GoNode.hpp"
@@ -28,9 +30,9 @@
 #include "uct/UCTNode.hpp"
 #include "uct/UCTTree.hpp"
 
-constexpr int BOARD_SIZE = SPRL::C4_BOARD_SIZE;
-constexpr int ACTION_SIZE = SPRL::C4_ACTION_SIZE;
-constexpr int HISTORY_SIZE = SPRL::C4_HISTORY_SIZE;
+constexpr int BOARD_SIZE = SPRL::GO_BOARD_SIZE;
+constexpr int ACTION_SIZE = SPRL::GO_ACTION_SIZE;
+constexpr int HISTORY_SIZE = SPRL::GO_HISTORY_SIZE;
 
 int main(int argc, char* argv[]) {
     if (argc != 6) {
@@ -39,7 +41,7 @@ int main(int argc, char* argv[]) {
     }
 
     using State = SPRL::GridState<BOARD_SIZE, HISTORY_SIZE>;
-    using ImplNode = SPRL::ConnectFourNode;
+    using ImplNode = SPRL::GoNode;
 
     std::string modelPath = argv[1];
     int player = std::stoi(argv[2]);
@@ -52,19 +54,17 @@ int main(int argc, char* argv[]) {
     SPRL::RandomNetwork<State, ACTION_SIZE> randomNetwork {};
     SPRL::ConnectFourNetwork neuralNetwork { modelPath };
 
-    if (modelPath == "random") {
-        std::cout << "Using random network..." << std::endl;
-        network = &randomNetwork;
-    } else {
-        std::cout << "Using traced PyTorch network..." << std::endl;
-        network = &neuralNetwork;
-    }
+    // if (modelPath == "random") {
+    //     std::cout << "Using random network..." << std::endl;
+    //     network = &randomNetwork;
+    // } else {
+    //     std::cout << "Using traced PyTorch network..." << std::endl;
+    //     network = &neuralNetwork;
+    // }
 
-    // network = &randomNetwork;
-    // SPRL::D4GridSymmetrizer<SPRL::GO_BOARD_WIDTH, SPRL::GO_HISTORY_SIZE> symmetrizer {};
+    network = &randomNetwork;
+    SPRL::D4GridSymmetrizer<SPRL::GO_BOARD_WIDTH, SPRL::GO_HISTORY_SIZE> symmetrizer {};
     
-    SPRL::ConnectFourSymmetrizer symmetrizer {};
-
     SPRL::UCTTree<ImplNode, State, ACTION_SIZE> tree {
         std::make_unique<ImplNode>(),
         0.25,
@@ -82,8 +82,8 @@ int main(int argc, char* argv[]) {
         maxQueueSize
     };
 
-    SPRL::HumanAgent<ImplNode, State, ACTION_SIZE> humanAgent {};
-    // SPRL::HumanGoAgent humanAgent {};
+    // SPRL::HumanAgent<ImplNode, State, ACTION_SIZE> humanAgent {};
+    SPRL::HumanGoAgent humanAgent {};
 
     std::array<SPRL::Agent<ImplNode, State, ACTION_SIZE>*, 2> agents;
 

@@ -356,7 +356,9 @@ std::unique_ptr<GoNode> GoNode::getNextNodeImpl(ActionIdx actionIdx) {
     copyNode->m_player = otherPlayer(m_player);
     ++copyNode->m_depth;
 
-    copyNode->m_isTerminal = m_action == GO_BOARD_SIZE && actionIdx == GO_BOARD_SIZE;
+    copyNode->m_isTerminal = (m_action == GO_BOARD_SIZE && actionIdx == GO_BOARD_SIZE)
+                          || (copyNode->m_depth >= GO_MAX_DEPTH);
+
     copyNode->m_actionMask = !copyNode->m_isTerminal ? copyNode->computeActionMask()
                                                      : ActionDist {};
 

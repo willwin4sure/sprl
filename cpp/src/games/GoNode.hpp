@@ -13,11 +13,13 @@
 
 namespace SPRL {
 
-constexpr int GO_BOARD_WIDTH = 5; 
+constexpr int GO_BOARD_WIDTH = 7; 
 constexpr int GO_BOARD_SIZE = GO_BOARD_WIDTH * GO_BOARD_WIDTH;
 constexpr int GO_ACTION_SIZE = GO_BOARD_SIZE + 1;  // Last index represents pass.
 constexpr int GO_HISTORY_SIZE = 8;
-constexpr float GO_KOMI = 25.0f;
+constexpr float GO_KOMI = 9.0f;
+
+constexpr int GO_MAX_DEPTH = 2 * GO_BOARD_SIZE;  // Maximum number of steps before game forcibly terminated.
 
 /**
  * Implementation of the game of Go.

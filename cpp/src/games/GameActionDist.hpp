@@ -120,6 +120,20 @@ public:
         return result;
     }
 
+    /**
+     * @returns The running cumulative sum of the action distribution.
+    */
+    GameActionDist<ACTION_SIZE> cumsum() const {
+        GameActionDist<ACTION_SIZE> result {};
+
+        result[0] = m_data[0];
+        for (int i = 1; i < ACTION_SIZE; ++i) {
+            result[i] = result[i - 1] + m_data[i];
+        }
+
+        return result;
+    }
+
 private:
     std::array<float, ACTION_SIZE> m_data {};
 };
@@ -270,8 +284,9 @@ template <int ACTION_SIZE>
 GameActionDist<ACTION_SIZE> operator/(const GameActionDist<ACTION_SIZE>& lhs, float rhs) {
     GameActionDist<ACTION_SIZE> result {};
 
+    float invRhs = 1.0f / rhs;
     for (int i = 0; i < ACTION_SIZE; ++i) {
-        result[i] = lhs[i] / rhs;
+        result[i] = lhs[i] * invRhs;
     }
 
     return result;
