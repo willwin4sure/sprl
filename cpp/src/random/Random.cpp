@@ -1,4 +1,6 @@
-/*
+/**
+ * @file Random.cpp
+ * 
  * Taken with modifications and thanks from https://github.com/tensorflow/minigo/.
  * 
  * Copyright 2018 Google LLC
