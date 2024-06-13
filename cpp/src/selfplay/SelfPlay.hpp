@@ -61,11 +61,6 @@ selfPlay(std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> rootNode,
     std::vector<Value> outcomes;
     std::vector<Player> players;
 
-    states.reserve(GO_MAX_DEPTH);
-    distributions.reserve(GO_MAX_DEPTH);
-    outcomes.reserve(GO_MAX_DEPTH);
-    players.reserve(GO_MAX_DEPTH);
-
     std::vector<SymmetryIdx> allSymmetries;  // Contains all symmetries if symmetrizer exists.
 
     if (symmetrizer != nullptr) {
@@ -194,9 +189,11 @@ runIteration(Network<State, ACTION_SIZE>* network, int numGames,
     std::vector<ActionDist> allDistributions;
     std::vector<Value> allOutcomes;
 
+    std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> rootNode = std::make_unique<ImplNode>();
+
     for (int t = 0; t < numGames; ++t) {
         auto [states, distributions, outcomes] = selfPlay(
-            std::make_unique<ImplNode>(),
+            std::move(rootNode),
             network,
             numIters,
             maxTraversals,

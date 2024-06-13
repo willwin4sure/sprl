@@ -17,7 +17,7 @@
 
 #include "networks/Network.hpp"
 #include "networks/RandomNetwork.hpp"
-#include "networks/ConnectFourNetwork.hpp"
+#include "networks/GridNetwork.hpp"
 
 #include "tqdm/tqdm.hpp"
 
@@ -36,7 +36,7 @@ int main(int argc, char* argv[]) {
     int maxTraversals = std::stoi(argv[3]);
     int maxQueueSize = std::stoi(argv[4]);
 
-    SPRL::ConnectFourNetwork network { modelPath };
+    SPRL::GridNetwork<SPRL::C4_NUM_ROWS, SPRL::C4_NUM_COLS, SPRL::C4_HISTORY_SIZE, SPRL::C4_ACTION_SIZE> network { modelPath };
 
     float totalTime = 0.0f;
     Timer t {};
