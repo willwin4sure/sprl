@@ -1,19 +1,14 @@
-#ifndef SPRL_WORKER_HPP
-#define SPRL_WORKER_HPP
-
 /**
- * OTHWorker.cpp
+ * @file GoWorker.cpp
 */
 
-#include "games/GameState.hpp"
-#include "games/Othello.hpp"
+#include "games/GoNode.hpp"
 
 #include "interface/npy.hpp"
 
 #include "networks/Network.hpp"
 #include "networks/RandomNetwork.hpp"
-#include "networks/OthelloHeuristic.hpp"
-#include "networks/OthelloNetwork.hpp"
+#include "networks/GoNetwork.hpp"
 
 #include "selfplay/SelfPlay.hpp"
 
@@ -165,6 +160,3 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }   
-
-
-#endif

@@ -19,14 +19,14 @@ public:
     virtual ~Network() = default;
 
     /**
-     * Returns a pair of the action distribution and the value estimate for the given state.
+     * @returns A pair of the action distribution and the value estimate for the given state.
     */
     virtual std::vector<std::pair<ActionDist, Value>> evaluate(
         const std::vector<State>& states,
         const std::vector<ActionDist>& masks) = 0;
 
     /**
-     * Returns the number of evaluations made by the network, summed over batches.
+     * @returns The number of evaluations made by the network, summed over batches.
     */
     virtual int getNumEvals() = 0;
 };
