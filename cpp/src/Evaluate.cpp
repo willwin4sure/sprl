@@ -1,34 +1,35 @@
-#include <torch/torch.h>
-#include <torch/script.h>
-
 #include <cassert>
 #include <chrono>
 #include <iostream>
 #include <memory>
 
 #include "agents/HumanAgent.hpp"
-#include "agents/HumanPentagoAgent.hpp"
 #include "agents/UCTNetworkAgent.hpp"
 
 #include "evaluate/play.hpp"
 
-#include "games/GameState.hpp"
-#include "games/Game.hpp"
-#include "games/ConnectFour.hpp"
-#include "games/Pentago.hpp"
-
-#include "interface/npy.hpp"
+#include "games/GameNode.hpp"
+#include "games/ConnectFourNode.hpp"
+#include "games/OthelloNode.hpp"
+#include "games/GoNode.hpp"
 
 #include "networks/INetwork.hpp"
 #include "networks/RandomNetwork.hpp"
-#include "networks/PentagoHeuristic.hpp"
-#include "networks/PentagoNetwork.hpp"
-
-#include "tqdm/tqdm.hpp"
+#include "networks/GridNetwork.hpp"
+#include "networks/OthelloHeuristic.hpp"
 
 #include "uct/UCTNode.hpp"
 #include "uct/UCTTree.hpp"
 
+#include "utils/npy.hpp"
+#include "utils/tqdm.hpp"
+
+constexpr int NUM_ROWS = SPRL::OTH_BOARD_WIDTH;
+constexpr int NUM_COLS = SPRL::OTH_BOARD_WIDTH;
+constexpr int BOARD_SIZE = NUM_ROWS * NUM_COLS;
+
+constexpr int ACTION_SIZE = SPRL::OTH_ACTION_SIZE;
+constexpr int HISTORY_SIZE = SPRL::OTH_HISTORY_SIZE;
 
 int main(int argc, char* argv[]) {
     if (argc != 11) {
@@ -47,31 +48,38 @@ int main(int argc, char* argv[]) {
     bool model1UseSymmetrize = std::stoi(argv[9]) > 0;
     bool model1UseParentQ = std::stoi(argv[10]) > 0;
 
-    auto game = std::make_unique<SPRL::Pentago>();
+    using State = SPRL::GridState<BOARD_SIZE, HISTORY_SIZE>;
+    using ImplNode = SPRL::OthelloNode;
 
-    SPRL::INetwork<36, 288>* network0;
-    SPRL::INetwork<36, 288>* network1;
+    SPRL::INetwork<State, ACTION_SIZE>* network0;
+    SPRL::INetwork<State, ACTION_SIZE>* network1;
 
-    SPRL::RandomNetwork<36, 288> randomNetwork {};
+    SPRL::RandomNetwork<State, ACTION_SIZE> randomNetwork {};
+    SPRL::OthelloHeuristic heuristicNetwork {};
 
-    SPRL::PentagoNetwork neuralNetwork0 { modelPath0 };
-    SPRL::PentagoNetwork neuralNetwork1 { modelPath1 };
+    network0 = &randomNetwork;
+    network1 = &heuristicNetwork;
 
-    if (modelPath0 == "random") {
-        std::cout << "Using random network..." << std::endl;
-        network0 = &randomNetwork;
-    } else {
-        std::cout << "Using traced PyTorch network..." << std::endl;
-        network0 = &neuralNetwork0;
-    }
+    SPRL::D4GridSymmetrizer<SPRL::OTH_BOARD_WIDTH, HISTORY_SIZE> symmetrizer {};
 
-    if (modelPath1 == "random") {
-        std::cout << "Using random network..." << std::endl;
-        network1 = &randomNetwork;
-    } else {
-        std::cout << "Using traced PyTorch network..." << std::endl;
-        network1 = &neuralNetwork1;
-    }
+    // SPRL::GridNetwork<NUM_ROWS, NUM_COLS, HISTORY_SIZE, ACTION_SIZE> neuralNetwork0 { modelPath0 };
+    // SPRL::GridNetwork<NUM_ROWS, NUM_COLS, HISTORY_SIZE, ACTION_SIZE> neuralNetwork1 { modelPath1 };
+
+    // if (modelPath0 == "random") {
+    //     std::cout << "Using random network..." << std::endl;
+    //     network0 = &randomNetwork;
+    // } else {
+    //     std::cout << "Using traced PyTorch network..." << std::endl;
+    //     network0 = &neuralNetwork0;
+    // }
+
+    // if (modelPath1 == "random") {
+    //     std::cout << "Using random network..." << std::endl;
+    //     network1 = &randomNetwork;
+    // } else {
+    //     std::cout << "Using traced PyTorch network..." << std::endl;
+    //     network1 = &neuralNetwork1;
+    // }
 
     int numWins0 = 0;
     int numWins1 = 0;
@@ -79,16 +87,41 @@ int main(int argc, char* argv[]) {
     auto pbar = tq::trange(numGames);
 
     for (int t : pbar) {
-        SPRL::GameState<36> state0 = game->startState();
-        SPRL::GameState<36> state1 = game->startState();
+        SPRL::UCTTree<ImplNode, State, ACTION_SIZE> tree0 {
+            std::make_unique<ImplNode>(),
+            0.25,
+            0.1,
+            model0UseParentQ ? SPRL::InitQ::PARENT : SPRL::InitQ::ZERO,
+            model0UseSymmetrize ? &symmetrizer : nullptr,
+            true
+        };
 
-        SPRL::UCTTree<36, 288> tree0 { game.get(), state0, false, model0UseSymmetrize, model0UseParentQ }; 
-        SPRL::UCTTree<36, 288> tree1 { game.get(), state1, false, model1UseSymmetrize, model0UseParentQ };
+        SPRL::UCTTree<ImplNode, State, ACTION_SIZE> tree1 {
+            std::make_unique<ImplNode>(),
+            0.25,
+            0.1,
+            model1UseParentQ ? SPRL::InitQ::PARENT : SPRL::InitQ::ZERO,
+            model1UseSymmetrize ? &symmetrizer : nullptr,
+            true
+        };
 
-        SPRL::UCTNetworkAgent<36, 288> networkAgent0 { network0, &tree0, numIters, maxTraversals, maxQueueSize };
-        SPRL::UCTNetworkAgent<36, 288> networkAgent1 { network1, &tree1, numIters, maxTraversals, maxQueueSize };
+        SPRL::UCTNetworkAgent<ImplNode, State, ACTION_SIZE> networkAgent0 {
+            network0,
+            &tree0,
+            numIters,
+            maxTraversals,
+            maxQueueSize
+        };
 
-        std::array<SPRL::IAgent<36, 288>*, 2> agents;
+        SPRL::UCTNetworkAgent<ImplNode, State, ACTION_SIZE> networkAgent1 {
+            network1,
+            &tree1,
+            numIters,
+            maxTraversals,
+            maxQueueSize
+        };
+
+        std::array<SPRL::IAgent<ImplNode, State, ACTION_SIZE>*, 2> agents;
 
         if (t % 2 == 0) {
             agents = { &networkAgent0, &networkAgent1 };
@@ -96,15 +129,16 @@ int main(int argc, char* argv[]) {
             agents = { &networkAgent1, &networkAgent0 };
         }
 
-        int winner = SPRL::playGame(game.get(), game->startState(), agents, false);
+        ImplNode rootNode {};
+        SPRL::Player winner = SPRL::playGame(&rootNode, agents, false);
 
-        if (winner == 0) {
+        if (winner == SPRL::Player::ZERO) {
             if (t % 2 == 0) {
                 numWins0++;
             } else {
                 numWins1++;
             }
-        } else if (winner == 1) {
+        } else if (winner == SPRL::Player::ONE) {
             if (t % 2 == 0) {
                 numWins1++;
             } else {

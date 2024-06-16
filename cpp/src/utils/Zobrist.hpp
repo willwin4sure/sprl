@@ -8,7 +8,8 @@
  * https://en.wikipedia.org/wiki/Zobrist_hashing.
 */
 
-#include "../random/Random.hpp"
+#include "random.hpp"
+
 #include "../constants.hpp"
 
 #include <array>

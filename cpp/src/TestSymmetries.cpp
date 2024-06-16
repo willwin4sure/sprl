@@ -7,9 +7,9 @@
 #include "games/ConnectFourNode.hpp"
 #include "games/GoNode.hpp"
 
-#include "random/Random.hpp"
-
 #include "symmetry/D4GridSymmetrizer.hpp"
+
+#include "utils/random.hpp"
 
 #include <array>
 #include <iostream>

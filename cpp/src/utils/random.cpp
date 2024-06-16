@@ -18,7 +18,8 @@
  * limitations under the License.
 */
 
-#include "Random.hpp"
+#include "random.hpp"
+
 #include "constants.hpp"
 
 #include <atomic>

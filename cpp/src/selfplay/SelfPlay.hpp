@@ -9,10 +9,11 @@
 
 #include "../games/GameNode.hpp"
 #include "../networks/INetwork.hpp"
-#include "../random/Random.hpp"
 #include "../symmetry/ISymmetrizer.hpp"
-#include "../tqdm/tqdm.hpp"
 #include "../uct/UCTTree.hpp"
+
+#include "../utils/random.hpp"
+#include "../utils/tqdm.hpp"
 
 #include "../constants.hpp"
 

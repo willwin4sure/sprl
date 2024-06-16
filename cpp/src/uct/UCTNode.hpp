@@ -3,7 +3,7 @@
 
 #include "../games/GameNode.hpp"
 
-#include "../random/Random.hpp"
+#include "../utils/random.hpp"
 
 #include "../constants.hpp"
 

@@ -5,7 +5,7 @@
 #include "GridState.hpp"
 
 #include "../utils/DSU.hpp"
-#include "../utils/Zobrist.hpp"
+#include "../utils/zobrist.hpp"
 
 #include <cassert>
 #include <unordered_set>

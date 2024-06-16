@@ -1,11 +1,3 @@
-#include <torch/torch.h>
-#include <torch/script.h>
-
-#include <cassert>
-#include <chrono>
-#include <iostream>
-#include <memory>
-
 #include "agents/HumanAgent.hpp"
 #include "agents/HumanGridAgent.hpp"
 #include "agents/UCTNetworkAgent.hpp"
@@ -19,8 +11,6 @@
 #include "games/OthelloNode.hpp"
 #include "games/GoNode.hpp"
 
-#include "interface/npy.hpp"
-
 #include "networks/INetwork.hpp"
 #include "networks/GridNetwork.hpp"
 #include "networks/RandomNetwork.hpp"
@@ -31,6 +21,14 @@
 
 #include "uct/UCTNode.hpp"
 #include "uct/UCTTree.hpp"
+
+#include <torch/torch.h>
+#include <torch/script.h>
+
+#include <cassert>
+#include <chrono>
+#include <iostream>
+#include <memory>
 
 constexpr int NUM_ROWS = SPRL::OTH_BOARD_WIDTH;
 constexpr int NUM_COLS = SPRL::OTH_BOARD_WIDTH;
@@ -68,7 +66,7 @@ int main(int argc, char* argv[]) {
     }
 
     // SPRL::ConnectFourSymmetrizer symmetrizer {};
-    SPRL::D4GridSymmetrizer<SPRL::OTH_BOARD_WIDTH, SPRL::OTH_HISTORY_SIZE> symmetrizer {};
+    SPRL::D4GridSymmetrizer<SPRL::OTH_BOARD_WIDTH, HISTORY_SIZE> symmetrizer {};
     
     SPRL::UCTTree<ImplNode, State, ACTION_SIZE> tree {
         std::make_unique<ImplNode>(),
@@ -99,7 +97,6 @@ int main(int argc, char* argv[]) {
     }
 
     ImplNode rootNode {};
-
     SPRL::playGame(&rootNode, agents, true);
 
     return 0;

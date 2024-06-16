@@ -35,7 +35,6 @@ int main(int argc, char *argv[]) {
                     SPRL::GO_BOARD_WIDTH,
                     SPRL::GO_HISTORY_SIZE,
                     SPRL::GO_ACTION_SIZE>(
-
         runName, saveDir, &randomNetwork, &symmetrizer
     );
 

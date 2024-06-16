@@ -1,11 +1,3 @@
-#include <torch/torch.h>
-#include <torch/script.h>
-
-#include <cassert>
-#include <chrono>
-#include <iostream>
-#include <memory>
-
 #include "agents/UCTNetworkAgent.hpp"
 
 #include "evaluate/play.hpp"
@@ -13,17 +5,20 @@
 #include "games/GameNode.hpp"
 #include "games/ConnectFourNode.hpp"
 
-#include "interface/npy.hpp"
-
 #include "networks/INetwork.hpp"
 #include "networks/RandomNetwork.hpp"
 #include "networks/GridNetwork.hpp"
 
-#include "tqdm/tqdm.hpp"
-
 #include "uct/UCTNode.hpp"
 #include "uct/UCTTree.hpp"
 
+#include "utils/npy.hpp"
+#include "utils/tqdm.hpp"
+
+#include <cassert>
+#include <chrono>
+#include <iostream>
+#include <memory>
 
 int main(int argc, char* argv[]) {
     if (argc != 5) {

@@ -3,13 +3,13 @@
 
 #include "../games/GridState.hpp"
 
-#include "../interface/npy.hpp"
-
 #include "../networks/INetwork.hpp"
 #include "../networks/GridNetwork.hpp"
 #include "../networks/RandomNetwork.hpp"
 
 #include "../selfplay/SelfPlay.hpp"
+
+#include "../utils/npy.hpp"
 
 #include "../constants.hpp"
 
