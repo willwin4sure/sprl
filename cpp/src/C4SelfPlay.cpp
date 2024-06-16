@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
 
     SPRL::ConnectFour game;
 
-    SPRL::Network<42, 7>* network;
+    SPRL::INetwork<42, 7>* network;
 
     SPRL::RandomNetwork<42, 7> randomNetwork {};
     SPRL::ConnectFourNetwork neuralNetwork { modelPath };

@@ -1,39 +1,28 @@
 #ifndef SPRL_PLAY_HPP
 #define SPRL_PLAY_HPP
 
-#include "../agents/Agent.hpp"
+#include "../agents/IAgent.hpp"
 #include "../games/GameNode.hpp"
 
 #include "../symmetry/D4GridSymmetrizer.hpp"
-
-#include <chrono>
-
-// https://www.learncpp.com/cpp-tutorial/timing-your-code/
-class Timer {
-private:
-    using Clock = std::chrono::steady_clock;
-    using Second = std::chrono::duration<double, std::ratio<1>>;
-
-    std::chrono::time_point<Clock> m_beg { Clock::now() };
-
-public:
-    void reset() {
-        m_beg = Clock::now();
-    }
-
-    double elapsed() const {
-        return std::chrono::duration_cast<Second>(Clock::now() - m_beg).count();
-    }
-};
+#include "../utils/Timer.hpp"
 
 namespace SPRL {
 
 /**
- * Plays a game with two agents.
+ * Plays a game between two agents and returns the winner.
+ * 
+ * @tparam ImplNode The implementation of the game node, e.g. `GoNode`.
+ * @tparam State The state of the game, e.g. `GridState`.
+ * @tparam ACTION_SIZE The number of possible actions in the game.
+ * 
+ * @param rootNode The root node of the game to start playing from.
+ * @param agents The pair of agents that will play the game.
+ * @param verbose Whether to print debug information.
 */
 template <typename ImplNode, typename State, int ACTION_SIZE>
 Player playGame(GameNode<ImplNode, State, ACTION_SIZE>* rootNode,
-                std::array<Agent<ImplNode, State, ACTION_SIZE>*, 2> agents,
+                std::array<IAgent<ImplNode, State, ACTION_SIZE>*, 2> agents,
                 bool verbose = false) {
 
     using ActionDist = SPRL::GameActionDist<ACTION_SIZE>;
@@ -44,9 +33,7 @@ Player playGame(GameNode<ImplNode, State, ACTION_SIZE>* rootNode,
     GameNode<ImplNode, State, ACTION_SIZE>* curNode = rootNode;
 
     while (!curNode->isTerminal()) {
-        if (verbose) {
-            std::cout << curNode->toString() << '\n';
-        }
+        if (verbose) std::cout << curNode->toString() << '\n';
 
         ActionIdx action;
 

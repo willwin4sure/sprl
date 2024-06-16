@@ -1,22 +1,23 @@
-#ifndef SPRL_NETWORK_HPP
-#define SPRL_NETWORK_HPP
+#ifndef SPRL_INETWORK_HPP
+#define SPRL_INETWORK_HPP
 
 #include "../games/GameNode.hpp"
 
 namespace SPRL {
 
 /**
- * Interface for neural networks that evaluate game states.
+ * Interface for evaluation of game states, e.g. using a neural network
+ * or a heuristic.
  * 
  * @tparam State The state of the game.
  * @tparam ACTION_SIZE The number of possible actions in the game.
 */
 template <typename State, int ACTION_SIZE>
-class Network {
+class INetwork {
 public:
     using ActionDist = GameActionDist<ACTION_SIZE>;
 
-    virtual ~Network() = default;
+    virtual ~INetwork() = default;
 
     /**
      * @returns A pair of the action distribution and the value estimate for the given state.

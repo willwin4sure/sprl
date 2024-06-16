@@ -29,9 +29,9 @@ enum class InitQ {
 /**
  * Class representing a node in the tree for the UCT algorithm.
  * 
- * @tparam ImplNode The implementation of the game node, e.g. GoNode.
- * @tparam State The state of the game.
- * @tparam AS The size of the action space.
+ * @tparam ImplNode The implementation of the game node, e.g. `GoNode`.
+ * @tparam State The state of the game, e.g. `GridState`.
+ * @tparam ACTION_SIZE The size of the action space.
 */
 template <typename ImplNode, typename State, int ACTION_SIZE>
 class UCTNode {
@@ -203,7 +203,7 @@ public:
 
         for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
             if (m_actionMask[action] == 0.0f) {
-                // Illegal action, skip
+                // Illegal action, skip.
                 continue;
             }
 
@@ -287,7 +287,7 @@ public:
         int numLegal = 0;
         for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
             if (m_actionMask[action] == 0.0f) {
-                // Illegal action, skip
+                // Illegal action, skip.
                 continue;
             }
 
@@ -302,7 +302,7 @@ public:
             int readIdx = 0;
             for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
                 if (m_actionMask[action] == 0.0f) {
-                    // Illegal action, skip
+                    // Illegal action, skip.
                     continue;
                 }
 

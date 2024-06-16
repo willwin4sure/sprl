@@ -15,7 +15,7 @@
 
 #include "interface/npy.hpp"
 
-#include "networks/Network.hpp"
+#include "networks/INetwork.hpp"
 #include "networks/RandomNetwork.hpp"
 #include "networks/GridNetwork.hpp"
 

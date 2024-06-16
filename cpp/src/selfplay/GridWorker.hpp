@@ -5,7 +5,7 @@
 
 #include "../interface/npy.hpp"
 
-#include "../networks/Network.hpp"
+#include "../networks/INetwork.hpp"
 #include "../networks/GridNetwork.hpp"
 #include "../networks/RandomNetwork.hpp"
 
@@ -20,11 +20,14 @@
 
 namespace SPRL {
 
+constexpr int MODEL_PATH_WAIT_INTERVAL = 30;  // Seconds to wait between checking for the model file.
+
 /**
  * Blocks the current thread until the model file for the given iteration exists,
  * and then returns the path to the model file.
  * 
- * @param iteration The iteration to get the model file for. If -1, returns "random" immediately.
+ * @param iteration The iteration to get the model file for.
+ *                  If `-1`, returns `"random"` immediately.
  * @param runName The name of the run, defining the model file path.
  * 
  * @returns The path to the model file for the given iteration.
@@ -41,19 +44,35 @@ std::string waitModelPath(int iteration, const std::string& runName) {
 
         if (!std::filesystem::exists(modelPath)) {
             std::cout << "Spinning on traced model from iteration " << iteration << "..." << std::endl;
-            std::this_thread::sleep_for(std::chrono::seconds(30));
+            std::this_thread::sleep_for(std::chrono::seconds(MODEL_PATH_WAIT_INTERVAL));
         }
         
     } while (!std::filesystem::exists(modelPath));
 
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+    std::this_thread::sleep_for(std::chrono::seconds(5));
 
     return modelPath;
 }
 
+/**
+ * Runs the worker process for the given run name and save directory.
+ * 
+ * @tparam NeuralNetwork The type of the neural network, e.g. `GridNetwork`.
+ *                       Must have a constructor that takes a model file path.
+ * @tparam ImplNode The implementation of the game node, e.g. `GoNode`.
+ * @tparam NUM_ROWS The number of rows in the grid.
+ * @tparam NUM_COLS The number of columns in the grid.
+ * @tparam HISTORY_SIZE The number of previous states to include in the state.
+ * @tparam ACTION_SIZE The number of actions in the action space.
+ * 
+ * @param runName The name of the run, defining the model file path.
+ * @param saveDir The directory to save the self-play data to.
+ * @param initialNetwork The initial network to use for the first iteration.
+ * @param symmetrizer The symmetrizer to use for symmetrizing the network and data.
+ */
 template <typename NeuralNetwork, typename ImplNode, int NUM_ROWS, int NUM_COLS, int HISTORY_SIZE, int ACTION_SIZE>
 void runWorker(std::string runName, std::string saveDir,
-               Network<GridState<NUM_ROWS * NUM_COLS, HISTORY_SIZE>, ACTION_SIZE>* initialNetwork,
+               INetwork<GridState<NUM_ROWS * NUM_COLS, HISTORY_SIZE>, ACTION_SIZE>* initialNetwork,
                ISymmetrizer<GridState<NUM_ROWS * NUM_COLS, HISTORY_SIZE>, ACTION_SIZE>* symmetrizer) {
 
     using State = GridState<NUM_ROWS * NUM_COLS, HISTORY_SIZE>;
@@ -72,18 +91,19 @@ void runWorker(std::string runName, std::string saveDir,
         return;
     }
 
-    Network<State, ACTION_SIZE>* network;  // Holds the current network.
+    INetwork<State, ACTION_SIZE>* network;  // Holds the current network.
 
     for (int iter = 0; iter < NUM_ITERS; ++iter) {
         std::cout << "Starting iteration " << iter << "..." << std::endl;
 
+        // Block until the model file for the previous iteration exists.
         std::string modelPath = waitModelPath(iter - 1, runName);
         std::string savePath = saveDir + "/" + runName + "_iteration_" + std::to_string(iter);
 
-        int numGames = (iter == 0) ? INIT_NUM_GAMES_PER_WORKER : NUM_GAMES_PER_WORKER;
-        int numIters = (iter == 0) ? INIT_UCT_ITERATIONS : UCT_ITERATIONS;
+        int numGames      = (iter == 0) ? INIT_NUM_GAMES_PER_WORKER : NUM_GAMES_PER_WORKER;
+        int numIters      = (iter == 0) ? INIT_UCT_ITERATIONS : UCT_ITERATIONS;
         int maxTraversals = (iter == 0) ? INIT_MAX_TRAVERSALS : MAX_TRAVERSALS;
-        int maxQueueSize = (iter == 0) ? INIT_MAX_QUEUE_SIZE : MAX_QUEUE_SIZE;
+        int maxQueueSize  = (iter == 0) ? INIT_MAX_QUEUE_SIZE : MAX_QUEUE_SIZE;
 
         NeuralNetwork neuralNetwork { modelPath };
 
@@ -115,7 +135,7 @@ void runWorker(std::string runName, std::string saveDir,
 
             // Stone bitmasks.
             for (int t = 0; t < state.size(); ++t) {
-                for (Piece piece : {ourPiece, otherPiece(ourPiece)}) {
+                for (Piece piece : { ourPiece, otherPiece(ourPiece) }) {
                     for (int row = 0; row < NUM_ROWS; ++row) {
                         for (int col = 0; col < NUM_COLS; ++col) {
                             if (state.getHistory()[t][row * NUM_COLS + col] == piece) {

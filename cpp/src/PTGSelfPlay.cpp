@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
 
     SPRL::Pentago game;
 
-    SPRL::Network<36, 288>* network;
+    SPRL::INetwork<36, 288>* network;
 
     SPRL::RandomNetwork<36, 288> randomNetwork {};
     SPRL::PentagoNetwork neuralNetwork { modelPath };

@@ -2,7 +2,7 @@
 #define SPRL_UCT_TREE_HPP
 
 #include "../games/GameNode.hpp"
-#include "../networks/Network.hpp"
+#include "../networks/INetwork.hpp"
 #include "../symmetry/ISymmetrizer.hpp"
 
 #include "UCTNode.hpp"
@@ -74,7 +74,7 @@ public:
      * @returns This batch of empty leaves, as well as the number of leaf selections performed.
     */
     std::pair<std::vector<UNode*>, int> searchAndGetLeaves(
-        int maxTraversals, int maxQueueSize, Network<State, ACTION_SIZE>* network, float uWeight = 1.0f) {
+        int maxTraversals, int maxQueueSize, INetwork<State, ACTION_SIZE>* network, float uWeight = 1.0f) {
 
         std::vector<UNode*> leaves;
 
@@ -82,10 +82,10 @@ public:
 
         while (iter < maxTraversals) {
             ++iter;
-            UNode* leaf = selectLeaf(uWeight);  // Must be terminal, empty, or gray
+            UNode* leaf = selectLeaf(uWeight);  // Must be terminal, empty, or gray.
 
             if (leaf->m_isTerminal) {
-                // Terminal case: compute the exact value and backpropagate immediately
+                // Terminal case: compute the exact value and backpropagate immediately.
                 std::array<Value, 2> rewards = leaf->getRewards();
                 Value value = rewards[static_cast<int>(leaf->getPlayer())];
 
@@ -93,14 +93,14 @@ public:
                 continue;
 
             } else if (leaf->m_isNetworkEvaluated) {
-                // Gray case: expand the node to active and backpropagate the network value estimate
+                // Gray case: expand the node to active and backpropagate the network value estimate.
                 leaf->expand(m_addNoise && (leaf == m_decisionNode));  // Only add noise if decision node.
 
                 backup(leaf, leaf->m_networkValue);
                 continue;
 
             } else {
-                // Empty case: append the node to the queue and do expansion and backup step after batched NN evaluation
+                // Empty case: append the node to the queue and do expansion and backup step after batched NN evaluation.
                 leaves.push_back(leaf);
             }
 
@@ -121,12 +121,12 @@ public:
      * @param leaves The leaves to evaluate and backpropagate.
      * @param network The network to evaluate the leaves with.
     */
-    void evaluateAndBackpropLeaves(const std::vector<UNode*>& leaves, Network<State, ACTION_SIZE>* network) {
+    void evaluateAndBackpropLeaves(const std::vector<UNode*>& leaves, INetwork<State, ACTION_SIZE>* network) {
         int numLeaves = leaves.size();
 
         assert(numLeaves > 0);
 
-        // Assemble a vector of states and masks for input into the NN
+        // Assemble a vector of states and masks for input into the NN.
         std::vector<State> states;
         std::vector<GameActionDist<ACTION_SIZE>> masks;
 
@@ -138,7 +138,7 @@ public:
             masks.push_back(leaves[i]->m_actionMask);
         }
 
-        // Generate symmetrizations for the states, if necessary
+        // Generate symmetrizations for the states, if necessary.
         std::vector<SymmetryIdx> symmetries(numLeaves, 0);
         if (m_symmetrizer != nullptr) {
             int numSymmetries = m_symmetrizer->numSymmetries();
@@ -148,7 +148,7 @@ public:
             }
         }
 
-        // Perform batched evaluation of the states
+        // Perform batched evaluation of the states.
         std::vector<std::pair<GameActionDist<ACTION_SIZE>, Value>> outputs = network->evaluate(states, masks);
 
         for (int i = 0; i < numLeaves; ++i) {
@@ -158,7 +158,7 @@ public:
             GameActionDist policy = output.first;
             Value value = output.second;
 
-            // Undo the symmetrization
+            // Undo the symmetrization.
             if (m_symmetrizer != nullptr) {
                 policy = m_symmetrizer->symmetrizeActionDist(policy, { m_symmetrizer->inverseSymmetry(symmetries[i]) })[0];
             }
@@ -169,16 +169,16 @@ public:
             // network and instead backing up directly.
 
             if (!leaf->m_isNetworkEvaluated) {
-                // Update the cached network values, making the leaf gray
+                // Update the cached network values, making the leaf gray.
                 leaf->addNetworkOutput(policy, value);
             }
 
             if (!leaf->m_isExpanded) {
-                // Expand the node, making the leaf active
+                // Expand the node, making the leaf active.
                 leaf->expand(m_addNoise && (leaf == m_decisionNode));  // Only add noise if decision node.
             }
             
-            // Backpropagate the network value estimate
+            // Backpropagate the network value estimate.
             backup(leaf, leaf->m_networkValue);
         }
     }
@@ -196,12 +196,12 @@ public:
     */
     void advanceDecision(ActionIdx action) {
         assert(!m_decisionNode->m_isTerminal);
-        assert(m_decisionNode->m_actionMask[action] != 0.0f);
+        assert(m_decisionNode->m_actionMask[action] > 0.0f);
 
-        // Destroy all children except for the one we are rerooting to
+        // Destroy all children except for the one we are rerooting to.
         m_decisionNode->pruneChildrenExcept(action);
 
-        // Clear all edges statistics of the new subtree, and turn all active nodes gray
+        // Clear all edges statistics of the new subtree, and turn all active nodes gray.
         UNode* child = m_decisionNode->getAddChild(action);
         clearSubtree(child);
 
@@ -229,7 +229,7 @@ private:
             // Keep selecting down active nodes.
             ActionIdx bestAction = current->bestAction(uWeight);
 
-            // Record a virtual loss to discount retracing the same path again
+            // Record a virtual loss to discount retracing the same path again.
             current->N()++;
             current->W()--;
 
@@ -238,7 +238,7 @@ private:
             current = current->getAddChild(bestAction);
         }
 
-        // Record a virtual loss to discount retracing the same path again
+        // Record a virtual loss to discount retracing the same path again.
         current->N()++;
         current->W()--;
 
@@ -261,11 +261,11 @@ private:
     void backup(UNode* node, float valueEstimate) {
         assert(node->m_isTerminal || (node->m_isNetworkEvaluated && node->m_isExpanded));
 
-        // Value is negated since they are stored from the perspective of the parent
+        // Value is negated since they are stored from the perspective of the parent.
         float estimate = -valueEstimate * ((node->getPlayer() == Player::ZERO) ? 1 : -1);
         UNode* current = node;
         while (current != m_decisionNode->m_parent) {
-            // Extra +1 due to reverting the virtual losses
+            // Extra +1 due to reverting the virtual losses.
             current->W() += 1 + estimate * ((current->getPlayer() == Player::ZERO) ? 1 : -1);
 
             current = current->m_parent;
@@ -285,11 +285,11 @@ private:
             return;
         }
 
-        // Reset the edge statistics and turn off the expanded bit
+        // Reset the edge statistics and turn off the expanded bit.
         node->m_edgeStatistics.reset();
         node->m_isExpanded = false;
 
-        // Recursively call on the children
+        // Recursively call on the children.
         for (const std::unique_ptr<UNode>& child : node->m_children) {
             if (child != nullptr) {
                 clearSubtree(child.get());

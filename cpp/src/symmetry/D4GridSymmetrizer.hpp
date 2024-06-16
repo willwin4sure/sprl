@@ -29,17 +29,17 @@ public:
 
     int numSymmetries() const override {
 
-        // Symmetry group is dihedral D_4: we have four rotations and four reflected rotations
+        // Symmetry group is dihedral D4: we have four rotations and four reflected rotations.
         //
         // Mapping:
-        //     0: identity
-        //     1: single 90 deg cw rotation
-        //     2: full 180 deg rotation
-        //     3: single 90 deg ccw rotation
-        //     4: reflection across vertical axis
-        //     5: reflection across vertical axis followed by single 90 deg cw rotation
-        //     6: reflection across vertical axis followed by full 180 deg rotation
-        //     7: reflection across vertical axis followed by single 90 deg ccw rotation
+        //     0: Identity.
+        //     1: Single 90 deg cw rotation.
+        //     2: Full 180 deg rotation.
+        //     3: Single 90 deg ccw rotation.
+        //     4: Reflection across vertical axis.
+        //     5: Reflection across vertical axis followed by single 90 deg cw rotation.
+        //     6: Reflection across vertical axis followed by full 180 deg rotation.
+        //     7: Reflection across vertical axis followed by single 90 deg ccw rotation.
 
         return 8;
     }
@@ -91,7 +91,7 @@ public:
                 }
             }
             
-            // Pass action
+            // Pass action.
             symmetrizedActionDist[BOARD_WIDTH * BOARD_WIDTH] = actionDist[BOARD_WIDTH * BOARD_WIDTH];
             
             symmetrizedActionDists.push_back(symmetrizedActionDist);

@@ -1,8 +1,9 @@
 #ifndef SPRL_UCT_NETWORK_AGENT_HPP
 #define SPRL_UCT_NETWORK_AGENT_HPP
 
-#include "Agent.hpp"
-#include "../networks/Network.hpp"
+#include "IAgent.hpp"
+
+#include "../networks/INetwork.hpp"
 #include "../uct/UCTTree.hpp"
 
 #include <iostream>
@@ -12,12 +13,12 @@ namespace SPRL {
 /**
  * Agent that uses the UCT algorithm with a neural network for action selection.
  * 
- * @tparam ImplNode The implementation of the game node, e.g. GoNode.
- * @tparam State The state of the game, e.g. GoState.
+ * @tparam ImplNode The implementation of the game node, e.g. `GoNode`.
+ * @tparam State The state of the game, e.g. `GridState`.
  * @tparam ACTION_SIZE The number of possible actions in the game.
 */
 template <typename ImplNode, typename State, int ACTION_SIZE>
-class UCTNetworkAgent : public Agent<ImplNode, State, ACTION_SIZE> {
+class UCTNetworkAgent : public IAgent<ImplNode, State, ACTION_SIZE> {
 public:
     using ActionDist = GameActionDist<ACTION_SIZE>;
 
@@ -26,16 +27,17 @@ public:
      * 
      * @param network The neural network to use for action selection.
      * @param tree The UCT tree to use for action selection.
-     * @param numIters The number of iterations to run the UCT algorithm.
+     * @param numIters The number of total traversals to run the UCT algorithm for.
      * @param maxTraversals The maximum number of traversals to run per batch.
      * @param maxQueueSize The maximum number of leaves to evaluate per batch.
     */
-    UCTNetworkAgent(Network<State, ACTION_SIZE>* network,
+    UCTNetworkAgent(INetwork<State, ACTION_SIZE>* network,
                     UCTTree<ImplNode, State, ACTION_SIZE>* tree,
                     int numIters, int maxTraversals, int maxQueueSize)
         : m_network(network), m_tree(tree), m_numIters(numIters),
-          m_maxTraversals(maxTraversals), m_maxQueueSize(maxQueueSize) {}
-
+          m_maxTraversals(maxTraversals), m_maxQueueSize(maxQueueSize) {
+    
+    }
 
     ActionIdx act(const GameNode<ImplNode, State, ACTION_SIZE>* gameNode,
                   bool verbose = false) const override {
@@ -83,14 +85,16 @@ public:
             std::cout << '\n';
         }
 
-        // Sample action with most visits
-        ActionIdx action = std::distance(visits.begin(), std::max_element(visits.begin(), visits.end()));
+        // Sample action with most visits.
+        ActionIdx action = std::distance(visits.begin(),
+            std::max_element(visits.begin(), visits.end()));
 
         if (verbose) {
             std::cout << "Action: " << action << '\n';
             std::cout << "Action prior: " << priors[action] << '\n';
             std::cout << "Action visits: " << visits[action] << '\n';
-            std::cout << "Action average value: " << values[action] / (1 + visits[action]) << '\n';
+            std::cout << "Action average value: "
+                << values[action] / (1 + visits[action]) << '\n';
         }
 
         // Advance the tree to the next decision node.
@@ -104,11 +108,11 @@ public:
     }
 
 private:
-    Network<State, ACTION_SIZE>* m_network;
+    INetwork<State, ACTION_SIZE>* m_network;
     UCTTree<ImplNode, State, ACTION_SIZE>* m_tree;
-    int m_numIters {};
-    int m_maxTraversals {};
-    int m_maxQueueSize {};
+    int m_numIters;
+    int m_maxTraversals;
+    int m_maxQueueSize;
 };
 
 } // namespace SPRL

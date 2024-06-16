@@ -1,5 +1,5 @@
 #include "agents/HumanAgent.hpp"
-#include "agents/HumanGoAgent.hpp"
+#include "agents/HumanGridAgent.hpp"
 
 #include "evaluate/play.hpp"
 
@@ -48,8 +48,8 @@ void printMask(SPRL::GameActionDist<SPRL::GO_ACTION_SIZE> mask) {
 }
 
 int main(int argc, char* argv[]) {
-    SPRL::HumanGoAgent humanAgent {};
-    std::array<SPRL::Agent<SPRL::GoNode, SPRL::GridState<SPRL::GO_BOARD_SIZE, SPRL::GO_HISTORY_SIZE>, SPRL::GO_ACTION_SIZE>*, 2> agents = { &humanAgent, &humanAgent };
+    SPRL::HumanGridAgent<SPRL::GoNode, SPRL::GO_BOARD_WIDTH, SPRL::GO_BOARD_WIDTH, SPRL::GO_HISTORY_SIZE> humanAgent {};
+    std::array<SPRL::IAgent<SPRL::GoNode, SPRL::GridState<SPRL::GO_BOARD_SIZE, SPRL::GO_HISTORY_SIZE>, SPRL::GO_ACTION_SIZE>*, 2> agents = { &humanAgent, &humanAgent };
 
     SPRL::D4GridSymmetrizer<SPRL::GO_BOARD_WIDTH, SPRL::GO_HISTORY_SIZE> symmetrizer {};
     

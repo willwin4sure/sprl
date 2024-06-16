@@ -4,7 +4,10 @@ We implement Go with positional superko (PSK) and Tromp-Taylor scoring.
 
 ## Game Rules
 
-In Go, two players take turns placing stones on a board. The goal is to surround territory and capture the opponent's stones. The game ends when both players pass consecutively. The player with more territory wins.
+In Go, two players take turns placing stones on a board.
+The goal is to surround territory and capture the opponent's stones.
+The game ends when both players pass consecutively.
+The player with more territory wins.
 
 We call any contiguous set of stones of the same color a **group**.
 The **liberties** of a group are the empty spaces adjacent to its stones.
@@ -16,7 +19,7 @@ has any liberties. If not, then the move is deemed an illegal **suicide**
 and not included in the action mask.
 
 Finally, there is the rule of PSK. If after any move, the board is in the
-same state as it was after a previous move, then the move is considered
+same state as it was after any previous move, then the move is considered
 illegal.
 
 ## Time Complexity Targets
@@ -41,7 +44,7 @@ In order to efficiently check PSK, we use the famous Zobrist hashing
 technique, which provides an *efficiently updatable* hash of the board
 state that avoids collisions with high probability. Instead of checking
 entire boards against each other, we just check their 64-bit hashes.
-See `utils/Zobrist.hpp` for details.
+See `utils/Zobrist.hpp` for implementation details.
 
 ## `GoNode` State and Action Mask Computation
 
@@ -58,18 +61,18 @@ and total (XOR-ed) Zobrist hash of each group.
 
 Now, when calculating the action mask of a new state:
 
-* We can use liberties data to determine if it is a suicide.
-  In particular, you are a suicide if and only if there is no
-  capture of any enemy groups *and* you are not adjacent
-  to any empty squares *and* you do not connect to any
-  group with at least two liberties (you use up one of them).
+* We can use liberties data to determine if it is a suicide in `O(1)`.
+  In particular, you are a suicide if and only if the new stone
+  is not adjacent to any empty squares *and* there is no
+  capture of any enemy groups *and* you do not connect to any
+  friendly group with at least two liberties (you use up one of them).
 
 * We can use the component Zobrist values to determine if it
-  is a PSK violation. In particular, this allows us to efficiently
-  update the Zobrist hash of the state if we detect that
-  an enemy group would be captured (note: we don't actually
-  spend the time to remove the stones!), and then check it
-  against a stored set of previous Zobrist hashes.
+  is a PSK violation in `O(1)`. In particular, this allows us
+  to efficiently compute the Zobrist hash of the new state
+  if we detect that an enemy group would be captured
+  (note: we don't actually spend the time to remove the stones!),
+  and then check it against a stored set of previous Zobrist hashes.
 
 There is some other basic state involved, such as the `m_board`
 and its `m_hash`. We also store the `m_depth` of the game node
@@ -93,14 +96,14 @@ is our target: DFS is fine.
    updating the DSU data structure and component Zobrist value
    accordingly. We also need to update the liberties of this group
    via a DFS (there isn't a clean, correct way to do this in `O(1)`).
-   Note that right now all the liberty counts are correct modulo
-   the removal of enemy groups.
+   Now all the liberty counts are correct modulo the removal
+   of enemy groups.
 
 2. Next, we check all enemy neighbors of the new stone and deduct
    a liberty for each group, making sure not to overcount the
    same group. If a group has no liberties, we remove it from the board,
    via a DFS. During this process, any friendly groups that
-   gain a liberty are updated as well.
+   gain liberties are updated as well.
 
 3. Finally, we update the Zobrist hash of the board by XOR-ing
    all the updates we made using the component Zobrist values.

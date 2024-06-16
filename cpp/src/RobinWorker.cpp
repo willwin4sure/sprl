@@ -21,7 +21,7 @@
 
 #include "interface/npy.hpp"
 
-#include "networks/Network.hpp"
+#include "networks/INetwork.hpp"
 #include "networks/RandomNetwork.hpp"
 #include "networks/OthelloNetwork.hpp"
 
@@ -91,7 +91,7 @@ int main(int argc, char* argv[]) {
     auto game = std::make_unique<SPRL::Othello>();
 
     // Setup the networks.
-    std::vector<std::unique_ptr<SPRL::Network<64, 65>>> networks(numPlayers);
+    std::vector<std::unique_ptr<SPRL::INetwork<64, 65>>> networks(numPlayers);
 
     for (int i = 0; i < numPlayers; ++i) {
         if (players[i].modelPath == "random") {
@@ -126,7 +126,7 @@ int main(int argc, char* argv[]) {
             SPRL::UCTNetworkAgent<64, 65> networkAgent0 { networks[i].get(), &tree0, 100, 8, 4 };
             SPRL::UCTNetworkAgent<64, 65> networkAgent1 { networks[j].get(), &tree1, 100, 8, 4 };
 
-            std::array<SPRL::Agent<64, 65>*, 2> agents { &networkAgent0, &networkAgent1 };
+            std::array<SPRL::IAgent<64, 65>*, 2> agents { &networkAgent0, &networkAgent1 };
 
             int winner = SPRL::playGame(game.get(), game->startState(), agents, false);
 

@@ -14,7 +14,7 @@ using SymmetryIdx = int8_t;
  * Used to apply symmetries to game states and action distributions
  * in compatible ways for games with rules invariant under transformations.
  * 
- * @tparam AS The size of the action space.
+ * @tparam ACTION_SIZE The size of the action space.
  * @tparam State The state that the symmetrizer operates on.
 */
 template <typename State, int ACTION_SIZE>

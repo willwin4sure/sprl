@@ -58,7 +58,7 @@ private:
     std::string toStringImpl() const;
 
 private:
-    static int toIndex(int row, int col);
+    static ActionIdx toIndex(int row, int col);
     static bool checkWin(const Board& board, const int row, const int col, const Piece piece);
 
     Board m_board;

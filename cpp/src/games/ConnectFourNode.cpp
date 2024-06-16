@@ -4,7 +4,7 @@
 
 namespace SPRL {
 
-int ConnectFourNode::toIndex(int row, int col) {
+ActionIdx ConnectFourNode::toIndex(int row, int col) {
     assert(row >= 0 && row < C4_NUM_ROWS);
     assert(col >= 0 && col < C4_NUM_COLS);
     return row * C4_NUM_COLS + col;
@@ -24,8 +24,8 @@ std::unique_ptr<ConnectFourNode> ConnectFourNode::getNextNodeImpl(ActionIdx acti
     assert(!m_isTerminal);
     assert(m_actionMask[action] > 0.0f);
 
-    Board newBoard = m_board;  // A copy of the original
-    ActionDist newActionMask = m_actionMask;  // A copy of the original
+    Board newBoard = m_board;  // A copy of the original.
+    ActionDist newActionMask = m_actionMask;  // A copy of the original.
 
     assert(&newBoard != &m_board);
     assert(&newActionMask != &m_actionMask);
@@ -64,15 +64,15 @@ std::unique_ptr<ConnectFourNode> ConnectFourNode::getNextNodeImpl(ActionIdx acti
     }
 
     // Whether the game has ended
-    bool isTerminal = winner != Player::NONE || boardFilled;
+    bool terminal = winner != Player::NONE || boardFilled;
 
     // If game ended, should be no legal actions
-    if (isTerminal) {
+    if (terminal) {
         newActionMask.fill(0.0f);
     }
 
     std::unique_ptr<ConnectFourNode> newNode = std::make_unique<ConnectFourNode>(
-        this, action, std::move(newActionMask), newPlayer, winner, isTerminal, std::move(newBoard));
+        this, action, std::move(newActionMask), newPlayer, winner, terminal, std::move(newBoard));
 
     return std::move(newNode);
 }

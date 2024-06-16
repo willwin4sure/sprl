@@ -43,8 +43,8 @@ using Value = float;
  * Used to implement games that hold more state than just the information
  * available on the current game board.
  * 
- * @tparam ImplNode The implementation of the game node, e.g. GoNode, for purposes of CRTP.
- * @tparam State The state of the game.
+ * @tparam ImplNode The implementation of the game node, e.g. `GoNode`, for purposes of CRTP.
+ * @tparam State The state of the game, e.g. `GridState`.
  * @tparam ACTION_SIZE The size of the action space.
 */
 template <typename ImplNode, typename State, int ACTION_SIZE>

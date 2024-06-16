@@ -19,7 +19,7 @@
 
 #include "interface/npy.hpp"
 
-#include "networks/Network.hpp"
+#include "networks/INetwork.hpp"
 #include "networks/RandomNetwork.hpp"
 #include "networks/PentagoHeuristic.hpp"
 #include "networks/PentagoNetwork.hpp"
@@ -49,8 +49,8 @@ int main(int argc, char* argv[]) {
 
     auto game = std::make_unique<SPRL::Pentago>();
 
-    SPRL::Network<36, 288>* network0;
-    SPRL::Network<36, 288>* network1;
+    SPRL::INetwork<36, 288>* network0;
+    SPRL::INetwork<36, 288>* network1;
 
     SPRL::RandomNetwork<36, 288> randomNetwork {};
 
@@ -88,7 +88,7 @@ int main(int argc, char* argv[]) {
         SPRL::UCTNetworkAgent<36, 288> networkAgent0 { network0, &tree0, numIters, maxTraversals, maxQueueSize };
         SPRL::UCTNetworkAgent<36, 288> networkAgent1 { network1, &tree1, numIters, maxTraversals, maxQueueSize };
 
-        std::array<SPRL::Agent<36, 288>*, 2> agents;
+        std::array<SPRL::IAgent<36, 288>*, 2> agents;
 
         if (t % 2 == 0) {
             agents = { &networkAgent0, &networkAgent1 };

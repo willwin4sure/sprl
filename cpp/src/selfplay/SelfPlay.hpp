@@ -8,7 +8,7 @@
  */
 
 #include "../games/GameNode.hpp"
-#include "../networks/Network.hpp"
+#include "../networks/INetwork.hpp"
 #include "../random/Random.hpp"
 #include "../symmetry/ISymmetrizer.hpp"
 #include "../tqdm/tqdm.hpp"
@@ -24,8 +24,8 @@ namespace SPRL {
 /**
  * Generates a single game of self-play data using the given game and network, improved with UCT.
  * 
- * @tparam ImplNode The implementation of the game node, e.g. GoNode.
- * @tparam State The state of the game.
+ * @tparam ImplNode The implementation of the game node, e.g. `GoNode`.
+ * @tparam State The state of the game, e.g. `GridState`.
  * @tparam ACTION_SIZE The size of the action space.
  * 
  * @param rootNode The root node of the game tree.
@@ -49,7 +49,7 @@ namespace SPRL {
 template <typename ImplNode, typename State, int ACTION_SIZE>
 std::tuple<std::vector<State>, std::vector<GameActionDist<ACTION_SIZE>>, std::vector<Value>>
 selfPlay(std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> rootNode,
-         Network<State, ACTION_SIZE>* network,
+         INetwork<State, ACTION_SIZE>* network,
          int numIters, int maxTraversals, int maxQueueSize,
          float dirEps, float dirAlpha, InitQ initQMethod,
          ISymmetrizer<State, ACTION_SIZE>* symmetrizer, bool addNoise = true) {
@@ -170,15 +170,15 @@ selfPlay(std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> rootNode,
 /**
  * Runs `numGames` many games of self-play and collates all the data.
  * 
- * @tparam ImplNode The implementation of the game node, e.g. GoNode.
- * @tparam State The state of the game.
+ * @tparam ImplNode The implementation of the game node, e.g. `GoNode`.
+ * @tparam State The state of the game, e.g. `GridState`.
  * @tparam ACTION_SIZE The size of the action space.
  * 
  * @note See `selfPlay()` for more details.
 */
 template <typename ImplNode, typename State, int ACTION_SIZE>
 std::tuple<std::vector<State>, std::vector<GameActionDist<ACTION_SIZE>>, std::vector<Value>>
-runIteration(Network<State, ACTION_SIZE>* network, int numGames,
+runIteration(INetwork<State, ACTION_SIZE>* network, int numGames,
              int numIters, int maxTraversals, int maxQueueSize,
              float dirEps, float dirAlpha, InitQ initQMethod,
              ISymmetrizer<State, ACTION_SIZE>* symmetrizer, bool addNoise = true) {

@@ -1,28 +1,36 @@
-// #ifndef OTHELLO_HEURISTIC_HPP
-// #define OTHELLO_HEURISTIC_HPP
+#ifndef SPRL_OTHELLO_HEURISTIC_HPP
+#define SPRL_OTHELLO_HEURISTIC_HPP
 
-// #include "../games/Othello.hpp"
+#include "../games/OthelloNode.hpp"
 
-// #include "Network.hpp"
+#include "INetwork.hpp"
 
-// namespace SPRL {
+namespace SPRL {
 
-// class OthelloHeuristic : public Network<OTH_SIZE * OTH_SIZE, OTH_SIZE * OTH_SIZE + 1> {
-// public:
-//     OthelloHeuristic() = default;
+/**
+ * A basic heuristic for Othello that returns a uniform policy and a value
+ * equal to your number of legal moves minus the opponent's number of legal moves,
+ * divided by the number of empty spaces on the board so it is in the range `[-1, 1]`.
+ */
+class OthelloHeuristic : public INetwork<GridState<OTH_BOARD_SIZE, OTH_HISTORY_SIZE>, OTH_ACTION_SIZE> {
+public:
+    using ActionDist = GameActionDist<OTH_ACTION_SIZE>;
+    using State = GridState<OTH_BOARD_SIZE, OTH_HISTORY_SIZE>;
 
-//     std::vector<std::pair<GameActionDist<OTH_SIZE * OTH_SIZE + 1>, Value>> evaluate(
-//         const std::vector<GameState<OTH_SIZE * OTH_SIZE>>& states,
-//         const std::vector<GameActionDist<OTH_SIZE * OTH_SIZE + 1>>& masks) override;
+    OthelloHeuristic() = default;
 
-//     int getNumEvals() override {
-//         return m_numEvals;
-//     }    
+    std::vector<std::pair<ActionDist, Value>> evaluate(
+        const std::vector<State>& states,
+        const std::vector<ActionDist>& masks) override;
 
-// private:
-//     int m_numEvals { 0 };
-// };
+    int getNumEvals() override {
+        return m_numEvals;
+    }    
 
-// } // namespace SPRL
+private:
+    int m_numEvals { 0 };
+};
 
-// #endif
+} // namespace SPRL
+
+#endif

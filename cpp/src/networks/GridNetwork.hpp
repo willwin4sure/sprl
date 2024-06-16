@@ -3,7 +3,7 @@
 
 #include "games/GridState.hpp"
 
-#include "Network.hpp"
+#include "INetwork.hpp"
 
 #include <torch/torch.h>
 #include <torch/script.h>
@@ -13,8 +13,8 @@ namespace SPRL {
 /**
  * A network that evaluates grid game states using a standard embedding.
  * 
- * The state is embedded into 2 * HISTORY_SIZE + 1 channels, where
- * the first HISTORY_SIZE pairs of channels are bitmasks of the
+ * The state is embedded into `2 * HISTORY_SIZE + 1` channels, where
+ * the first `HISTORY_SIZE` pairs of channels are bitmasks of the
  * current player's stones and the opponent's stones, and the last
  * channel is a color channel for which player you are.
  * 
@@ -24,7 +24,7 @@ namespace SPRL {
  * @tparam ACTION_SIZE The number of actions in the action space.
  */
 template <int NUM_ROWS, int NUM_COLS, int HISTORY_SIZE, int ACTION_SIZE>
-class GridNetwork : public Network<GridState<NUM_ROWS * NUM_COLS, HISTORY_SIZE>, ACTION_SIZE> {
+class GridNetwork : public INetwork<GridState<NUM_ROWS * NUM_COLS, HISTORY_SIZE>, ACTION_SIZE> {
 public:
     using ActionDist = GameActionDist<ACTION_SIZE>;
     using State = GridState<NUM_ROWS * NUM_COLS, HISTORY_SIZE>;
@@ -67,7 +67,6 @@ public:
         m_model->eval();
 
         int numStates = states.size();
-
         m_numEvals += numStates;
 
         auto input = torch::zeros({numStates, 2 * HISTORY_SIZE + 1, NUM_ROWS, NUM_COLS}).to(m_device);
