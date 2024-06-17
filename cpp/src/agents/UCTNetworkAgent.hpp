@@ -27,33 +27,33 @@ public:
      * 
      * @param network The neural network to use for action selection.
      * @param tree The UCT tree to use for action selection.
-     * @param numIters The number of total traversals to run the UCT algorithm for.
-     * @param maxTraversals The maximum number of traversals to run per batch.
-     * @param maxQueueSize The maximum number of leaves to evaluate per batch.
+     * @param numTraversals The number of UCT traversals to run per move.
+     * @param maxBatchSize The maximum number of traversals per batch of search.
+     * @param maxQueueSize The maximum number of states to evaluate per batch of search.
     */
     UCTNetworkAgent(INetwork<State, ACTION_SIZE>* network,
                     UCTTree<ImplNode, State, ACTION_SIZE>* tree,
-                    int numIters, int maxTraversals, int maxQueueSize)
-        : m_network(network), m_tree(tree), m_numIters(numIters),
-          m_maxTraversals(maxTraversals), m_maxQueueSize(maxQueueSize) {
+                    int numTraversals, int maxBatchSize, int maxQueueSize)
+        : m_network(network), m_tree(tree), m_numTraversals(numTraversals),
+          m_maxBatchSize(maxBatchSize), m_maxQueueSize(maxQueueSize) {
     
     }
 
     ActionIdx act(const GameNode<ImplNode, State, ACTION_SIZE>* gameNode,
                   bool verbose = false) const override {
         
-        int iters = 0;
-        while (iters < m_numIters) {
+        int traversals = 0;
+        while (traversals < m_numTraversals) {
             // Greedily search and collect leaves, expanding the tree iteratively.
-            auto [leaves, iter] = m_tree->searchAndGetLeaves(
-                m_maxTraversals, m_maxQueueSize, m_network);
+            auto [leaves, trav] = m_tree->searchAndGetLeaves(
+                m_maxBatchSize, m_maxQueueSize, m_network);
 
             // If we have leaves, evaluate them using the NN and backpropagate.
             if (leaves.size() > 0) {
                 m_tree->evaluateAndBackpropLeaves(leaves, m_network);
             }
 
-            iters += iter;
+            traversals += trav;
         }
 
         // Get the priors, values, and visits for the root node.
@@ -110,8 +110,8 @@ public:
 private:
     INetwork<State, ACTION_SIZE>* m_network;
     UCTTree<ImplNode, State, ACTION_SIZE>* m_tree;
-    int m_numIters;
-    int m_maxTraversals;
+    int m_numTraversals;
+    int m_maxBatchSize;
     int m_maxQueueSize;
 };
 

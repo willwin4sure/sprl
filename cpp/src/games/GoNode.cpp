@@ -346,7 +346,7 @@ std::unique_ptr<GoNode> GoNode::getNextNodeImpl(ActionIdx actionIdx) {
     if (actionIdx != GO_BOARD_SIZE) {
         // Handle a piece placement.
         assert(actionIdx >= 0 && actionIdx < GO_BOARD_SIZE);
-        assert(copyNode->checkLegalPlacement(actionIdx, m_player));
+        assert(copyNode->checkLegalPlacement(actionIdx, pieceFromPlayer(m_player)));
 
         copyNode->placePiece(actionIdx, pieceFromPlayer(m_player));
     }

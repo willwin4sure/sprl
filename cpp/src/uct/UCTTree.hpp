@@ -66,7 +66,7 @@ public:
      * When leaves are terminal or gray, immediately backpropagates the result.
      * When leaves are empty, appends them to a vector for batched NN evaluation.
      * 
-     * @param maxTraversals The maximum number of traversals to perform.
+     * @param maxBatchSize The maximum number of traversals to perform.
      * @param maxQueueSize The maximum number of leaves to evaluate in a batch.
      * @param network The network to evaluate the leaves with.
      * @param uWeight The weight of the U value in the selection compared to the Q value.
@@ -74,14 +74,14 @@ public:
      * @returns This batch of empty leaves, as well as the number of leaf selections performed.
     */
     std::pair<std::vector<UNode*>, int> searchAndGetLeaves(
-        int maxTraversals, int maxQueueSize, INetwork<State, ACTION_SIZE>* network, float uWeight = 1.0f) {
+        int maxBatchSize, int maxQueueSize, INetwork<State, ACTION_SIZE>* network, float uWeight = 1.0f) {
 
         std::vector<UNode*> leaves;
 
-        int iter = 0;
-
-        while (iter < maxTraversals) {
-            ++iter;
+        int traversals = 0;
+        while (traversals < maxBatchSize) {
+            ++traversals;
+            
             UNode* leaf = selectLeaf(uWeight);  // Must be terminal, empty, or gray.
 
             if (leaf->m_isTerminal) {
@@ -110,7 +110,7 @@ public:
             }
         }
 
-        return { leaves, iter };
+        return { leaves, traversals };
     }
 
     /**

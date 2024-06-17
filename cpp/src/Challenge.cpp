@@ -39,7 +39,7 @@ constexpr int HISTORY_SIZE = SPRL::OTH_HISTORY_SIZE;
 
 int main(int argc, char* argv[]) {
     if (argc != 6) {
-        std::cerr << "Usage: ./Challenge.exe <modelPath> <player> <numIters> <maxTraversals> <maxQueueSize>" << std::endl;
+        std::cerr << "Usage: ./Challenge.exe <modelPath> <player> <numTraversals> <maxBatchSize> <maxQueueSize>" << std::endl;
         return 1;
     }
 
@@ -48,8 +48,8 @@ int main(int argc, char* argv[]) {
 
     std::string modelPath = argv[1];
     int player = std::stoi(argv[2]);
-    int numIters = std::stoi(argv[3]);
-    int maxTraversals = std::stoi(argv[4]);
+    int numTraversals = std::stoi(argv[3]);
+    int maxBatchSize = std::stoi(argv[4]);
     int maxQueueSize = std::stoi(argv[5]);
 
     SPRL::INetwork<State, ACTION_SIZE>* network;
@@ -80,8 +80,8 @@ int main(int argc, char* argv[]) {
     SPRL::UCTNetworkAgent<ImplNode, State, ACTION_SIZE> networkAgent {
         network,
         &tree,
-        numIters,
-        maxTraversals,
+        numTraversals,
+        maxBatchSize,
         maxQueueSize
     };
 

@@ -22,13 +22,13 @@
 
 int main(int argc, char* argv[]) {
     if (argc != 5) {
-        std::cerr << "Usage: ./Time.exe <modelPath> <numIters> <maxTraversals> <maxQueueSize>" << std::endl;
+        std::cerr << "Usage: ./Time.exe <modelPath> <numTraversals> <maxBatchSize> <maxQueueSize>" << std::endl;
         return 1;
     }
 
     std::string modelPath = argv[1];
-    int numIters = std::stoi(argv[2]);
-    int maxTraversals = std::stoi(argv[3]);
+    int numTraversals = std::stoi(argv[2]);
+    int maxBatchSize = std::stoi(argv[3]);
     int maxQueueSize = std::stoi(argv[4]);
 
     SPRL::GridNetwork<SPRL::C4_NUM_ROWS, SPRL::C4_NUM_COLS, SPRL::C4_HISTORY_SIZE, SPRL::C4_ACTION_SIZE> network { modelPath };
@@ -51,15 +51,15 @@ int main(int argc, char* argv[]) {
     while (!currentNode->isTerminal()) {
         t.reset();
 
-        int iters = 0;
-        while (iters < numIters) {
-            auto [leaves, iter] = tree.searchAndGetLeaves(maxTraversals, maxQueueSize, &network);
+        int traversals = 0;
+        while (traversals < numTraversals) {
+            auto [leaves, trav] = tree.searchAndGetLeaves(maxBatchSize, maxQueueSize, &network);
 
             if (leaves.size() > 0) {
                 tree.evaluateAndBackpropLeaves(leaves, &network);
             }
 
-            iters += iter;
+            traversals += trav;
         }
 
         auto priors = tree.getDecisionNode()->getEdgeStatistics()->m_childPriors;

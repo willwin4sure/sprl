@@ -12,13 +12,13 @@
 
 // int main(int argc, char* argv[]) {
 //     if (argc != 6) {
-//         std::cerr << "Usage: ./Peek.exe <modelPath> <numIters> <maxTraversals> <maxQueueSize> <boardString>" << std::endl;
+//         std::cerr << "Usage: ./Peek.exe <modelPath> <numTraversals> <maxBatchSize> <maxQueueSize> <boardString>" << std::endl;
 //         return 1;
 //     }
 
 //     std::string modelPath = argv[1];
-//     int numIters = std::stoi(argv[2]);
-//     int maxTraversals = std::stoi(argv[3]);
+//     int numTraversals = std::stoi(argv[2]);
+//     int maxBatchSize = std::stoi(argv[3]);
 //     int maxQueueSize = std::stoi(argv[4]);
 //     std::string boardString = argv[5];
 
@@ -32,7 +32,7 @@
 
 //     SPRL::UCTTree<36, 288> tree { &game, state, false };
 
-//     SPRL::UCTNetworkAgent<36, 288> networkAgent { &network, &tree, numIters, maxTraversals, maxQueueSize };
+//     SPRL::UCTNetworkAgent<36, 288> networkAgent { &network, &tree, numTraversals, maxBatchSize, maxQueueSize };
     
 //     SPRL::ActionIdx action = networkAgent.act(&game, state, game.actionMask(state), true);
 

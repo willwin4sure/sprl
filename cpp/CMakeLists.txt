@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # The following line is for if you want to re-enable asserts in release mode.
-# string( REPLACE "/DNDEBUG" "" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
+string( REPLACE "/DNDEBUG" "" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
 
 include(CTest)
 enable_testing()
@@ -28,6 +28,8 @@ add_executable(Challenge src/Challenge.cpp ${srcs} ${headers})
 add_executable(Evaluate src/Evaluate.cpp ${srcs} ${headers})
 add_executable(TestGame src/TestGame.cpp ${srcs} ${headers})
 add_executable(TestSymmetries src/TestSymmetries.cpp ${srcs} ${headers})
+add_executable(C4Worker src/C4Worker.cpp ${srcs} ${headers})
+add_executable(OTHWorker src/OTHWorker.cpp ${srcs} ${headers})
 add_executable(GoWorker src/GoWorker.cpp ${srcs} ${headers})
 add_executable(Time src/Time.cpp ${srcs} ${headers})
 
@@ -35,6 +37,8 @@ target_link_libraries(Challenge ${TORCH_LIBRARIES})
 target_link_libraries(Evaluate ${TORCH_LIBRARIES})
 target_link_libraries(TestGame ${TORCH_LIBRARIES})
 target_link_libraries(TestSymmetries ${TORCH_LIBRARIES})
+target_link_libraries(C4Worker ${TORCH_LIBRARIES})
+target_link_libraries(OTHWorker ${TORCH_LIBRARIES})
 target_link_libraries(GoWorker ${TORCH_LIBRARIES})
 target_link_libraries(Time ${TORCH_LIBRARIES})
 

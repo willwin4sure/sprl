@@ -33,15 +33,15 @@ constexpr int HISTORY_SIZE = SPRL::OTH_HISTORY_SIZE;
 
 int main(int argc, char* argv[]) {
     if (argc != 11) {
-        std::cerr << "Usage: ./Evaluate.exe <modelPath0> <modelPath1> <numGames> <numIters> <maxTraversals> <maxQueueSize> <model0UseSymmetrize> <model0UseParentQ> <model1UseSymmetrize> <model1UseParentQ>" << std::endl;
+        std::cerr << "Usage: ./Evaluate.exe <modelPath0> <modelPath1> <numGames> <numTraversals> <maxBatchSize> <maxQueueSize> <model0UseSymmetrize> <model0UseParentQ> <model1UseSymmetrize> <model1UseParentQ>" << std::endl;
         return 1;
     }
 
     std::string modelPath0 = argv[1];
     std::string modelPath1 = argv[2];
     int numGames = std::stoi(argv[3]);
-    int numIters = std::stoi(argv[4]);
-    int maxTraversals = std::stoi(argv[5]);
+    int numTraversals = std::stoi(argv[4]);
+    int maxBatchSize = std::stoi(argv[5]);
     int maxQueueSize = std::stoi(argv[6]);
     bool model0UseSymmetrize = std::stoi(argv[7]) > 0;
     bool model0UseParentQ = std::stoi(argv[8]) > 0;
@@ -108,16 +108,16 @@ int main(int argc, char* argv[]) {
         SPRL::UCTNetworkAgent<ImplNode, State, ACTION_SIZE> networkAgent0 {
             network0,
             &tree0,
-            numIters,
-            maxTraversals,
+            numTraversals,
+            maxBatchSize,
             maxQueueSize
         };
 
         SPRL::UCTNetworkAgent<ImplNode, State, ACTION_SIZE> networkAgent1 {
             network1,
             &tree1,
-            numIters,
-            maxTraversals,
+            numTraversals,
+            maxBatchSize,
             maxQueueSize
         };
 

@@ -31,9 +31,9 @@ namespace SPRL {
  * 
  * @param rootNode The root node of the game tree.
  * @param network The neural network to use for evaluation.
- * @param numIters The number of iterations to run UCT for each move.
- * @param maxTraversals The maximum number of traversals to run UCT for.
- * @param maxQueueSize The maximum size of the priority queue for UCT.
+ * @param numTraversals The number of UCT traversals to run per move.
+ * @param maxBatchSize The maximum number of traversals per batch of search.
+ * @param maxQueueSize The maximum number of states to evaluate per batch of search.
  * @param dirEps The epsilon value for the Dirichlet noise.
  * @param dirAlpha The alpha value for the Dirichlet noise.
  * @param initQMethod The method to initialize the Q values.
@@ -51,7 +51,7 @@ template <typename ImplNode, typename State, int ACTION_SIZE>
 std::tuple<std::vector<State>, std::vector<GameActionDist<ACTION_SIZE>>, std::vector<Value>>
 selfPlay(std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> rootNode,
          INetwork<State, ACTION_SIZE>* network,
-         int numIters, int maxTraversals, int maxQueueSize,
+         int numTraversals, int maxBatchSize, int maxQueueSize,
          float dirEps, float dirAlpha, InitQ initQMethod,
          ISymmetrizer<State, ACTION_SIZE>* symmetrizer, bool addNoise = true) {
 
@@ -95,16 +95,16 @@ selfPlay(std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> rootNode,
             states.push_back(tree.getDecisionNode()->getGameState());
         }
 
-        // Perform numIters many search iterations.
-        int iters = 0;
-        while (iters < numIters) {
-            auto [leaves, iter] = tree.searchAndGetLeaves(maxTraversals, maxQueueSize, network, EXPLORATION);
+        // Perform `numTraversals` many search iterations.
+        int traversals = 0;
+        while (traversals < numTraversals) {
+            auto [leaves, trav] = tree.searchAndGetLeaves(maxBatchSize, maxQueueSize, network, U_WEIGHT);
 
             if (leaves.size() > 0) {
                 tree.evaluateAndBackpropLeaves(leaves, network);
             }
 
-            iters += iter;
+            traversals += trav;
         }
 
         // Generate a PDF from the visit counts.
@@ -139,7 +139,7 @@ selfPlay(std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> rootNode,
         // Sample from the CDF.
         int action = GetRandom().SampleCDF(std::vector<float>(cdf.begin(), cdf.end()));
 
-        // Record the player that took the action.
+        // Record the player that just took the action.
         players.push_back(tree.getDecisionNode()->getPlayer());
 
         // Play the action by rerooting the tree and updating the state.
@@ -149,19 +149,42 @@ selfPlay(std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> rootNode,
     }
 
     std::array<Value, 2> rewards = tree.getDecisionNode()->getRewards();
+
+    outcomes.reserve(states.size());
     for (Player player : players) {
         switch (player) {
         case Player::ZERO:
-            outcomes.push_back(rewards[0]);
+            if (symmetrizer != nullptr) {
+                for (int i = 0; i < symmetrizer->numSymmetries(); ++i) {
+                    outcomes.push_back(rewards[0]);
+                }
+            } else {
+                outcomes.push_back(rewards[0]);
+            }
+            
             break;
 
         case Player::ONE:
-            outcomes.push_back(rewards[1]);
+            if (symmetrizer != nullptr) {
+                for (int i = 0; i < symmetrizer->numSymmetries(); ++i) {
+                    outcomes.push_back(rewards[1]);
+                }
+            } else {
+                outcomes.push_back(rewards[1]);
+            }
+
             break;
 
         default:
             assert(false);
-            outcomes.push_back(0.0f);
+
+            if (symmetrizer != nullptr) {
+                for (int i = 0; i < symmetrizer->numSymmetries(); ++i) {
+                    outcomes.push_back(0.0f);
+                }
+            } else {
+                outcomes.push_back(0.0f);
+            }
         }
     }
 
@@ -180,7 +203,7 @@ selfPlay(std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> rootNode,
 template <typename ImplNode, typename State, int ACTION_SIZE>
 std::tuple<std::vector<State>, std::vector<GameActionDist<ACTION_SIZE>>, std::vector<Value>>
 runIteration(INetwork<State, ACTION_SIZE>* network, int numGames,
-             int numIters, int maxTraversals, int maxQueueSize,
+             int numTraversals, int maxBatchSize, int maxQueueSize,
              float dirEps, float dirAlpha, InitQ initQMethod,
              ISymmetrizer<State, ACTION_SIZE>* symmetrizer, bool addNoise = true) {
 
@@ -190,14 +213,14 @@ runIteration(INetwork<State, ACTION_SIZE>* network, int numGames,
     std::vector<ActionDist> allDistributions;
     std::vector<Value> allOutcomes;
 
-    std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> rootNode = std::make_unique<ImplNode>();
-
     for (int t = 0; t < numGames; ++t) {
+        std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> rootNode = std::make_unique<ImplNode>();
+
         auto [states, distributions, outcomes] = selfPlay(
             std::move(rootNode),
             network,
-            numIters,
-            maxTraversals,
+            numTraversals,
+            maxBatchSize,
             maxQueueSize,
             dirEps,
             dirAlpha,
