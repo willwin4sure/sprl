@@ -129,6 +129,13 @@ public:
     }
 
     /**
+     * @returns A string representation of the underlying game node.
+     */
+    std::string getGameNodeString() const {
+        return m_gameNode->toString();
+    }
+
+    /**
      * @returns A reference to the current number of visits to this node.
     */
     float& N() { return m_parentEdgeStatistics->m_numVisits[m_action]; }
