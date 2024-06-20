@@ -18,18 +18,21 @@
 #include "networks/GridNetwork.hpp"
 #include "networks/OthelloHeuristic.hpp"
 
+#include "symmetry/ConnectFourSymmetrizer.hpp"
+#include "symmetry/D4GridSymmetrizer.hpp"
+
 #include "uct/UCTNode.hpp"
 #include "uct/UCTTree.hpp"
 
 #include "utils/npy.hpp"
 #include "utils/tqdm.hpp"
 
-constexpr int NUM_ROWS = SPRL::OTH_BOARD_WIDTH;
-constexpr int NUM_COLS = SPRL::OTH_BOARD_WIDTH;
+constexpr int NUM_ROWS = SPRL::C4_NUM_ROWS;
+constexpr int NUM_COLS = SPRL::C4_NUM_COLS;
 constexpr int BOARD_SIZE = NUM_ROWS * NUM_COLS;
 
-constexpr int ACTION_SIZE = SPRL::OTH_ACTION_SIZE;
-constexpr int HISTORY_SIZE = SPRL::OTH_HISTORY_SIZE;
+constexpr int ACTION_SIZE = SPRL::C4_ACTION_SIZE;
+constexpr int HISTORY_SIZE = SPRL::C4_HISTORY_SIZE;
 
 int main(int argc, char* argv[]) {
     if (argc != 11) {
@@ -49,37 +52,38 @@ int main(int argc, char* argv[]) {
     bool model1UseParentQ = std::stoi(argv[10]) > 0;
 
     using State = SPRL::GridState<BOARD_SIZE, HISTORY_SIZE>;
-    using ImplNode = SPRL::OthelloNode;
+    using ImplNode = SPRL::ConnectFourNode;
 
     SPRL::INetwork<State, ACTION_SIZE>* network0;
     SPRL::INetwork<State, ACTION_SIZE>* network1;
 
     SPRL::RandomNetwork<State, ACTION_SIZE> randomNetwork {};
-    SPRL::OthelloHeuristic heuristicNetwork {};
+    // SPRL::OthelloHeuristic heuristicNetwork {};
 
-    network0 = &randomNetwork;
-    network1 = &heuristicNetwork;
+    // network0 = &randomNetwork;
+    // network1 = &heuristicNetwork;
 
-    SPRL::D4GridSymmetrizer<SPRL::OTH_BOARD_WIDTH, HISTORY_SIZE> symmetrizer {};
+    // SPRL::D4GridSymmetrizer<SPRL::OTH_BOARD_WIDTH, HISTORY_SIZE> symmetrizer {};
+    SPRL::ConnectFourSymmetrizer symmetrizer {};
 
-    // SPRL::GridNetwork<NUM_ROWS, NUM_COLS, HISTORY_SIZE, ACTION_SIZE> neuralNetwork0 { modelPath0 };
-    // SPRL::GridNetwork<NUM_ROWS, NUM_COLS, HISTORY_SIZE, ACTION_SIZE> neuralNetwork1 { modelPath1 };
+    SPRL::GridNetwork<NUM_ROWS, NUM_COLS, HISTORY_SIZE, ACTION_SIZE> neuralNetwork0 { modelPath0 };
+    SPRL::GridNetwork<NUM_ROWS, NUM_COLS, HISTORY_SIZE, ACTION_SIZE> neuralNetwork1 { modelPath1 };
 
-    // if (modelPath0 == "random") {
-    //     std::cout << "Using random network..." << std::endl;
-    //     network0 = &randomNetwork;
-    // } else {
-    //     std::cout << "Using traced PyTorch network..." << std::endl;
-    //     network0 = &neuralNetwork0;
-    // }
+    if (modelPath0 == "random") {
+        std::cout << "Using random network..." << std::endl;
+        network0 = &randomNetwork;
+    } else {
+        std::cout << "Using traced PyTorch network..." << std::endl;
+        network0 = &neuralNetwork0;
+    }
 
-    // if (modelPath1 == "random") {
-    //     std::cout << "Using random network..." << std::endl;
-    //     network1 = &randomNetwork;
-    // } else {
-    //     std::cout << "Using traced PyTorch network..." << std::endl;
-    //     network1 = &neuralNetwork1;
-    // }
+    if (modelPath1 == "random") {
+        std::cout << "Using random network..." << std::endl;
+        network1 = &randomNetwork;
+    } else {
+        std::cout << "Using traced PyTorch network..." << std::endl;
+        network1 = &neuralNetwork1;
+    }
 
     int numWins0 = 0;
     int numWins1 = 0;

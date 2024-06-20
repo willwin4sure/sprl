@@ -8,17 +8,17 @@
 
 // Parameters controlling the training run.
 
-constexpr int NUM_GROUPS = 4;
-constexpr int NUM_WORKER_TASKS = 384;
-
 constexpr int NUM_ITERS = 25;
 
-constexpr int INIT_NUM_GAMES_PER_WORKER = 4;
-constexpr int INIT_UCT_TRAVERSALS = 32768;
+constexpr int NUM_GROUPS = 1;
+constexpr int NUM_WORKER_TASKS = 1;
+
+constexpr int INIT_NUM_GAMES_PER_WORKER = 10;
+constexpr int INIT_UCT_TRAVERSALS = 2048;
 constexpr int INIT_MAX_BATCH_SIZE = 1;
 constexpr int INIT_MAX_QUEUE_SIZE = 1;
 
-constexpr int NUM_GAMES_PER_WORKER = 2;
+constexpr int NUM_GAMES_PER_WORKER = 5;
 constexpr int UCT_TRAVERSALS = 512;
 constexpr int MAX_BATCH_SIZE = 8;
 constexpr int MAX_QUEUE_SIZE = 4;
@@ -28,7 +28,7 @@ constexpr float DIRICHLET_ALPHA = 0.5f;
 
 
 int main(int argc, char *argv[]) {
-    std::string runName = "narwhal_alpha";  // Change me too!
+    std::string runName = "c4_test";  // Change me too!
 
     if (argc != 3) {
         std::cerr << "Usage: ./C4Worker.exe <task_id> <num_tasks>" << std::endl;

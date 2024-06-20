@@ -1,5 +1,5 @@
 """
-othello_controller.py
+connect_four_controller.py
 """
 
 import os
@@ -14,12 +14,12 @@ from tqdm import tqdm
 from src.interface.tracer import trace_model
 from src.networks.grid_networks import BasicGridNetwork
 
-NUM_ROWS = 8
-NUM_COLS = 8
-ACTION_SIZE = 65
+NUM_ROWS = 6
+NUM_COLS = 7
+ACTION_SIZE = 7
 HISTORY_SIZE = 1
 
-###  MAKE SURE THESE CONSTANTS ARE IN SYNC WITH `OTHWorker.cpp`  ###
+###  MAKE SURE THESE CONSTANTS ARE IN SYNC WITH `C4Worker.cpp`  ###
 
 NUM_ITERS = 25
 
@@ -57,7 +57,7 @@ LR_INIT = 0.01
 LR_DECAY_FACTOR = 0.1
 LR_MILESTONE_ITERS = [5, 10, 20]
 
-RUN_NAME = "oth_test"
+RUN_NAME = "c4_test"
 
 
 device = "cuda" if torch.cuda.is_available() else "cpu"

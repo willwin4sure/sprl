@@ -7,6 +7,6 @@ cd ~/running_sims/sprl
 
 echo "I am the controller process."
 
-python ./scripts/pentago_controller.py
+python ./scripts/go_controller.py
 
 echo "Done."

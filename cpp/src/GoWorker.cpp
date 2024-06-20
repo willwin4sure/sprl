@@ -11,15 +11,15 @@
 constexpr int NUM_GROUPS = 4;
 constexpr int NUM_WORKER_TASKS = 384;
 
-constexpr int NUM_ITERS = 50;
+constexpr int NUM_ITERS = 100;
 
 constexpr int INIT_NUM_GAMES_PER_WORKER = 3;
-constexpr int INIT_UCT_TRAVERSALS = 131072;
+constexpr int INIT_UCT_TRAVERSALS = 262144;
 constexpr int INIT_MAX_BATCH_SIZE = 1;
 constexpr int INIT_MAX_QUEUE_SIZE = 1;
 
 constexpr int NUM_GAMES_PER_WORKER = 3;
-constexpr int UCT_TRAVERSALS = 8192;
+constexpr int UCT_TRAVERSALS = 32768;
 constexpr int MAX_BATCH_SIZE = 16;
 constexpr int MAX_QUEUE_SIZE = 8;
 
