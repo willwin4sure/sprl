@@ -24,6 +24,7 @@ class UCTTree;
 enum class InitQ {
     ZERO,    // Always initialize to zero.
     PARENT,  // Initialize to the network output of the parent, if available.
+    DROP_PARENT     // Todo: write description.
 };
 
 /**
@@ -149,7 +150,16 @@ public:
      * @returns The current average action value of this node, as described in UCT.
     */
     float Q() {
-        return W() / (1 + N());  // Adding 1 avoids division by zero.
+        if (m_initQMethod == InitQ::DROP_PARENT) {
+            if (N() == 0) {
+                // Return the parent Q value!
+                return m_parent->Q();
+            }else{
+                return W() / N();
+            }
+        }else{
+            return W() / (1 + N());
+        }   
     }
 
     /**
@@ -179,7 +189,16 @@ public:
      * @returns The average action value of a particular child, as described in UCT.
     */
     float child_Q(ActionIdx action) {
-        return child_W(action) / (1 + child_N(action));  // Adding 1 avoids division by zero.
+        if (m_initQMethod == InitQ::DROP_PARENT) {
+            if (child_N(action) == 0) {
+                // Return your own Q value!
+                return Q();
+            }else{
+                return child_W(action) / child_N(action);
+            }
+        }else{
+            return child_W(action) / (1 + child_N(action)); 
+        }
     }
 
     /**
@@ -251,6 +270,12 @@ public:
                 break;
             case InitQ::PARENT:
                 m_edgeStatistics.m_totalValues[action] = m_isNetworkEvaluated ? m_networkValue : 0.0f;
+                break;
+            case InitQ::DROP_PARENT:
+                // This value is never used! Set to 0, so that
+                // after the child is expanded and its network eval is computed,
+                // it increments to that correct value.
+                m_edgeStatistics.m_totalValues[action] = 0.0f;
                 break;
             }
         }
