@@ -37,6 +37,7 @@ namespace SPRL {
  * @param dirEps The epsilon value for the Dirichlet noise.
  * @param dirAlpha The alpha value for the Dirichlet noise.
  * @param initQMethod The method to initialize the Q values.
+ * @param dropParent Whether to drop the parent network evaluation from the Q values.
  * @param symmetrizer The symmetrizer to use for symmetrizing the network and data (or nullptr).
  * @param addNoise Whether to add Dirichlet noise to the root node.
  * 
@@ -52,7 +53,7 @@ std::tuple<std::vector<State>, std::vector<GameActionDist<ACTION_SIZE>>, std::ve
 selfPlay(std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> rootNode,
          INetwork<State, ACTION_SIZE>* network,
          int numTraversals, int maxBatchSize, int maxQueueSize,
-         float dirEps, float dirAlpha, InitQ initQMethod,
+         float dirEps, float dirAlpha, InitQ initQMethod, bool dropParent = false,
          ISymmetrizer<State, ACTION_SIZE>* symmetrizer, bool addNoise = true) {
 
     using ActionDist = GameActionDist<ACTION_SIZE>;
@@ -76,6 +77,7 @@ selfPlay(std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> rootNode,
         dirEps,
         dirAlpha,
         initQMethod,
+        dropParent,
         symmetrizer,
         addNoise
     };
@@ -204,7 +206,7 @@ template <typename ImplNode, typename State, int ACTION_SIZE>
 std::tuple<std::vector<State>, std::vector<GameActionDist<ACTION_SIZE>>, std::vector<Value>>
 runIteration(INetwork<State, ACTION_SIZE>* network, int numGames,
              int numTraversals, int maxBatchSize, int maxQueueSize,
-             float dirEps, float dirAlpha, InitQ initQMethod,
+             float dirEps, float dirAlpha, InitQ initQMethod, bool dropParent,
              ISymmetrizer<State, ACTION_SIZE>* symmetrizer, bool addNoise = true) {
 
     using ActionDist = GameActionDist<ACTION_SIZE>;
@@ -225,6 +227,7 @@ runIteration(INetwork<State, ACTION_SIZE>* network, int numGames,
             dirEps,
             dirAlpha,
             initQMethod,
+            dropParent,
             symmetrizer,
             addNoise
         );

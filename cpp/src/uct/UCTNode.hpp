@@ -23,8 +23,8 @@ class UCTTree;
 */
 enum class InitQ {
     ZERO,    // Always initialize to zero.
-    PARENT,  // Initialize to the network output of the parent, if available.
-    DROP_PARENT     // Todo: write description.
+    PARENT_NN_EVAL,  // Initialize to the network output of the parent, if available.
+    PARENT_LIVE_Q     // Todo: write description.
 };
 
 /**
@@ -69,9 +69,9 @@ public:
      * @param initQMethod The method to use for initializing the Q values of the nodes.
     */
     UCTNode(EdgeStatistics* edgeStats, GameNode<ImplNode, State, ACTION_SIZE>* gameNode,
-            float dirEps = 0.25f, float dirAlpha = 0.1f, InitQ initQMethod = InitQ::PARENT)
+            float dirEps = 0.25f, float dirAlpha = 0.1f, InitQ initQMethod = InitQ::PARENT_NN_EVAL, bool dropParent = false)
         : m_gameNode { gameNode }, m_parentEdgeStatistics { edgeStats },
-          m_dirEps { dirEps }, m_dirAlpha { dirAlpha }, m_initQMethod { initQMethod },
+          m_dirEps { dirEps }, m_dirAlpha { dirAlpha }, m_initQMethod { initQMethod }, m_dropParent { dropParent },
           m_isTerminal { m_gameNode->isTerminal() }, m_actionMask { m_gameNode->getActionMask() } {
     }
 
@@ -84,11 +84,12 @@ public:
      * @param dirEps The epsilon parameter for Dirichlet noise.
      * @param dirAlpha The alpha parameter for Dirichlet noise.
      * @param initQMethod The method to use for initializing the Q values of the nodes.
+     * @param dropParent Whether to drop the parent's network evaluation after expanding.
     */
     UCTNode(UCTNode* parent, ActionIdx action, GameNode<ImplNode, State, ACTION_SIZE>* gameNode,
-            float dirEps = 0.25f, float dirAlpha = 0.1f, InitQ initQMethod = InitQ::PARENT)
+            float dirEps = 0.25f, float dirAlpha = 0.1f, InitQ initQMethod = InitQ::PARENT_NN_EVAL, bool dropParent = false)
         : m_parent { parent }, m_action { action }, m_gameNode { gameNode },
-          m_dirEps { dirEps }, m_dirAlpha { dirAlpha }, m_initQMethod { initQMethod },
+          m_dirEps { dirEps }, m_dirAlpha { dirAlpha }, m_initQMethod { initQMethod }, m_dropParent { dropParent },
           m_isTerminal { m_gameNode->isTerminal() }, m_actionMask { m_gameNode->getActionMask() },
           m_parentEdgeStatistics { &parent->m_edgeStatistics } {
 
@@ -150,16 +151,20 @@ public:
      * @returns The current average action value of this node, as described in UCT.
     */
     float Q() {
-        if (m_initQMethod == InitQ::DROP_PARENT) {
-            if (N() == 0) {
+        if ( N() == 0) {
+            if (m_initQMethod == InitQ::PARENT_LIVE_Q) {
                 // Return the parent Q value!
                 return m_parent->Q();
             }else{
-                return W() / N();
+                return W();
             }
         }else{
-            return W() / (1 + N());
-        }   
+            if (m_dropParent) {
+                return W() / N();
+            }else{
+                return W() / (1 + N());
+            }
+        }
     }
 
     /**
@@ -189,15 +194,19 @@ public:
      * @returns The average action value of a particular child, as described in UCT.
     */
     float child_Q(ActionIdx action) {
-        if (m_initQMethod == InitQ::DROP_PARENT) {
-            if (child_N(action) == 0) {
-                // Return your own Q value!
+        if (child_N(action) == 0) {
+            if (m_initQMethod == InitQ::PARENT_LIVE_Q) {
+                // Return the parent Q value!
                 return Q();
             }else{
-                return child_W(action) / child_N(action);
+                return child_W(action);
             }
         }else{
-            return child_W(action) / (1 + child_N(action)); 
+            if (m_dropParent) {
+                return child_W(action) / child_N(action);
+            }else{
+                return child_W(action) / (1 + child_N(action));
+            }
         }
     }
 
@@ -268,10 +277,10 @@ public:
             case InitQ::ZERO:
                 m_edgeStatistics.m_totalValues[action] = 0.0f;
                 break;
-            case InitQ::PARENT:
+            case InitQ::PARENT_NN_EVAL:
                 m_edgeStatistics.m_totalValues[action] = m_isNetworkEvaluated ? m_networkValue : 0.0f;
                 break;
-            case InitQ::DROP_PARENT:
+            case InitQ::PARENT_LIVE_Q:
                 // This value is never used! Set to 0, so that
                 // after the child is expanded and its network eval is computed,
                 // it increments to that correct value.
@@ -385,7 +394,8 @@ private:
 
     float m_dirEps {};                      // Dirichlet noise epsilon.
     float m_dirAlpha {};                    // Dirichlet noise alpha.
-    InitQ m_initQMethod { InitQ::PARENT };  // Method to use for initializing Q values.
+    InitQ m_initQMethod { InitQ::PARENT_NN_EVAL };  // Method to use for initializing Q values.
+    bool m_dropParent { false };                     // Whether to drop the parent's network evaluation after expanding.
 
     friend class UCTTree<ImplNode, State, ACTION_SIZE>;
 };

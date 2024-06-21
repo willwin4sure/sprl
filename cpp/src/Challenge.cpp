@@ -72,7 +72,7 @@ int main(int argc, char* argv[]) {
         std::make_unique<ImplNode>(),
         0.25,
         0.1,
-        SPRL::InitQ::PARENT,
+        SPRL::InitQ::PARENT_NN_EVAL,
         &symmetrizer,
         true
     };

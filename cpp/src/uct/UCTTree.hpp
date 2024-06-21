@@ -32,11 +32,12 @@ public:
      * @param dirEps The epsilon value for the Dirichlet noise.
      * @param dirAlpha The alpha value for the Dirichlet noise.
      * @param initQMethod The method for initializing Q values.
+     * @param dropParent Whether to drop the parent network evaluation in the root.
      * @param symmetrizer The symmetrizer for the game state.
      * @param addNoise Whether to add Dirichlet noise to the decision node.
     */
     UCTTree(std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> gameRoot,
-            float dirEps, float dirAlpha, InitQ initQMethod,
+            float dirEps, float dirAlpha, InitQ initQMethod, bool dropParent = false,
             ISymmetrizer<State, ACTION_SIZE>* symmetrizer, bool addNoise = true)
 
         : m_edgeStatistics {},
@@ -47,6 +48,7 @@ public:
           m_dirEps { dirEps },
           m_dirAlpha { dirAlpha },
           m_initQMethod { initQMethod },
+          m_dropParent { dropParent },
           m_addNoise { addNoise },
           m_symmetrizer { symmetrizer } {
 
@@ -309,9 +311,10 @@ private:
     /// The current node in the tree, i.e. our decision point for the next action.
     UNode* m_decisionNode;
 
-    InitQ m_initQMethod { InitQ::PARENT };
-    float m_dirAlpha {};
     float m_dirEps {};
+    float m_dirAlpha {};
+    InitQ m_initQMethod { InitQ::PARENT_NN_EVAL };
+    bool m_dropParent { false };
 
     bool m_addNoise { true };
 
