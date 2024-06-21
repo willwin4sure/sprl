@@ -1,172 +1,172 @@
-#include <torch/torch.h>
-#include <torch/script.h>
+// #include <torch/torch.h>
+// #include <torch/script.h>
 
-#include <cassert>
-#include <chrono>
-#include <iostream>
-#include <string>
-#include <memory>
-#include <thread>
-#include <filesystem>
-#include <fstream>
+// #include <cassert>
+// #include <chrono>
+// #include <iostream>
+// #include <string>
+// #include <memory>
+// #include <thread>
+// #include <filesystem>
+// #include <fstream>
 
-#include "agents/Agent.hpp"
-#include "agents/UCTNetworkAgent.hpp"
+// #include "agents/Agent.hpp"
+// #include "agents/UCTNetworkAgent.hpp"
 
-#include "evaluate/play.hpp"
+// #include "evaluate/play.hpp"
 
-#include "games/GameState.hpp"
-#include "games/Game.hpp"
-#include "games/Othello.hpp"
+// #include "games/GameState.hpp"
+// #include "games/Game.hpp"
+// #include "games/Othello.hpp"
 
-#include "interface/npy.hpp"
+// #include "interface/npy.hpp"
 
-#include "networks/Network.hpp"
-#include "networks/RandomNetwork.hpp"
-#include "networks/OthelloNetwork.hpp"
+// #include "networks/INetwork.hpp"
+// #include "networks/RandomNetwork.hpp"
+// #include "networks/OthelloNetwork.hpp"
 
-#include "uct/UCTNode.hpp"
-#include "uct/UCTTree.hpp"
-
-
-struct Player {
-    std::string modelPath;
-    bool useSymmetrize;
-    bool useParentQ;
-};
+// #include "uct/UCTNode.hpp"
+// #include "uct/UCTTree.hpp"
 
 
-int main(int argc, char* argv[]) {
-    if (argc < 7) {
-        std::cerr << "Usage: ./RobinWorker.exe <task_id> <num_tasks> <num_players> (<modelPath> <useSymmetrize> <useParentQ>)+";
-        return 1;
-    }
+// struct Player {
+//     std::string modelPath;
+//     bool useSymmetrize;
+//     bool useParentQ;
+// };
 
-    int myTaskId = std::stoi(argv[1]);
-    int numTasks = std::stoi(argv[2]);
-    int numPlayers = std::stoi(argv[3]);
 
-    // Check if the right number of players.
-    if (argc != 4 + 3 * numPlayers) {
-        std::cerr << "Usage: ./RobinWorker.exe <task_id> <num_tasks> <num_players> (<modelPath> <useSymmetrize> <useParentQ>)+";
-        return 1;
-    }
+// int main(int argc, char* argv[]) {
+//     if (argc < 7) {
+//         std::cerr << "Usage: ./RobinWorker.exe <task_id> <num_tasks> <num_players> (<modelPath> <useSymmetrize> <useParentQ>)+";
+//         return 1;
+//     }
 
-    int myGroup = myTaskId / (numTasks / 4);
-    std::cout << "I am task " << myTaskId << " of " << numTasks << " in group " << myGroup << std::endl;
+//     int myTaskId = std::stoi(argv[1]);
+//     int numTasks = std::stoi(argv[2]);
+//     int numPlayers = std::stoi(argv[3]);
 
-    std::string runName = "manatee";
-    std::string saveDir = "data/robin2/" + runName + "/" + std::to_string(myGroup) + "/" + std::to_string(myTaskId);
+//     // Check if the right number of players.
+//     if (argc != 4 + 3 * numPlayers) {
+//         std::cerr << "Usage: ./RobinWorker.exe <task_id> <num_tasks> <num_players> (<modelPath> <useSymmetrize> <useParentQ>)+";
+//         return 1;
+//     }
 
-    // Make the directory if it doesn't exist.
-    try {
-        bool result = std::filesystem::create_directories(saveDir);
-        if (result) {
-            std::cout << "Created directory: " << saveDir << std::endl;
-        } else {
-            std::cout << "Directory already exists: " << saveDir << std::endl;
-        }
-    } catch (std::exception& e) {
-        std::cerr << "Error creating directory: " << e.what() << std::endl;
-        return 1;
-    }
+//     int myGroup = myTaskId / (numTasks / 4);
+//     std::cout << "I am task " << myTaskId << " of " << numTasks << " in group " << myGroup << std::endl;
 
-    // Setup the players.
-    std::vector<Player> players;
+//     std::string runName = "manatee";
+//     std::string saveDir = "data/robin2/" + runName + "/" + std::to_string(myGroup) + "/" + std::to_string(myTaskId);
 
-    for (int i = 0; i < numPlayers; ++i) {
-        Player player {};
-        player.modelPath = argv[4 + 3 * i];
-        player.useSymmetrize = std::stoi(argv[5 + 3 * i]) > 0;
-        player.useParentQ = std::stoi(argv[6 + 3 * i]) > 0;
+//     // Make the directory if it doesn't exist.
+//     try {
+//         bool result = std::filesystem::create_directories(saveDir);
+//         if (result) {
+//             std::cout << "Created directory: " << saveDir << std::endl;
+//         } else {
+//             std::cout << "Directory already exists: " << saveDir << std::endl;
+//         }
+//     } catch (std::exception& e) {
+//         std::cerr << "Error creating directory: " << e.what() << std::endl;
+//         return 1;
+//     }
 
-        std::cout << "Player " << i << " has model path: " << player.modelPath << ", useSymmetrize: " << player.useSymmetrize << ", useParentQ: " << player.useParentQ << std::endl;
+//     // Setup the players.
+//     std::vector<Player> players;
 
-        players.push_back(player);
-    }
+//     for (int i = 0; i < numPlayers; ++i) {
+//         Player player {};
+//         player.modelPath = argv[4 + 3 * i];
+//         player.useSymmetrize = std::stoi(argv[5 + 3 * i]) > 0;
+//         player.useParentQ = std::stoi(argv[6 + 3 * i]) > 0;
 
-    // A win is worth 2 points; a draw is worth 1 point.
-    std::vector<std::vector<int>> points(numPlayers, std::vector<int>(numPlayers, 0));
+//         std::cout << "Player " << i << " has model path: " << player.modelPath << ", useSymmetrize: " << player.useSymmetrize << ", useParentQ: " << player.useParentQ << std::endl;
 
-    auto game = std::make_unique<SPRL::Othello>();
+//         players.push_back(player);
+//     }
 
-    // Setup the networks.
-    std::vector<std::unique_ptr<SPRL::Network<64, 65>>> networks(numPlayers);
+//     // A win is worth 2 points; a draw is worth 1 point.
+//     std::vector<std::vector<int>> points(numPlayers, std::vector<int>(numPlayers, 0));
 
-    for (int i = 0; i < numPlayers; ++i) {
-        if (players[i].modelPath == "random") {
-            std::cout << "Using random network for player " << i << "..." << std::endl;
-            networks[i] = std::make_unique<SPRL::RandomNetwork<64, 65>>();
-        } else {
-            std::cout << "Using traced PyTorch network for player " << i << "..." << std::endl;
-            networks[i] = std::make_unique<SPRL::OthelloNetwork>(players[i].modelPath);
-        }
-    }
+//     auto game = std::make_unique<SPRL::Othello>();
 
-    // Write game results to a log.
-    std::string logPath = saveDir + "/log.txt";
-    std::ofstream logFile(logPath);
+//     // Setup the networks.
+//     std::vector<std::unique_ptr<SPRL::INetwork<64, 65>>> networks(numPlayers);
 
-    if (!logFile.is_open()) {
-        std::cerr << "Error opening file: " << logPath << std::endl;
-        return 1;
-    }
+//     for (int i = 0; i < numPlayers; ++i) {
+//         if (players[i].modelPath == "random") {
+//             std::cout << "Using random network for player " << i << "..." << std::endl;
+//             networks[i] = std::make_unique<SPRL::RandomNetwork<64, 65>>();
+//         } else {
+//             std::cout << "Using traced PyTorch network for player " << i << "..." << std::endl;
+//             networks[i] = std::make_unique<SPRL::OthelloNetwork>(players[i].modelPath);
+//         }
+//     }
 
-    // Play two games between each pair of players.
-    for (int i = 0; i < numPlayers; ++i) {
-        for (int j = 0; j < numPlayers; ++j) {
-            if (i == j) continue;
+//     // Write game results to a log.
+//     std::string logPath = saveDir + "/log.txt";
+//     std::ofstream logFile(logPath);
 
-            SPRL::GameState<64> state0 = game->startState();
-            SPRL::GameState<64> state1 = game->startState();
+//     if (!logFile.is_open()) {
+//         std::cerr << "Error opening file: " << logPath << std::endl;
+//         return 1;
+//     }
 
-            SPRL::UCTTree<64, 65> tree0 { game.get(), state0, false, players[i].useSymmetrize, players[i].useParentQ };
-            SPRL::UCTTree<64, 65> tree1 { game.get(), state1, false, players[j].useSymmetrize, players[j].useParentQ };
+//     // Play two games between each pair of players.
+//     for (int i = 0; i < numPlayers; ++i) {
+//         for (int j = 0; j < numPlayers; ++j) {
+//             if (i == j) continue;
 
-            SPRL::UCTNetworkAgent<64, 65> networkAgent0 { networks[i].get(), &tree0, 100, 8, 4 };
-            SPRL::UCTNetworkAgent<64, 65> networkAgent1 { networks[j].get(), &tree1, 100, 8, 4 };
+//             SPRL::GameState<64> state0 = game->startState();
+//             SPRL::GameState<64> state1 = game->startState();
 
-            std::array<SPRL::Agent<64, 65>*, 2> agents { &networkAgent0, &networkAgent1 };
+//             SPRL::UCTTree<64, 65> tree0 { game.get(), state0, false, players[i].useSymmetrize, players[i].useParentQ };
+//             SPRL::UCTTree<64, 65> tree1 { game.get(), state1, false, players[j].useSymmetrize, players[j].useParentQ };
 
-            int winner = SPRL::playGame(game.get(), game->startState(), agents, false);
+//             SPRL::UCTNetworkAgent<64, 65> networkAgent0 { networks[i].get(), &tree0, 100, 8, 4 };
+//             SPRL::UCTNetworkAgent<64, 65> networkAgent1 { networks[j].get(), &tree1, 100, 8, 4 };
 
-            logFile << i << " " << j << " " << winner << std::endl;
+//             std::array<SPRL::IAgent<64, 65>*, 2> agents { &networkAgent0, &networkAgent1 };
 
-            if (winner == 0) {
-                // Player i wins
-                points[i][j] += 2;
+//             int winner = SPRL::playGame(game.get(), game->startState(), agents, false);
 
-            } else if (winner == 1) {
-                // Player j wins
-                points[j][i] += 2;
+//             logFile << i << " " << j << " " << winner << std::endl;
 
-            } else {
-                // Draw
-                points[i][j] += 1;
-                points[j][i] += 1;
-            }
-        }
-    }
+//             if (winner == 0) {
+//                 // Player i wins
+//                 points[i][j] += 2;
 
-    logFile.close();
+//             } else if (winner == 1) {
+//                 // Player j wins
+//                 points[j][i] += 2;
 
-    // Write the table to a file using fstream.
-    std::string tableSavePath = saveDir + "/points.txt";
-    std::ofstream tableFile(tableSavePath);
+//             } else {
+//                 // Draw
+//                 points[i][j] += 1;
+//                 points[j][i] += 1;
+//             }
+//         }
+//     }
 
-    if (!tableFile.is_open()) {
-        std::cerr << "Error opening file: " << tableSavePath << std::endl;
-        return 1;
-    }
+//     logFile.close();
 
-    for (int i = 0; i < numPlayers; ++i) {
-        for (int j = 0; j < numPlayers; ++j) {
-            tableFile << points[i][j] << " ";
-        }
-        tableFile << std::endl;
-    }
+//     // Write the table to a file using fstream.
+//     std::string tableSavePath = saveDir + "/points.txt";
+//     std::ofstream tableFile(tableSavePath);
 
-    tableFile.close();
+//     if (!tableFile.is_open()) {
+//         std::cerr << "Error opening file: " << tableSavePath << std::endl;
+//         return 1;
+//     }
 
-    return 0;
-}
+//     for (int i = 0; i < numPlayers; ++i) {
+//         for (int j = 0; j < numPlayers; ++j) {
+//             tableFile << points[i][j] << " ";
+//         }
+//         tableFile << std::endl;
+//     }
+
+//     tableFile.close();
+
+//     return 0;
+// }

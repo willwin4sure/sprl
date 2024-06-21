@@ -1,9 +1,9 @@
-#ifndef UCT_TREE_HPP
-#define UCT_TREE_HPP
+#ifndef SPRL_UCT_TREE_HPP
+#define SPRL_UCT_TREE_HPP
 
-#include "../games/GameState.hpp"
-#include "../games/Game.hpp"
-#include "../networks/Network.hpp"
+#include "../games/GameNode.hpp"
+#include "../networks/INetwork.hpp"
+#include "../symmetry/ISymmetrizer.hpp"
 
 #include "UCTNode.hpp"
 
@@ -13,22 +13,50 @@
 
 namespace SPRL {
 
-template <int BOARD_SIZE, int ACTION_SIZE>
+/**
+ * Class representing a UCT tree for a game.
+ * 
+ * @tparam ImplNode The implementation of the game node.
+ * @tparam State The state of the game.
+ * @tparam ACTION_SIZE The number of actions in the game.
+*/
+template <typename ImplNode, typename State, int ACTION_SIZE>
 class UCTTree {
 public:
-    using Node = UCTNode<BOARD_SIZE, ACTION_SIZE>;
-
-    // Constructor for the tree.
-    UCTTree(Game<BOARD_SIZE, ACTION_SIZE>* game, const GameState<BOARD_SIZE>& state, bool addNoise = true, bool symmetrize = true, bool useParentQ = true)
-        : m_addNoise { addNoise }, m_symmetrizeNetwork { symmetrize }, m_edgeStatistics {}, m_game { game }, m_useParentQ { useParentQ },
-          m_root { std::make_unique<Node>(&m_edgeStatistics, game, state, useParentQ) } {}
-
+    using UNode = UCTNode<ImplNode, State, ACTION_SIZE>;
 
     /**
-     * Returns a readonly pointer to the root.
+     * Constructs a UCT tree rooted at the initial state of the game.
+     * 
+     * @param gameRoot The root node of the game tree.
+     * @param dirEps The epsilon value for the Dirichlet noise.
+     * @param dirAlpha The alpha value for the Dirichlet noise.
+     * @param initQMethod The method for initializing Q values.
+     * @param symmetrizer The symmetrizer for the game state.
+     * @param addNoise Whether to add Dirichlet noise to the decision node.
     */
-    const Node* getRoot() {
-        return m_root.get();
+    UCTTree(std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> gameRoot,
+            float dirEps, float dirAlpha, InitQ initQMethod,
+            ISymmetrizer<State, ACTION_SIZE>* symmetrizer, bool addNoise = true)
+
+        : m_edgeStatistics {},
+          m_gameRoot { std::move(gameRoot) },
+          m_uctRoot { std::make_unique<UNode>(
+            &m_edgeStatistics, m_gameRoot.get(), dirEps, dirAlpha, initQMethod) },
+          m_decisionNode { m_uctRoot.get() },
+          m_dirEps { dirEps },
+          m_dirAlpha { dirAlpha },
+          m_initQMethod { initQMethod },
+          m_addNoise { addNoise },
+          m_symmetrizer { symmetrizer } {
+
+    }
+
+    /**
+     * @returns A readonly pointer to the decision node.
+    */
+    const UNode* getDecisionNode() {
+        return m_decisionNode;
     }
 
     /**
@@ -38,37 +66,41 @@ public:
      * When leaves are terminal or gray, immediately backpropagates the result.
      * When leaves are empty, appends them to a vector for batched NN evaluation.
      * 
-     * Returns this batch of empty leaves, as well as the number of leaf selections performed.
+     * @param maxBatchSize The maximum number of traversals to perform.
+     * @param maxQueueSize The maximum number of leaves to evaluate in a batch.
+     * @param network The network to evaluate the leaves with.
+     * @param uWeight The weight of the U value in the selection compared to the Q value.
      * 
-     * TODO: If we multithread, the interface between leaf traversals and NN eval is a queue,
-     * and we need to adjust the inputs and outputs appropriately
+     * @returns This batch of empty leaves, as well as the number of leaf selections performed.
     */
-    std::pair<std::vector<Node*>, int> searchAndGetLeaves(int maxTraversals, int maxQueueSize, Network<BOARD_SIZE, ACTION_SIZE>* network, float exploration = 1.0f) {
-        std::vector<Node*> leaves;
+    std::pair<std::vector<UNode*>, int> searchAndGetLeaves(
+        int maxBatchSize, int maxQueueSize, INetwork<State, ACTION_SIZE>* network, float uWeight = 1.0f) {
 
-        int iter = 0;
+        std::vector<UNode*> leaves;
 
-        while (iter < maxTraversals) {
-            ++iter;
-            Node* leaf = selectLeaf(exploration);  // must be terminal, empty, or gray
+        int traversals = 0;
+        while (traversals < maxBatchSize) {
+            ++traversals;
+            
+            UNode* leaf = selectLeaf(uWeight);  // Must be terminal, empty, or gray.
 
             if (leaf->m_isTerminal) {
-                // Terminal case: compute the exact value and backpropagate immediately
-                std::pair<Value, Value> rewards = m_game->rewards(leaf->m_state);
-                Value value = (leaf->m_state.getPlayer() == 0) ? rewards.first : rewards.second;
+                // Terminal case: compute the exact value and backpropagate immediately.
+                std::array<Value, 2> rewards = leaf->getRewards();
+                Value value = rewards[static_cast<int>(leaf->getPlayer())];
 
                 backup(leaf, value);
                 continue;
 
             } else if (leaf->m_isNetworkEvaluated) {
-                // Gray case: expand the node to active and backpropagate the network value estimate
-                leaf->expand(m_addNoise);
+                // Gray case: expand the node to active and backpropagate the network value estimate.
+                leaf->expand(m_addNoise && (leaf == m_decisionNode));  // Only add noise if decision node.
 
                 backup(leaf, leaf->m_networkValue);
                 continue;
 
             } else {
-                // Empty case: append the node to the queue and do expansion and backup step after batched NN evaluation
+                // Empty case: append the node to the queue and do expansion and backup step after batched NN evaluation.
                 leaves.push_back(leaf);
             }
 
@@ -78,53 +110,57 @@ public:
             }
         }
 
-        return { leaves, iter };
+        return { leaves, traversals };
     }
 
     /**
      * Takes in queued leaves and evaluates them with the network, then backpropagates the results.
      * 
-     * Inputs must be leaves that are all empty, as in the return value from searchAndGetLeaves.
+     * Requires that leaves are all empty, as in the return value from searchAndGetLeaves.
+     * 
+     * @param leaves The leaves to evaluate and backpropagate.
+     * @param network The network to evaluate the leaves with.
     */
-    void evaluateAndBackpropLeaves(const std::vector<Node*>& leaves, Network<BOARD_SIZE, ACTION_SIZE>* network) {
+    void evaluateAndBackpropLeaves(const std::vector<UNode*>& leaves, INetwork<State, ACTION_SIZE>* network) {
         int numLeaves = leaves.size();
 
         assert(numLeaves > 0);
 
-        // Assemble a vector of states and masks for input into the NN
-        std::vector<GameState<BOARD_SIZE>> states;
+        // Assemble a vector of states and masks for input into the NN.
+        std::vector<State> states;
         std::vector<GameActionDist<ACTION_SIZE>> masks;
+
         states.reserve(numLeaves);
         masks.reserve(numLeaves);
 
         for (int i = 0; i < numLeaves; ++i) {
-            states.push_back(leaves[i]->m_state);
+            states.push_back(leaves[i]->getGameState());
             masks.push_back(leaves[i]->m_actionMask);
         }
 
-        // Generate symmetrizations for the states, if necessary
-        std::vector<Symmetry> symmetries(numLeaves, 0);
-        if (m_symmetrizeNetwork) {
-            int numSymmetries = m_game->numSymmetries();
+        // Generate symmetrizations for the states, if necessary.
+        std::vector<SymmetryIdx> symmetries(numLeaves, 0);
+        if (m_symmetrizer != nullptr) {
+            int numSymmetries = m_symmetrizer->numSymmetries();
             for (int i = 0; i < numLeaves; ++i) {
-                symmetries[i] = static_cast<Symmetry>(GetRandom().UniformInt(0, numSymmetries - 1));
-                states[i] = m_game->symmetrizeState(states[i], { symmetries[i] })[0];
+                symmetries[i] = static_cast<SymmetryIdx>(GetRandom().UniformInt(0, numSymmetries - 1));
+                states[i] = m_symmetrizer->symmetrizeState(states[i], { symmetries[i] })[0];
             }
         }
 
-        // Perform batched evaluation of the states
-        std::vector<std::pair<std::array<float, ACTION_SIZE>, float>> outputs = network->evaluate(states, masks);
+        // Perform batched evaluation of the states.
+        std::vector<std::pair<GameActionDist<ACTION_SIZE>, Value>> outputs = network->evaluate(states, masks);
 
         for (int i = 0; i < numLeaves; ++i) {
-            Node* leaf = leaves[i];
-            std::pair<std::array<float, ACTION_SIZE>, float> output = outputs[i];
+            UNode* leaf = leaves[i];
+            std::pair<GameActionDist<ACTION_SIZE>, Value> output = outputs[i];
 
-            std::array<float, ACTION_SIZE> policy = output.first;
-            float value = output.second;
+            GameActionDist policy = output.first;
+            Value value = output.second;
 
-            // Undo the symmetrization
-            if (m_symmetrizeNetwork) {
-                policy = m_game->symmetrizeActionDist(policy, { m_game->inverseSymmetry(symmetries[i]) })[0];
+            // Undo the symmetrization.
+            if (m_symmetrizer != nullptr) {
+                policy = m_symmetrizer->symmetrizeActionDist(policy, { m_symmetrizer->inverseSymmetry(symmetries[i]) })[0];
             }
 
             // Note that the same leaf could occur multiple times in the output.
@@ -133,81 +169,44 @@ public:
             // network and instead backing up directly.
 
             if (!leaf->m_isNetworkEvaluated) {
-                // Update the cached network values, making the leaf gray
+                // Update the cached network values, making the leaf gray.
                 leaf->addNetworkOutput(policy, value);
             }
 
             if (!leaf->m_isExpanded) {
-                // Expand the node, making the leaf active
-                leaf->expand(m_addNoise);
+                // Expand the node, making the leaf active.
+                leaf->expand(m_addNoise && (leaf == m_decisionNode));  // Only add noise if decision node.
             }
             
-            // Backpropagate the network value estimate
+            // Backpropagate the network value estimate.
             backup(leaf, leaf->m_networkValue);
         }
     }
 
     /**
-     * Performs a single iteration of search.
+     * Advances the decision node to the child corresponding to the given action.
      * 
-     * Uses unbatched NN evaluations. Should be replaced by calls to
-     * searchAndGetLeaves and evaluateAndBackpropLeaves for batching
-     * efficiency.
-    */
-    void searchIteration(Network<BOARD_SIZE, ACTION_SIZE>* network, float exploration = 1.0f) {
-        Node* leaf = selectLeaf(exploration);
-
-        float valueEstimate;
-
-        if (leaf->m_isTerminal) {
-            std::pair<Value, Value> rewards = m_game->rewards(leaf->m_state);
-            valueEstimate = (leaf->m_state.getPlayer() == 0) ? rewards.first : rewards.second;
-            
-        } else {
-            if (!leaf->m_isNetworkEvaluated) {
-                std::pair<std::array<float, ACTION_SIZE>, float> output = network->evaluate(m_game, {leaf->m_state})[0];
-
-                std::array<float, ACTION_SIZE> policy = output.first;
-                float value = output.second;
-
-                leaf->addNetworkOutput(policy, value);
-            }
-
-            leaf->expand(m_addNoise);
-
-            valueEstimate = leaf->m_networkValue;
-        }
-
-        backup(leaf, valueEstimate);
-    }
-
-    /**
-     * Reroots the tree by taking an action, moving the root to one of its children.
-     * 
-     * The root node must be non-terminal.
+     * The decision node must be non-terminal and the action must be legal.
      * 
      * Clears all the statistics and expanded bits in the subtree,
      * but leaves the network evaluations intact. In particular, all
      * active nodes are turned gray.
+     * 
+     * @param action The action to advance the decision node using.
     */
-    void rerootTree(ActionIdx action) {
-        assert(!m_root->m_isTerminal);
-        assert(m_root->m_actionMask[action] != 0.0f);
+    void advanceDecision(ActionIdx action) {
+        assert(!m_decisionNode->m_isTerminal);
+        assert(m_decisionNode->m_actionMask[action] > 0.0f);
 
-        // Destroy all children except for the one we are rerooting to
-        m_root->pruneChildrenExcept(action);
+        // Destroy all children except for the one we are rerooting to.
+        m_decisionNode->pruneChildrenExcept(action);
 
-        // Clear all edges statistics of the new subtree, and turn all active nodes gray
-        Node* child = m_root->getAddChild(action);
+        // Clear all edges statistics of the new subtree, and turn all active nodes gray.
+        UNode* child = m_decisionNode->getAddChild(action);
         clearSubtree(child);
 
-        // Move the child into the root position and set its parent to null
-        m_root = std::move(m_root->m_children[action]);
-        m_root->m_parent = nullptr;
-
-        // Reset the virtual parent edge statistics and set it for the new root
-        m_edgeStatistics.reset();
-        m_root->m_parentEdgeStatistics = &m_edgeStatistics;
+        // Set the new decision node
+        m_decisionNode = m_decisionNode->m_children[action].get();
     }
 
 private:
@@ -218,16 +217,19 @@ private:
      * Adds virtual losses while traveling down the tree, to all nodes
      * from the root to the leaf, inclusive.
      * 
-     * Returns a node that is terminal, empty, or gray. Must be the first
+     * @param uWeight The weight of the U value in the selection compared to the Q value.
+     * 
+     * @returns A pointer to a node that is terminal, empty, or gray. Must be the first
      * such node along the path down from the root.
     */
-    Node* selectLeaf(float exploration) {
-        Node* current = m_root.get();
+    UNode* selectLeaf(float uWeight) {
+        UNode* current = m_decisionNode;
 
         while (current->m_isExpanded && !current->m_isTerminal) {
-            ActionIdx bestAction = current->bestAction(exploration);
+            // Keep selecting down active nodes.
+            ActionIdx bestAction = current->bestAction(uWeight);
 
-            // Record a virtual loss to discount retracing the same path again
+            // Record a virtual loss to discount retracing the same path again.
             current->N()++;
             current->W()--;
 
@@ -236,10 +238,11 @@ private:
             current = current->getAddChild(bestAction);
         }
 
-        // Record a virtual loss to discount retracing the same path again
+        // Record a virtual loss to discount retracing the same path again.
         current->N()++;
         current->W()--;
 
+        // Reached a terminal, gray, or empty node.
         assert(current->m_isTerminal || !current->m_isExpanded);
 
         return current;
@@ -251,16 +254,19 @@ private:
      * Undoes the virtual loss penalty from the node to the root, inclusive.
      * 
      * The node at the bottom must be terminal or active.
+     * 
+     * @param node The node to backpropagate from.
+     * @param valueEstimate The value estimate to backpropagate.
     */
-    void backup(Node* node, float valueEstimate) {
+    void backup(UNode* node, float valueEstimate) {
         assert(node->m_isTerminal || (node->m_isNetworkEvaluated && node->m_isExpanded));
 
-        // Value is negated since they are stored from the perspective of the parent
-        float estimate = -valueEstimate * ((node->m_state.getPlayer() == 0) ? 1 : -1);
-        Node* current = node;
-        while (current != nullptr) {
-            // Extra +1 due to reverting the virtual losses
-            current->W() += 1 + estimate * ((current->m_state.getPlayer() == 0) ? 1 : -1);
+        // Value is negated since they are stored from the perspective of the parent.
+        float estimate = -valueEstimate * ((node->getPlayer() == Player::ZERO) ? 1 : -1);
+        UNode* current = node;
+        while (current != m_decisionNode->m_parent) {
+            // Extra +1 due to reverting the virtual losses.
+            current->W() += 1 + estimate * ((current->getPlayer() == Player::ZERO) ? 1 : -1);
 
             current = current->m_parent;
         }
@@ -271,39 +277,45 @@ private:
      * as well as setting them all to un-expanded (but keeping the network evaluation).
      * 
      * Turns all active nodes to gray.
+     * 
+     * @param node The node to clear the subtree of.
     */
-    void clearSubtree(Node* node) {
+    void clearSubtree(UNode* node) {
         if (!node->m_isExpanded) {
             return;
         }
 
-        // Reset the edge statistics and turn off the expanded bit
+        // Reset the edge statistics and turn off the expanded bit.
         node->m_edgeStatistics.reset();
         node->m_isExpanded = false;
 
-        // Recursively call on the children
-        for (const std::unique_ptr<Node>& child : node->m_children) {
+        // Recursively call on the children.
+        for (const std::unique_ptr<UNode>& child : node->m_children) {
             if (child != nullptr) {
                 clearSubtree(child.get());
             }
         }
     }
 
-    bool m_addNoise { true };
-
-    bool m_symmetrizeNetwork { true };
-
     /// Edge statistics of a virtual "parent" of the root, for accessing N() at the root.
-    Node::EdgeStatistics m_edgeStatistics {};
+    UNode::EdgeStatistics m_edgeStatistics {};
 
-    /// A raw pointer to an instance of the game we are playing.
-    Game<BOARD_SIZE, ACTION_SIZE>* m_game;
-
-    /// Whether to use parent Q initialization
-    bool m_useParentQ;
+    /// A unique pointer to the root node of the game tree; we own it.
+    std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> m_gameRoot;
 
     /// A unique pointer to the root node of the UCT tree; we own it.
-    std::unique_ptr<Node> m_root;
+    std::unique_ptr<UNode> m_uctRoot;
+
+    /// The current node in the tree, i.e. our decision point for the next action.
+    UNode* m_decisionNode;
+
+    InitQ m_initQMethod { InitQ::PARENT };
+    float m_dirAlpha {};
+    float m_dirEps {};
+
+    bool m_addNoise { true };
+
+    ISymmetrizer<State, ACTION_SIZE>* m_symmetrizer { nullptr };
 };
 
 } // namespace SPRL

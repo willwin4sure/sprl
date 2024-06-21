@@ -2,50 +2,48 @@
 
 namespace SPRL {
 
-std::vector<std::pair<GameActionDist<OTH_SIZE * OTH_SIZE + 1>, Value>> OthelloHeuristic::evaluate(
-    const std::vector<GameState<OTH_SIZE * OTH_SIZE>>& states,
-    const std::vector<GameActionDist<OTH_SIZE * OTH_SIZE + 1>>& masks) {
-
-    static Othello othello {};
+std::vector<std::pair<OthelloHeuristic::ActionDist, Value>> OthelloHeuristic::evaluate(
+    const std::vector<State>& states,
+    const std::vector<ActionDist>& masks) {
 
     int numStates = states.size();
     m_numEvals += numStates;
     
-    std::vector<std::pair<GameActionDist<OTH_SIZE * OTH_SIZE + 1>, Value>> results;
+    std::vector<std::pair<ActionDist, Value>> results;
     results.reserve(numStates);
 
-    GameActionDist<OTH_SIZE * OTH_SIZE + 1> uniformDist;
-    for (int i = 0; i < OTH_SIZE * OTH_SIZE + 1; ++i) {
-        uniformDist[i] = 1.0f / OTH_SIZE * OTH_SIZE + 1;
-    }
+    for (int b = 0; b < numStates; ++b) {
+        int numLegal = 0;
+        for (int i = 0; i < OTH_ACTION_SIZE; ++i) {
+            if (masks[b][i] > 0.0f) ++numLegal;
+        }
 
-    for (int i = 0; i < numStates; ++i) {
-        const GameState<OTH_SIZE * OTH_SIZE>& state = states[i];
+        float uniform = 1.0f / numLegal;
+
+        ActionDist uniformDist;
+        for (int i = 0; i < OTH_ACTION_SIZE; ++i) {
+            uniformDist[i] = (masks[b][i] > 0.0f) ? uniform : 0.0f;
+        }
+
+        const State& state = states[b];
 
         // Count the number of empty squares
         int numEmpty = 0;
-        for (int i = 0; i < OTH_SIZE * OTH_SIZE; ++i) {
-            if (state.getBoard()[i] == -1) {
-                numEmpty++;
+        for (int i = 0; i < OTH_BOARD_SIZE; ++i) {
+            if (state.getHistory()[0][i] == Piece::NONE) {
+                ++numEmpty;
             }
         }
 
-        const Player opponent = 1 - state.getPlayer();
+        const Player opponent = otherPlayer(state.getPlayer());
 
-        const GameActionDist<OTH_SIZE * OTH_SIZE + 1>& mask = masks[i];
-        const GameActionDist<OTH_SIZE * OTH_SIZE + 1>& oppMask = othello.actionMask(state.getBoard(), opponent);
+        const ActionDist& oppMask = OthelloNode::actionMask(state.getHistory()[0], opponent);
 
         // Count number of legal moves per player
-        int numLegal = 0;
         int numOppLegal = 0;
 
-        for (int i = 0; i < OTH_SIZE * OTH_SIZE; ++i) {
-            if (mask[i] > 0.0f) {
-                numLegal++;
-            }
-            if (oppMask[i] > 0.0f) {
-                numOppLegal++;
-            }
+        for (int i = 0; i < OTH_BOARD_SIZE; ++i) {
+            if (oppMask[i] > 0.0f) ++numOppLegal;
         }
 
         results.push_back({ uniformDist, static_cast<float>(numLegal - numOppLegal) / numEmpty });

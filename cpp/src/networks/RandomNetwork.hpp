@@ -1,44 +1,45 @@
-#ifndef RANDOM_NETWORK_HPP
-#define RANDOM_NETWORK_HPP
+#ifndef SPRL_RANDOM_NETWORK_HPP
+#define SPRL_RANDOM_NETWORK_HPP
 
-#include "Network.hpp"
+#include "INetwork.hpp"
 
 namespace SPRL {
 
-template <int BOARD_SIZE, int ACTION_SIZE> 
-class RandomNetwork : public Network<BOARD_SIZE, ACTION_SIZE> {
+/**
+ * A network that returns a uniform distribution and a value of 0 for every state.
+ * 
+ * @tparam State The state of the game, e.g. `GridState`.
+ * @tparam ACTION_SIZE The size of the action space.
+*/
+template <typename State, int ACTION_SIZE>
+class RandomNetwork : public INetwork<State, ACTION_SIZE> {
 public:
+    using ActionDist = GameActionDist<ACTION_SIZE>;
+
     RandomNetwork() {}
 
-    std::vector<std::pair<GameActionDist<ACTION_SIZE>, Value>> evaluate(
-        const std::vector<GameState<BOARD_SIZE>>& states,
-        const std::vector<GameActionDist<ACTION_SIZE>>& masks) override {
+    std::vector<std::pair<ActionDist, Value>> evaluate(
+        const std::vector<State>& states,
+        const std::vector<ActionDist>& masks) override {
 
         int numStates = states.size();
-
         m_numEvals += numStates;
 
-        // Return a uniform distribution and a value of 0 for everything
-        std::vector<std::pair<GameActionDist<ACTION_SIZE>, Value>> results;
+        // Return a uniform distribution and a value of 0 for everything.
+        std::vector<std::pair<ActionDist, Value>> results;
         results.reserve(numStates);
 
         for (int b = 0; b < numStates; ++b) {
             int numLegal = 0;
             for (int i = 0; i < ACTION_SIZE; ++i) {
-                if (masks[0][i] == 1.0f) {
-                    ++numLegal;
-                }
+                if (masks[b][i] > 0.0f) ++numLegal;
             }
 
             float uniform = 1.0f / numLegal;
 
-            GameActionDist<ACTION_SIZE> uniformDist;
+            ActionDist uniformDist;
             for (int i = 0; i < ACTION_SIZE; ++i) {
-                if (masks[0][i] == 1.0f) {
-                    uniformDist[i] = uniform;
-                } else {
-                    uniformDist[i] = 0.0f;
-                }
+                uniformDist[i] = (masks[b][i] > 0.0f) ? uniform : 0.0f;
             }
 
             results.push_back({ uniformDist, 0.0f });

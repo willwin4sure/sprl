@@ -12,7 +12,7 @@ states is constructed iteratively, with a new leaf added
 every iteration. There are two stages:
 
 * In the downward pass, a leaf to be added to the tree is
-selected greedily via a UCB-style algorithm. Each node stores
+selected greedily via a bandits UCB-style algorithm. Each node stores
 two values for each potential next action: a $Q$ value for the
 current average value estimate of taking that action,
 and a $U$ value for the optimistic uncertainty we add to the
@@ -47,16 +47,17 @@ policy for the root node in each search step, we mix Dirichlet
 noise into the network output to construct priors.
 
 * Different from the AlphaGo Zero paper but present in open
-source implementations, we initialize the $Q$ values of new
-children in the tree to the values of their parents,
-rather than to $0$.
+source implementations, we by default initialize the $Q$ values
+of new children in the tree to the values of their parents,
+rather than to $0$. There is a parameter to control this.
 
 ## UCT Nodes (`UCTNode.hpp`)
 
 These hold the following state:
 
-* The current game state and its properties: the legal action
-mask and whether it is terminal.
+* A raw pointer `m_gameNode` to the game node associated
+with this UCT node, i.e. that we are "attached to". This
+holds some game state and all implementation of the game.
 
 * The parent of the node and its children by action to take.
 Claims ownership over the children by holding `unique_ptr`s.
@@ -70,7 +71,7 @@ These contain:
   - Number of visits (`N`) on the children, from traversals.
 
 * What type of node it currently is for the tree traversal,
-based on two bits: `isExpanded` and `isNetworkEvaluated`.
+based on two bits: `m_isExpanded` and `m_isNetworkEvaluated`.
 Only non-terminal nodes are categorized into these three
 legal combinations (terminal nodes must be handled separately):
 
@@ -109,13 +110,13 @@ The function `getAddChild` gets the child of a node given
 a particular action. It also creates the node if necessary.
 It can be used on any non-terminal nodes.
 
-The function `updateNetworkOutput` is used to turn empty nodes
-into gray nodes by setting the `isNetworkEvaluated` bit and
+The function `addNetworkOutput` is used to turn empty nodes
+into gray nodes by setting the `m_isNetworkEvaluated` bit and
 also caching the outputs of the network on the current
 game state.
 
 The function `expand` is used to turn gray nodes into active
-nodes by setting the `isExpanded` bit and setting the
+nodes by setting the `m_isExpanded` bit and setting the
 priors equal to the network policy on legal actions.
 It will also add Dirichlet noise if necessary.
 
@@ -125,22 +126,25 @@ particular one. Necessary in subtree reuse.
 
 ## UCT Trees (`UCTTree.hpp`)
 
-These hold the following state:
+The UCT tree is constructed "in parallel" to the game tree.
+The tree will own both roots of the trees, and UCT nodes
+will have raw pointers into their corresponding game nodes.
 
-* The root of the tree. Claims ownership over it via a
-`unique_ptr`.
+In particular, the tree holds:
 
-* An edge statistics object that is a stand-in for the
-parent edge statistics object of the root, to allow
-the same access code.
+* The roots of both trees `m_gameRoot` and `m_uctRoot`.
+Claims ownership over the roots by holding `unique_ptr`s.
+The current position in the game is encoded by
+`m_decisionNode`, and a path from the root to the current
+decision node is always held (though other branches will
+be pruned).
 
-There are four functions that are actually exposed for
+* An edge statistics object `m_edgeStatistics` that is a
+stand-in for the parent edge statistics object of the root,
+to allow reuse of the same code for accessing data.
+
+There are three functions that are actually exposed for
 modifying the tree.
-
-The function `searchIteration` is a basic implementation
-of a single iteration of both a downwards and upwards pass.
-This does *not* batch the neural network inference,
-so it is considerably slower. 
 
 The function `searchAndGetLeaves` performs multiple downwards
 passes. It immediately performs upwards passes if the leaf
@@ -159,7 +163,7 @@ of empty leaves. It performs batched NN inference on them
 and then performs the upwards pass on all of them to
 remove the virtual losses.
 
-The function `rerootTree` takes in an action and then
+The function `advanceDecision` takes in an action and then
 replaces the root node of the tree with the result of playing
 that action from the root node. It preserves all the NN
 inferences performed on the entire subtree, but resets

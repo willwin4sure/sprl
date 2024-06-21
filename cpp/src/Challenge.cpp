@@ -1,3 +1,27 @@
+#include "agents/HumanAgent.hpp"
+#include "agents/HumanGridAgent.hpp"
+#include "agents/UCTNetworkAgent.hpp"
+
+#include "evaluate/play.hpp"
+
+#include "selfplay/SelfPlay.hpp"
+
+#include "games/GameNode.hpp"
+#include "games/ConnectFourNode.hpp"
+#include "games/OthelloNode.hpp"
+#include "games/GoNode.hpp"
+
+#include "networks/INetwork.hpp"
+#include "networks/GridNetwork.hpp"
+#include "networks/RandomNetwork.hpp"
+#include "networks/OthelloHeuristic.hpp"
+
+#include "symmetry/ConnectFourSymmetrizer.hpp"
+#include "symmetry/D4GridSymmetrizer.hpp"
+
+#include "uct/UCTNode.hpp"
+#include "uct/UCTTree.hpp"
+
 #include <torch/torch.h>
 #include <torch/script.h>
 
@@ -6,55 +30,32 @@
 #include <iostream>
 #include <memory>
 
-#include "agents/HumanAgent.hpp"
-#include "agents/HumanPentagoAgent.hpp"
-#include "agents/HumanOthelloAgent.hpp"
-#include "agents/UCTNetworkAgent.hpp"
+constexpr int NUM_ROWS = SPRL::OTH_BOARD_WIDTH;
+constexpr int NUM_COLS = SPRL::OTH_BOARD_WIDTH;
+constexpr int BOARD_SIZE = NUM_ROWS * NUM_COLS;
 
-#include "evaluate/play.hpp"
-
-#include "games/GameState.hpp"
-#include "games/Game.hpp"
-#include "games/ConnectFour.hpp"
-#include "games/Pentago.hpp"
-#include "games/Othello.hpp"
-
-#include "interface/npy.hpp"
-
-#include "networks/Network.hpp"
-#include "networks/ConnectFourNetwork.hpp"
-#include "networks/RandomNetwork.hpp"
-#include "networks/PentagoHeuristic.hpp"
-#include "networks/PentagoNetwork.hpp"
-#include "networks/OthelloHeuristic.hpp"
-#include "networks/OthelloNetwork.hpp"
-
-#include "uct/UCTNode.hpp"
-#include "uct/UCTTree.hpp"
-
-constexpr int BOARD_SIZE = 64;
-constexpr int ACTION_SIZE = 65;
+constexpr int ACTION_SIZE = SPRL::OTH_ACTION_SIZE;
+constexpr int HISTORY_SIZE = SPRL::OTH_HISTORY_SIZE;
 
 int main(int argc, char* argv[]) {
     if (argc != 6) {
-        std::cerr << "Usage: ./Challenge.exe <modelPath> <player> <numIters> <maxTraversals> <maxQueueSize>" << std::endl;
+        std::cerr << "Usage: ./Challenge.exe <modelPath> <player> <numTraversals> <maxBatchSize> <maxQueueSize>" << std::endl;
         return 1;
     }
 
+    using State = SPRL::GridState<BOARD_SIZE, HISTORY_SIZE>;
+    using ImplNode = SPRL::OthelloNode;
+
     std::string modelPath = argv[1];
     int player = std::stoi(argv[2]);
-    int numIters = std::stoi(argv[3]);
-    int maxTraversals = std::stoi(argv[4]);
+    int numTraversals = std::stoi(argv[3]);
+    int maxBatchSize = std::stoi(argv[4]);
     int maxQueueSize = std::stoi(argv[5]);
 
-    auto game = std::make_unique<SPRL::Othello>();
+    SPRL::INetwork<State, ACTION_SIZE>* network;
 
-    SPRL::Network<BOARD_SIZE, ACTION_SIZE>* network;
-
-    SPRL::RandomNetwork<BOARD_SIZE, ACTION_SIZE> randomNetwork {};
-    SPRL::OthelloNetwork neuralNetwork { modelPath };
-
-    network = &randomNetwork;
+    SPRL::OthelloHeuristic randomNetwork {};
+    SPRL::GridNetwork<NUM_ROWS, NUM_COLS, HISTORY_SIZE, ACTION_SIZE> neuralNetwork { modelPath };
 
     if (modelPath == "random") {
         std::cout << "Using random network..." << std::endl;
@@ -64,14 +65,30 @@ int main(int argc, char* argv[]) {
         network = &neuralNetwork;
     }
 
-    SPRL::GameState<BOARD_SIZE> state = game->startState();
+    // SPRL::ConnectFourSymmetrizer symmetrizer {};
+    SPRL::D4GridSymmetrizer<SPRL::OTH_BOARD_WIDTH, HISTORY_SIZE> symmetrizer {};
+    
+    SPRL::UCTTree<ImplNode, State, ACTION_SIZE> tree {
+        std::make_unique<ImplNode>(),
+        0.25,
+        0.1,
+        SPRL::InitQ::PARENT,
+        &symmetrizer,
+        true
+    };
 
-    SPRL::UCTTree<BOARD_SIZE, ACTION_SIZE> tree { game.get(), state, false }; 
-    SPRL::UCTNetworkAgent<BOARD_SIZE, ACTION_SIZE> networkAgent { network, &tree, numIters, maxTraversals, maxQueueSize };
+    SPRL::UCTNetworkAgent<ImplNode, State, ACTION_SIZE> networkAgent {
+        network,
+        &tree,
+        numTraversals,
+        maxBatchSize,
+        maxQueueSize
+    };
 
-    SPRL::HumanOthelloAgent humanAgent {};
+    // SPRL::HumanAgent<ImplNode, State, ACTION_SIZE> humanAgent {};
+    SPRL::HumanGridAgent<ImplNode, NUM_ROWS, NUM_COLS, HISTORY_SIZE> humanAgent {};
 
-    std::array<SPRL::Agent<BOARD_SIZE, ACTION_SIZE>*, 2> agents;
+    std::array<SPRL::IAgent<ImplNode, State, ACTION_SIZE>*, 2> agents;
 
     if (player == 0) {
         agents = { &humanAgent, &networkAgent };
@@ -79,7 +96,8 @@ int main(int argc, char* argv[]) {
         agents = { &networkAgent, &humanAgent };
     }
 
-    SPRL::playGame(game.get(), state, agents, true);
+    ImplNode rootNode {};
+    SPRL::playGame(&rootNode, agents, true);
 
     return 0;
 }

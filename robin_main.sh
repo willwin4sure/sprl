@@ -1,3 +1,3 @@
 #!/bin/sh
 
-LLsub ./robin2.sh [8,48,1]
+LLsub ./robin.sh [8,48,1]

@@ -87,6 +87,20 @@ need to copy every `.dll` file from `/libtorch/lib` into
 the same directory as the executable to be dynamically linked
 at runtime.
 
+## How to Test
+
+We use the Catch2 testing framework for C++ code, and it should
+compile automatically. If you're on Windows, you may need to copy
+`.dll` files into `/cpp/build/tests/Release` or similar.
+
+To run the tests, navigate to the `/cpp` directory and run
+the commands:
+
+```shell
+cd build
+ctest -C Release
+```
+
 ## Starting Training Runs
 
 Right now, there are two entrypoints into the code for the training loop.
