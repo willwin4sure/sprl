@@ -27,12 +27,12 @@
 #include "utils/npy.hpp"
 #include "utils/tqdm.hpp"
 
-constexpr int NUM_ROWS = SPRL::C4_NUM_ROWS;
-constexpr int NUM_COLS = SPRL::C4_NUM_COLS;
+constexpr int NUM_ROWS = SPRL::GO_BOARD_WIDTH;
+constexpr int NUM_COLS = SPRL::GO_BOARD_WIDTH;
 constexpr int BOARD_SIZE = NUM_ROWS * NUM_COLS;
 
-constexpr int ACTION_SIZE = SPRL::C4_ACTION_SIZE;
-constexpr int HISTORY_SIZE = SPRL::C4_HISTORY_SIZE;
+constexpr int ACTION_SIZE = SPRL::GO_ACTION_SIZE;
+constexpr int HISTORY_SIZE = SPRL::GO_HISTORY_SIZE;
 
 int main(int argc, char* argv[]) {
     if (argc != 11) {
@@ -52,7 +52,7 @@ int main(int argc, char* argv[]) {
     bool model1UseParentQ = std::stoi(argv[10]) > 0;
 
     using State = SPRL::GridState<BOARD_SIZE, HISTORY_SIZE>;
-    using ImplNode = SPRL::ConnectFourNode;
+    using ImplNode = SPRL::GoNode;
 
     SPRL::INetwork<State, ACTION_SIZE>* network0;
     SPRL::INetwork<State, ACTION_SIZE>* network1;
@@ -63,8 +63,8 @@ int main(int argc, char* argv[]) {
     // network0 = &randomNetwork;
     // network1 = &heuristicNetwork;
 
-    // SPRL::D4GridSymmetrizer<SPRL::OTH_BOARD_WIDTH, HISTORY_SIZE> symmetrizer {};
-    SPRL::ConnectFourSymmetrizer symmetrizer {};
+    SPRL::D4GridSymmetrizer<SPRL::GO_BOARD_WIDTH, HISTORY_SIZE> symmetrizer {};
+    // SPRL::ConnectFourSymmetrizer symmetrizer {};
 
     SPRL::GridNetwork<NUM_ROWS, NUM_COLS, HISTORY_SIZE, ACTION_SIZE> neuralNetwork0 { modelPath0 };
     SPRL::GridNetwork<NUM_ROWS, NUM_COLS, HISTORY_SIZE, ACTION_SIZE> neuralNetwork1 { modelPath1 };
@@ -134,7 +134,7 @@ int main(int argc, char* argv[]) {
         }
 
         ImplNode rootNode {};
-        SPRL::Player winner = SPRL::playGame(&rootNode, agents, false);
+        SPRL::Player winner = SPRL::playGame(&rootNode, agents, true);
 
         if (winner == SPRL::Player::ZERO) {
             if (t % 2 == 0) {
@@ -151,6 +151,9 @@ int main(int argc, char* argv[]) {
         }
 
         pbar << "Player 0 wins: " << numWins0 << ", Player 1 wins: " << numWins1 << ", Draws: " << t + 1 - numWins0 - numWins1;
+
+        int x;
+        std::cin >> x;
     }
 
     return 0;
