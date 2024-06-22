@@ -91,20 +91,6 @@ selfPlay(std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> rootNode,
         bool doFullSearch = GetRandom().UniformInt(0, 3) == 0;
         // bool doFullSearch = true;
 
-        if (doFullSearch) {
-            if (symmetrizer != nullptr) {
-                // Symmetrize the state and add to data.
-                std::vector<State> symmetrizedStates = symmetrizer->symmetrizeState(
-                    tree.getDecisionNode()->getGameState(), allSymmetries);
-
-                states.reserve(states.size() + symmetrizedStates.size());
-                states.insert(states.end(), symmetrizedStates.begin(), symmetrizedStates.end());
-
-            } else {
-                states.push_back(tree.getDecisionNode()->getGameState());
-            }
-        }
-
         // Perform `numTraversals` many search iterations.
         int traversals = 0;
         int numTraversalsOnThisTurn = doFullSearch ? numTraversals : numTraversals / 6; // In the paper, (600, 100). 
@@ -119,9 +105,20 @@ selfPlay(std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> rootNode,
             traversals += trav;
         }
 
+        
+        /* ------------------ Training Data Insertion ------------- */
+        if (doFullSearch) {
+            insertTrainingData(tree, states, distributions, players, symmetrizer, allSymmetries);
+        }
+        
+        /* ------------------- Move Selection --------------- */
+
+        // Remember: a la PTP, move selection is entirely decoupled from the policy target!
+
         // Generate a PDF from the visit counts.
-        ActionDist visits = tree.getDecisionNode()->getEdgeStatistics()->m_numVisits; // THIS LINE 
+        ActionDist visits = tree.getDecisionNode()->getEdgeStatistics()->m_numVisits;
         ActionDist pdf = visits / visits.sum();
+
 
         // Raise it to 0.98f (temp ~ 1) if early game, else 10.0f (temp -> 0), then renormalize.
         if (moveCount < EARLY_GAME_CUTOFF) {
@@ -136,27 +133,8 @@ selfPlay(std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> rootNode,
         ActionDist cdf = pdf.cumsum();
         cdf = cdf / cdf[ACTION_SIZE - 1];
 
-        if (doFullSearch) {
-            if (symmetrizer != nullptr) {
-                // Symmetrize the distributions and add to data.
-                std::vector<ActionDist> symmetrizedDists = symmetrizer->symmetrizeActionDist(
-                    pdf, allSymmetries);
-
-                distributions.reserve(distributions.size() + symmetrizedDists.size());
-                distributions.insert(distributions.end(), symmetrizedDists.begin(), symmetrizedDists.end());
-
-            } else {
-                distributions.push_back(pdf);
-            }
-        }
-
         // Sample from the CDF.
         int action = GetRandom().SampleCDF(std::vector<float>(cdf.begin(), cdf.end()));
-
-        if (doFullSearch) {
-            // Record the player that just took the action.
-            players.push_back(tree.getDecisionNode()->getPlayer());
-        }
 
         // Play the action by rerooting the tree and updating the state.
         tree.advanceDecision(action);
@@ -207,6 +185,62 @@ selfPlay(std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> rootNode,
 
     return { states, distributions, outcomes };
 }
+
+/**
+ * Inserts training data into the vectors of states and distributions.
+ * 
+ * @tparam ImplNode The implementation of the game node, e.g. `GoNode`.
+ * @tparam State The state of the game, e.g. `GridState`.
+ * @tparam ACTION_SIZE The size of the action space.
+ * 
+ * @param tree The UCT tree to extract data from.
+ * @param states The vector of states to insert into.
+ * @param distributions The vector of distributions to insert into.
+ * @param players The vector of players to insert into.
+ * @param symmetrizer The symmetrizer to use for symmetrizing the data (or nullptr).
+ * @param allSymmetries The vector of all symmetries to use for symmetrizing the data.
+ */
+template <typename ImplNode, typename State, int ACTION_SIZE>
+void insertTrainingData(UCTTree<ImplNode, State, ACTION_SIZE>& tree,
+                        std::vector<State>& states,
+                        std::vector<GameActionDist<ACTION_SIZE>>& distributions,
+                        std::vector<Player>& players,
+                        ISymmetrizer<State, ACTION_SIZE>* symmetrizer,
+                        const std::vector<SymmetryIdx>& allSymmetries) {
+    
+    using ActionDist = GameActionDist<ACTION_SIZE>;
+    
+    if (symmetrizer != nullptr) {
+        // Symmetrize the state and add to data.
+        std::vector<State> symmetrizedStates = symmetrizer->symmetrizeState(
+            tree.getDecisionNode()->getGameState(), allSymmetries);
+
+        states.reserve(states.size() + symmetrizedStates.size());
+        states.insert(states.end(), symmetrizedStates.begin(), symmetrizedStates.end());
+
+    } else {
+        states.push_back(tree.getDecisionNode()->getGameState());
+    }
+    
+    ActionDist pdf = tree.getDecisionNode()->getPolicyTarget(U_WEIGHT);
+    
+    if (symmetrizer != nullptr) {
+        // Symmetrize the distributions and add to data.
+        std::vector<ActionDist> symmetrizedDists = symmetrizer->symmetrizeActionDist(
+            pdf, allSymmetries);
+
+        distributions.reserve(distributions.size() + symmetrizedDists.size());
+        distributions.insert(distributions.end(), symmetrizedDists.begin(), symmetrizedDists.end());
+    } else {
+        distributions.push_back(pdf);
+    }
+
+
+    // Record the player that just took the action.
+    players.push_back(tree.getDecisionNode()->getPlayer());
+}
+
+
 
 /**
  * Runs `numGames` many games of self-play and collates all the data.

@@ -43,7 +43,8 @@ public:
      * Holds statistics for the edges coming out of this node in the UCT tree.
     */
     struct EdgeStatistics {
-
+        
+        ActionDist m_modelChildPriors {};  // Prior from network, used to compute policy target.
         ActionDist m_childPriors {};  // Prior from network, used to compute U.
         ActionDist m_totalValues {};  // Total Q value accumulated on each edge.
         ActionDist m_numVisits {};    // Number of times each edge has been traversed.
@@ -53,6 +54,7 @@ public:
         }
 
         void reset() {
+            m_modelChildPriors.fill(0.0);
             m_childPriors.fill(0.0);
             m_totalValues.fill(0.0);
             m_numVisits.fill(0.0);
@@ -140,17 +142,17 @@ public:
     /**
      * @returns A reference to the current number of visits to this node.
     */
-    float& N() { return m_parentEdgeStatistics->m_numVisits[m_action]; }
+    float& N() const { return m_parentEdgeStatistics->m_numVisits[m_action]; }
 
     /**
      * @returns A reference to the current total value of this node.
     */
-    float& W() { return m_parentEdgeStatistics->m_totalValues[m_action]; }
+    float& W() const { return m_parentEdgeStatistics->m_totalValues[m_action]; }
 
     /**
      * @returns The current average action value of this node, as described in UCT.
     */
-    float Q() {
+    float Q() const {
         if (N() == 0.0f) {
             if (m_initQMethod == InitQ::PARENT_LIVE_Q) {
                 // Return the parent Q value!
@@ -204,9 +206,16 @@ public:
     /**
      * @param action The action index of the child to query.
      * 
+     * @returns The model prior probability of selecting a particular child.
+     */
+    float child_P_model(ActionIdx action) const { return m_edgeStatistics.m_modelChildPriors[action]; }
+
+    /**
+     * @param action The action index of the child to query.
+     * 
      * @returns The average action value of a particular child, as described in UCT.
     */
-    float child_Q(ActionIdx action) {
+    float child_Q(ActionIdx action) const {
         if (child_N(action) == 0.0f) {
             if (m_initQMethod == InitQ::PARENT_LIVE_Q) {
                 // Return the parent Q value!
@@ -232,7 +241,7 @@ public:
      * 
      * @returns The uncertainty value of a particular child, as described in the UCT algorithm.
     */
-    float child_U(ActionIdx action) {
+    float child_U(ActionIdx action) const {
         return child_P(action) * std::sqrt(N()) / (1 + child_N(action));  // Adding 1 avoids division by zero.
     }
 
@@ -244,6 +253,83 @@ public:
     float child_N_forced(ActionIdx action) {
         return std::sqrt(2 * child_P(action) * (N() - 1));
     }
+
+    /**
+     * @param uWeight The weighting of the U value compared to the Q value.
+     * 
+     * @returns The policy target for the UCT algorithm.
+     */
+    ActionDist getPolicyTarget(float uWeight) const {
+        // Subtract 1 because I'm talking about the number of child playouts.
+        float total_N = N() - 1;
+
+        ActionDist all_Q = {}; // All 0s.
+
+        float v_max = 0;
+        float v_min = 0;
+        for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
+            if (m_actionMask[action] == 0.0f) {
+                // Illegal action, skip.
+                continue;
+            }
+
+            all_Q[action] = child_Q(action);
+            float value = child_Q(action) + uWeight * child_U(action);
+
+            if (value > v_max) {
+                v_max = value;
+            }
+            if (value < v_min) {
+                v_min = value;
+            }
+        }
+        
+        v_max *= 2;
+        v_min *= 2;
+
+        // binary search between v_min and v_max
+        float v = (v_max + v_min) / 2;
+        float epsilon = 0.0001;
+
+        // Avoid bugs in rare cases where v_max and v_min are too close.
+        if (v_max - v_min < epsilon) {
+            v_max += epsilon;
+            v_min -= epsilon;
+        }
+        epsilon = std::min(epsilon, (v_max - v_min) / 100.0f);
+        // In case epsilon is too large.
+        // TODO: figure out what magnitudes are appropriate.
+
+        ActionDist inverse_N = {};
+        while (v_max - v_min > epsilon) {
+            float sum = 0.0f;
+            for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
+                if (m_actionMask[action] == 0.0f) {
+                    // Illegal action, skip.
+                    continue;
+                }
+                if(v < child_Q(action)) {
+                    inverse_N[action] = 0.0f;
+                } else {
+                    inverse_N[action] = std::max(0.0f, uWeight * child_P_model(action) * sqrt(total_N) / (v - child_Q(action)) - 1);
+                }
+                sum += inverse_N[action];
+            }
+
+            if (sum > total_N) {
+                // If sum is too big, we should *increase* v.
+                // This causes the inverse_N to go *down*.
+                v_min = v;
+            } else {
+                v_max = v;
+            }
+
+            v = (v_max + v_min) / 2;
+        }
+
+        return inverse_N;
+    }
+
 
     /**
      * @param uWeight The weighting of the U value compared to the Q value.
@@ -262,20 +348,20 @@ public:
         std::vector<ActionIdx> bestActions;
         float bestValue = -std::numeric_limits<float>::infinity();
 
-        // for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
-        //     if (m_actionMask[action] == 0.0f) {
-        //         // Illegal action, skip.
-        //         continue;
-        //     }
+        for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
+            if (m_actionMask[action] == 0.0f) {
+                // Illegal action, skip.
+                continue;
+            }
 
-        //     if (child_N(action) < child_N_forced(action)) {
-        //         bestActions.push_back(action);
-        //     }
-        // }
+            if (child_N(action) < child_N_forced(action)) {
+                bestActions.push_back(action);
+            }
+        }
 
-        // if (bestActions.size() > 0) {
-        //     return bestActions[GetRandom().UniformInt(0, bestActions.size() - 1)];
-        // }
+        if (bestActions.size() > 0) {
+            return bestActions[GetRandom().UniformInt(0, bestActions.size() - 1)];
+        }
 
         for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
             if (m_actionMask[action] == 0.0f) {
@@ -374,8 +460,12 @@ public:
             }
 
             m_edgeStatistics.m_childPriors[action] = m_networkPolicy[action];
+            // This is here so if addNoise is false, m_modelChildPriors is just m_childPriors.
+            m_edgeStatistics.m_modelChildPriors[action] = m_networkPolicy[action];
             ++numLegal;
         }
+
+        // TODO: @will, why is the m_childPriors not normalized here?
 
         if (addNoise) {
             std::vector<float> noise (numLegal);
@@ -388,7 +478,7 @@ public:
                     continue;
                 }
 
-                m_edgeStatistics.m_childPriors[action]
+                m_edgeStatistics.m_modelChildPriors[action]
                     = (1.0 - m_dirEps) * m_edgeStatistics.m_childPriors[action]
                             + m_dirEps * noise[readIdx];
                                                         
