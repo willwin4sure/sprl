@@ -40,7 +40,8 @@ int main(int argc, char* argv[]) {
         std::make_unique<SPRL::ConnectFourNode>(),
         0.25f,
         0.3f,
-        SPRL::InitQ::PARENT_NN_EVAL,
+        SPRL::InitQ::PARENT_LIVE_Q,
+        true,
         nullptr,
         false
     };

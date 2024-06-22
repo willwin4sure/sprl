@@ -37,18 +37,17 @@ public:
      * @param addNoise Whether to add Dirichlet noise to the decision node.
     */
     UCTTree(std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> gameRoot,
-            float dirEps, float dirAlpha, InitQ initQMethod, bool dropParent = false,
-            ISymmetrizer<State, ACTION_SIZE>* symmetrizer, bool addNoise = true)
+            float dirEps, float dirAlpha, InitQ initQMethod, bool dropParent = true,
+            ISymmetrizer<State, ACTION_SIZE>* symmetrizer = nullptr, bool addNoise = true)
 
         : m_edgeStatistics {},
           m_gameRoot { std::move(gameRoot) },
           m_uctRoot { std::make_unique<UNode>(
-            &m_edgeStatistics, m_gameRoot.get(), dirEps, dirAlpha, initQMethod) },
+            &m_edgeStatistics, m_gameRoot.get(), dirEps, dirAlpha, initQMethod, dropParent) },
           m_decisionNode { m_uctRoot.get() },
           m_dirEps { dirEps },
           m_dirAlpha { dirAlpha },
           m_initQMethod { initQMethod },
-          m_dropParent { dropParent },
           m_addNoise { addNoise },
           m_symmetrizer { symmetrizer } {
 
@@ -313,8 +312,7 @@ private:
 
     float m_dirEps {};
     float m_dirAlpha {};
-    InitQ m_initQMethod { InitQ::PARENT_NN_EVAL };
-    bool m_dropParent { false };
+    InitQ m_initQMethod { InitQ::PARENT_LIVE_Q };
 
     bool m_addNoise { true };
 

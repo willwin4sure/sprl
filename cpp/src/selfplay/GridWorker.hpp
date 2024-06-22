@@ -138,7 +138,8 @@ void runWorker(std::string runName, std::string saveDir,
             maxQueueSize,
             dirEps,
             dirAlpha,
-            InitQ::PARENT_NN_EVAL,
+            InitQ::PARENT_LIVE_Q,
+            true,
             symmetrizer,
             true
         );

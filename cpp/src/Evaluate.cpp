@@ -95,7 +95,8 @@ int main(int argc, char* argv[]) {
             std::make_unique<ImplNode>(),
             0.25,
             0.1,
-            model0UseParentQ ? SPRL::InitQ::PARENT_NN_EVAL : SPRL::InitQ::ZERO,
+            model0UseParentQ ? SPRL::InitQ::PARENT_LIVE_Q : SPRL::InitQ::ZERO,
+            true,
             model0UseSymmetrize ? &symmetrizer : nullptr,
             true
         };
@@ -104,7 +105,8 @@ int main(int argc, char* argv[]) {
             std::make_unique<ImplNode>(),
             0.25,
             0.1,
-            model1UseParentQ ? SPRL::InitQ::PARENT_NN_EVAL : SPRL::InitQ::ZERO,
+            model1UseParentQ ? SPRL::InitQ::PARENT_LIVE_Q : SPRL::InitQ::ZERO,
+            true,
             model1UseSymmetrize ? &symmetrizer : nullptr,
             true
         };

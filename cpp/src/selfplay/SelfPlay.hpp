@@ -53,15 +53,16 @@ std::tuple<std::vector<State>, std::vector<GameActionDist<ACTION_SIZE>>, std::ve
 selfPlay(std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> rootNode,
          INetwork<State, ACTION_SIZE>* network,
          int numTraversals, int maxBatchSize, int maxQueueSize,
-         float dirEps, float dirAlpha, InitQ initQMethod, bool dropParent = false,
-         ISymmetrizer<State, ACTION_SIZE>* symmetrizer, bool addNoise = true) {
+         float dirEps, float dirAlpha, InitQ initQMethod, bool dropParent = true,
+         ISymmetrizer<State, ACTION_SIZE>* symmetrizer = nullptr, bool addNoise = true) {
 
     using ActionDist = GameActionDist<ACTION_SIZE>;
 
     std::vector<State> states;
     std::vector<ActionDist> distributions;
-    std::vector<Value> outcomes;
     std::vector<Player> players;
+    
+    std::vector<Value> outcomes;
 
     std::vector<SymmetryIdx> allSymmetries;  // Contains all symmetries if symmetrizer exists.
 
@@ -79,27 +80,35 @@ selfPlay(std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> rootNode,
         initQMethod,
         dropParent,
         symmetrizer,
-        addNoise
+        addNoise,
     };
 
     int moveCount = 0;
 
     while (!tree.getDecisionNode()->isTerminal()) {
-        if (symmetrizer != nullptr) {
-            // Symmetrize the state and add to data.
-            std::vector<State> symmetrizedStates = symmetrizer->symmetrizeState(
-                tree.getDecisionNode()->getGameState(), allSymmetries);
 
-            states.reserve(states.size() + symmetrizedStates.size());
-            states.insert(states.end(), symmetrizedStates.begin(), symmetrizedStates.end());
+        // with some probability, decide to make a fast play!
+        bool doFullSearch = GetRandom().UniformInt(0, 3) == 0;
 
-        } else {
-            states.push_back(tree.getDecisionNode()->getGameState());
+        if (doFullSearch) {
+            if (symmetrizer != nullptr) {
+                // Symmetrize the state and add to data.
+                std::vector<State> symmetrizedStates = symmetrizer->symmetrizeState(
+                    tree.getDecisionNode()->getGameState(), allSymmetries);
+
+                states.reserve(states.size() + symmetrizedStates.size());
+                states.insert(states.end(), symmetrizedStates.begin(), symmetrizedStates.end());
+
+            } else {
+                states.push_back(tree.getDecisionNode()->getGameState());
+            }
         }
 
         // Perform `numTraversals` many search iterations.
         int traversals = 0;
-        while (traversals < numTraversals) {
+        int numTraversalsOnThisTurn = doFullSearch ? numTraversals : numTraversals / 6; // In the paper, (600, 100). 
+        
+        while (traversals < numTraversalsOnThisTurn) {
             auto [leaves, trav] = tree.searchAndGetLeaves(maxBatchSize, maxQueueSize, network, U_WEIGHT);
 
             if (leaves.size() > 0) {
@@ -110,7 +119,7 @@ selfPlay(std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> rootNode,
         }
 
         // Generate a PDF from the visit counts.
-        ActionDist visits = tree.getDecisionNode()->getEdgeStatistics()->m_numVisits;
+        ActionDist visits = tree.getDecisionNode()->getEdgeStatistics()->m_numVisits; // THIS LINE 
         ActionDist pdf = visits / visits.sum();
 
         // Raise it to 0.98f (temp ~ 1) if early game, else 10.0f (temp -> 0), then renormalize.
@@ -126,23 +135,27 @@ selfPlay(std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> rootNode,
         ActionDist cdf = pdf.cumsum();
         cdf = cdf / cdf[ACTION_SIZE - 1];
 
-        if (symmetrizer != nullptr) {
-            // Symmetrize the distributions and add to data.
-            std::vector<ActionDist> symmetrizedDists = symmetrizer->symmetrizeActionDist(
-                pdf, allSymmetries);
+        if (doFullSearch) {
+            if (symmetrizer != nullptr) {
+                // Symmetrize the distributions and add to data.
+                std::vector<ActionDist> symmetrizedDists = symmetrizer->symmetrizeActionDist(
+                    pdf, allSymmetries);
 
-            distributions.reserve(distributions.size() + symmetrizedDists.size());
-            distributions.insert(distributions.end(), symmetrizedDists.begin(), symmetrizedDists.end());
+                distributions.reserve(distributions.size() + symmetrizedDists.size());
+                distributions.insert(distributions.end(), symmetrizedDists.begin(), symmetrizedDists.end());
 
-        } else {
-            distributions.push_back(pdf);
+            } else {
+                distributions.push_back(pdf);
+            }
         }
 
         // Sample from the CDF.
         int action = GetRandom().SampleCDF(std::vector<float>(cdf.begin(), cdf.end()));
 
-        // Record the player that just took the action.
-        players.push_back(tree.getDecisionNode()->getPlayer());
+        if (doFullSearch) {
+            // Record the player that just took the action.
+            players.push_back(tree.getDecisionNode()->getPlayer());
+        }
 
         // Play the action by rerooting the tree and updating the state.
         tree.advanceDecision(action);
@@ -153,6 +166,7 @@ selfPlay(std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> rootNode,
     std::array<Value, 2> rewards = tree.getDecisionNode()->getRewards();
 
     outcomes.reserve(states.size());
+
     for (Player player : players) {
         switch (player) {
         case Player::ZERO:

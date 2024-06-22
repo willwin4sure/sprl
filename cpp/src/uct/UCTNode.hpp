@@ -69,7 +69,7 @@ public:
      * @param initQMethod The method to use for initializing the Q values of the nodes.
     */
     UCTNode(EdgeStatistics* edgeStats, GameNode<ImplNode, State, ACTION_SIZE>* gameNode,
-            float dirEps = 0.25f, float dirAlpha = 0.1f, InitQ initQMethod = InitQ::PARENT_NN_EVAL, bool dropParent = false)
+            float dirEps = 0.25f, float dirAlpha = 0.1f, InitQ initQMethod = InitQ::PARENT_LIVE_Q, bool dropParent = true)
         : m_gameNode { gameNode }, m_parentEdgeStatistics { edgeStats },
           m_dirEps { dirEps }, m_dirAlpha { dirAlpha }, m_initQMethod { initQMethod }, m_dropParent { dropParent },
           m_isTerminal { m_gameNode->isTerminal() }, m_actionMask { m_gameNode->getActionMask() } {
@@ -87,7 +87,7 @@ public:
      * @param dropParent Whether to drop the parent's network evaluation after expanding.
     */
     UCTNode(UCTNode* parent, ActionIdx action, GameNode<ImplNode, State, ACTION_SIZE>* gameNode,
-            float dirEps = 0.25f, float dirAlpha = 0.1f, InitQ initQMethod = InitQ::PARENT_NN_EVAL, bool dropParent = false)
+            float dirEps = 0.25f, float dirAlpha = 0.1f, InitQ initQMethod = InitQ::PARENT_LIVE_Q, bool dropParent = true)
         : m_parent { parent }, m_action { action }, m_gameNode { gameNode },
           m_dirEps { dirEps }, m_dirAlpha { dirAlpha }, m_initQMethod { initQMethod }, m_dropParent { dropParent },
           m_isTerminal { m_gameNode->isTerminal() }, m_actionMask { m_gameNode->getActionMask() },
@@ -151,21 +151,34 @@ public:
      * @returns The current average action value of this node, as described in UCT.
     */
     float Q() {
-        if ( N() == 0) {
+        if (N() == 0.0f) {
             if (m_initQMethod == InitQ::PARENT_LIVE_Q) {
                 // Return the parent Q value!
-                return m_parent->Q();
-            }else{
+                if (m_parent == nullptr) {
+                    // Small problem: the m_parent pointer doesn't exist if you're at the root node.
+                    return 0.0f;
+
+                } else {
+                    return m_parent->Q();
+                }
+
+            } else {
                 return W();
             }
-        }else{
+            
+        } else {
             if (m_dropParent) {
                 return W() / N();
-            }else{
+
+            } else {
                 return W() / (1 + N());
             }
         }
     }
+
+    // ActionDist playoutsToRemove() {
+
+    // }
 
     /**
      * @param action The action index of the child to query.
@@ -194,17 +207,21 @@ public:
      * @returns The average action value of a particular child, as described in UCT.
     */
     float child_Q(ActionIdx action) {
-        if (child_N(action) == 0) {
+        if (child_N(action) == 0.0f) {
             if (m_initQMethod == InitQ::PARENT_LIVE_Q) {
                 // Return the parent Q value!
                 return Q();
-            }else{
+
+            } else {
+                // Previously, this would've been child_W / (child_N + 1), but this is just child_W.
                 return child_W(action);
             }
-        }else{
+
+        } else {
             if (m_dropParent) {
                 return child_W(action) / child_N(action);
-            }else{
+                
+            } else {
                 return child_W(action) / (1 + child_N(action));
             }
         }
@@ -217,6 +234,10 @@ public:
     */
     float child_U(ActionIdx action) {
         return child_P(action) * std::sqrt(N()) / (1 + child_N(action));  // Adding 1 avoids division by zero.
+    }
+
+    float child_N_forced(ActionIdx action) {
+        return std::sqrt(2 * child_P(action) * (N() - 1));
     }
 
     /**
@@ -235,6 +256,21 @@ public:
 
         std::vector<ActionIdx> bestActions;
         float bestValue = -std::numeric_limits<float>::infinity();
+
+        // for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
+        //     if (m_actionMask[action] == 0.0f) {
+        //         // Illegal action, skip.
+        //         continue;
+        //     }
+
+        //     if (child_N(action) < child_N_forced(action)) {
+        //         bestActions.push_back(action);
+        //     }
+        // }
+
+        // if (bestActions.size() > 0) {
+        //     return bestActions[GetRandom().UniformInt(0, bestActions.size() - 1)];
+        // }
 
         for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
             if (m_actionMask[action] == 0.0f) {
@@ -270,7 +306,7 @@ public:
         if (m_children[action] == nullptr) {
             // Child doesn't exist, so we create it.
             m_children[action] = std::make_unique<UCTNode>(
-                this, action, m_gameNode->getAddChild(action), m_dirEps, m_dirAlpha, m_initQMethod);
+                this, action, m_gameNode->getAddChild(action), m_dirEps, m_dirAlpha, m_initQMethod, m_dropParent);
 
             // Handle Q-initialization based on the method.
             switch (m_initQMethod) {
@@ -394,7 +430,7 @@ private:
 
     float m_dirEps {};                      // Dirichlet noise epsilon.
     float m_dirAlpha {};                    // Dirichlet noise alpha.
-    InitQ m_initQMethod { InitQ::PARENT_NN_EVAL };  // Method to use for initializing Q values.
+    InitQ m_initQMethod { InitQ::PARENT_LIVE_Q };  // Method to use for initializing Q values.
     bool m_dropParent { false };                     // Whether to drop the parent's network evaluation after expanding.
 
     friend class UCTTree<ImplNode, State, ACTION_SIZE>;
