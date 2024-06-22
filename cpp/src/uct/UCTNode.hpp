@@ -236,6 +236,11 @@ public:
         return child_P(action) * std::sqrt(N()) / (1 + child_N(action));  // Adding 1 avoids division by zero.
     }
 
+    /**
+     * @param action The action index of the child to query.
+     *
+     * @returns The number of visits to a particular child that are forced.
+    */
     float child_N_forced(ActionIdx action) {
         return std::sqrt(2 * child_P(action) * (N() - 1));
     }

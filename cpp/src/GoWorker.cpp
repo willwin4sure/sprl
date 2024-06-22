@@ -9,9 +9,9 @@
 // Parameters controlling the training run.
 
 constexpr int NUM_GROUPS = 4;
-constexpr int NUM_WORKER_TASKS = 384;
+constexpr int NUM_WORKER_TASKS = 192;
 
-constexpr int NUM_ITERS = 100;
+constexpr int NUM_ITERS = 200;
 
 constexpr int INIT_NUM_GAMES_PER_WORKER = 5;
 constexpr int INIT_UCT_TRAVERSALS = 16384;
@@ -28,7 +28,7 @@ constexpr float DIRICHLET_ALPHA = 0.2f;
 
 
 int main(int argc, char *argv[]) {
-    std::string runName = "panda_beta";  // Change me too!
+    std::string runName = "panda_gamma_slow";  // Change me too!
 
     if (argc != 3) {
         std::cerr << "Usage: ./GoWorker.exe <task_id> <num_tasks>" << std::endl;

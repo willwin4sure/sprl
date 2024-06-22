@@ -87,8 +87,9 @@ selfPlay(std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> rootNode,
 
     while (!tree.getDecisionNode()->isTerminal()) {
 
-        // with some probability, decide to make a fast play!
+        // With some probability, decide to make a fast play!
         bool doFullSearch = GetRandom().UniformInt(0, 3) == 0;
+        // bool doFullSearch = true;
 
         if (doFullSearch) {
             if (symmetrizer != nullptr) {
