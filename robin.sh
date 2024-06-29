@@ -3,43 +3,55 @@
 module load anaconda/2023a-pytorch
 
 # Initialize and Load Modules
-cd ~/running_sims/sprl
+cd ~/sprl
 
 echo "I am a worker process."
 echo "My task ID: " $LLSUB_RANK
 echo "Number of Tasks: " $LLSUB_SIZE
 
-./cpp/build/RobinWorker $LLSUB_RANK $LLSUB_SIZE 31 \
-    random 0 0 \
-    ./data/models/gorilla_ablation_none/traced_gorilla_ablation_none_iteration_0.pt 0 0 \
-    ./data/models/gorilla_ablation_none/traced_gorilla_ablation_none_iteration_5.pt 0 0 \
-    ./data/models/gorilla_ablation_none/traced_gorilla_ablation_none_iteration_10.pt 0 0 \
-    ./data/models/gorilla_ablation_none/traced_gorilla_ablation_none_iteration_15.pt 0 0 \
-    ./data/models/gorilla_ablation_none/traced_gorilla_ablation_none_iteration_20.pt 0 0 \
-    ./data/models/gorilla_ablation_only_linear/traced_gorilla_ablation_only_linear_iteration_0.pt 0 0 \
-    ./data/models/gorilla_ablation_only_linear/traced_gorilla_ablation_only_linear_iteration_5.pt 0 0 \
-    ./data/models/gorilla_ablation_only_linear/traced_gorilla_ablation_only_linear_iteration_10.pt 0 0 \
-    ./data/models/gorilla_ablation_only_linear/traced_gorilla_ablation_only_linear_iteration_15.pt 0 0 \
-    ./data/models/gorilla_ablation_only_linear/traced_gorilla_ablation_only_linear_iteration_20.pt 0 0 \
-    ./data/models/gorilla_ablation_only_pq/traced_gorilla_ablation_only_pq_iteration_0.pt 0 1 \
-    ./data/models/gorilla_ablation_only_pq/traced_gorilla_ablation_only_pq_iteration_5.pt 0 1 \
-    ./data/models/gorilla_ablation_only_pq/traced_gorilla_ablation_only_pq_iteration_10.pt 0 1 \
-    ./data/models/gorilla_ablation_only_pq/traced_gorilla_ablation_only_pq_iteration_15.pt 0 1 \
-    ./data/models/gorilla_ablation_only_pq/traced_gorilla_ablation_only_pq_iteration_20.pt 0 1 \
-    ./data/models/gorilla_ablation_only_reset/traced_gorilla_ablation_only_reset_iteration_0.pt 0 0 \
-    ./data/models/gorilla_ablation_only_reset/traced_gorilla_ablation_only_reset_iteration_5.pt 0 0 \
-    ./data/models/gorilla_ablation_only_reset/traced_gorilla_ablation_only_reset_iteration_10.pt 0 0 \
-    ./data/models/gorilla_ablation_only_reset/traced_gorilla_ablation_only_reset_iteration_15.pt 0 0 \
-    ./data/models/gorilla_ablation_only_reset/traced_gorilla_ablation_only_reset_iteration_20.pt 0 0 \
-    ./data/models/gorilla_ablation_only_symm/traced_gorilla_ablation_only_symm_iteration_0.pt 1 0 \
-    ./data/models/gorilla_ablation_only_symm/traced_gorilla_ablation_only_symm_iteration_5.pt 1 0 \
-    ./data/models/gorilla_ablation_only_symm/traced_gorilla_ablation_only_symm_iteration_10.pt 1 0 \
-    ./data/models/gorilla_ablation_only_symm/traced_gorilla_ablation_only_symm_iteration_15.pt 1 0 \
-    ./data/models/gorilla_ablation_only_symm/traced_gorilla_ablation_only_symm_iteration_20.pt 1 0 \
-    ./data/models/flamingo/traced_flamingo_iteration_0.pt 1 1 \
-    ./data/models/flamingo/traced_flamingo_iteration_5.pt 1 1 \
-    ./data/models/flamingo/traced_flamingo_iteration_10.pt 1 1 \
-    ./data/models/flamingo/traced_flamingo_iteration_15.pt 1 1 \
-    ./data/models/flamingo/traced_flamingo_iteration_20.pt 1 1 
+./cpp/build/RobinWorker $LLSUB_RANK $LLSUB_SIZE 40 \
+    random \
+    ./data/models/panda_gamma_fast/traced_panda_gamma_fast_iteration_0.pt \
+    ./data/models/panda_gamma_fast/traced_panda_gamma_fast_iteration_10.pt \
+    ./data/models/panda_gamma_fast/traced_panda_gamma_fast_iteration_20.pt \
+    ./data/models/panda_gamma_fast/traced_panda_gamma_fast_iteration_30.pt \
+    ./data/models/panda_gamma_fast/traced_panda_gamma_fast_iteration_40.pt \
+    ./data/models/panda_gamma_fast/traced_panda_gamma_fast_iteration_50.pt \
+    ./data/models/panda_gamma_fast/traced_panda_gamma_fast_iteration_60.pt \
+    ./data/models/panda_gamma_fast/traced_panda_gamma_fast_iteration_70.pt \
+    ./data/models/panda_gamma_fast/traced_panda_gamma_fast_iteration_80.pt \
+    ./data/models/panda_gamma_fast/traced_panda_gamma_fast_iteration_90.pt \
+    ./data/models/panda_gamma_fast/traced_panda_gamma_fast_iteration_100.pt \
+    ./data/models/panda_gamma_fast/traced_panda_gamma_fast_iteration_110.pt \
+    ./data/models/panda_gamma_fast/traced_panda_gamma_fast_iteration_120.pt \
+    ./data/models/panda_gamma_fast/traced_panda_gamma_fast_iteration_130.pt \
+    ./data/models/panda_gamma_fast/traced_panda_gamma_fast_iteration_140.pt \
+    ./data/models/panda_gamma_fast/traced_panda_gamma_fast_iteration_150.pt \
+    ./data/models/panda_gamma_fast/traced_panda_gamma_fast_iteration_160.pt \
+    ./data/models/panda_gamma_fast/traced_panda_gamma_fast_iteration_170.pt \
+    ./data/models/panda_gamma_fast/traced_panda_gamma_fast_iteration_180.pt \
+    ./data/models/panda_gamma_fast/traced_panda_gamma_fast_iteration_190.pt \
+    ./data/models/panda_gamma_slower/traced_panda_gamma_slower_iteration_0.pt \
+    ./data/models/panda_gamma_slower/traced_panda_gamma_slower_iteration_10.pt \
+    ./data/models/panda_gamma_slower/traced_panda_gamma_slower_iteration_20.pt \
+    ./data/models/panda_gamma_slower/traced_panda_gamma_slower_iteration_30.pt \
+    ./data/models/panda_gamma_slower/traced_panda_gamma_slower_iteration_40.pt \
+    ./data/models/panda_gamma_slower/traced_panda_gamma_slower_iteration_50.pt \
+    ./data/models/panda_gamma_slower/traced_panda_gamma_slower_iteration_60.pt \
+    ./data/models/panda_gamma_slower/traced_panda_gamma_slower_iteration_70.pt \
+    ./data/models/panda_gamma_slower/traced_panda_gamma_slower_iteration_80.pt \
+    ./data/models/panda_gamma_slower/traced_panda_gamma_slower_iteration_90.pt \
+    ./data/models/panda_gamma_slower/traced_panda_gamma_slower_iteration_100.pt \
+    ./data/models/panda_gamma_slower/traced_panda_gamma_slower_iteration_110.pt \
+    ./data/models/panda_gamma_slower/traced_panda_gamma_slower_iteration_120.pt \
+    ./data/models/panda_gamma_slower/traced_panda_gamma_slower_iteration_130.pt \
+    ./data/models/panda_gamma_slower/traced_panda_gamma_slower_iteration_140.pt \
+    ./data/models/panda_gamma_slower/traced_panda_gamma_slower_iteration_150.pt \
+    ./data/models/panda_gamma_slower/traced_panda_gamma_slower_iteration_160.pt \
+    ./data/models/panda_gamma_slower/traced_panda_gamma_slower_iteration_170.pt \
+    ./data/models/panda_gamma_slower/traced_panda_gamma_slower_iteration_180.pt \
 
 echo "Done."
+
+echo "Starting robin.py"
+python robin.py

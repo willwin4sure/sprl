@@ -94,7 +94,7 @@ selfPlay(
             auto [leaves, trav] = tree.searchAndGetLeaves(iterationOptions.MAX_BATCH_SIZE, iterationOptions.MAX_QUEUE_SIZE, network);
 
             if (leaves.size() > 0) {
-                tree.evaluateAndBackpropLeaves(leaves, network);
+                tree.evaluateAndBackpropLeaves(leaves, network, doFullSearch);
             }
 
             traversals += trav;

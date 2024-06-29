@@ -52,12 +52,18 @@ NUM_PAST_ITERS_TO_TRAIN = 10
 MAX_GROUPS = 10
 EPOCHS_PER_GROUP = 10
 
+# # If the neural network is fully optimized on epoch <= JAM_EPOCH_THRESHOLD for JAM_GROUP_THRESHOLD groups,
+# # we will train the network for EPOCHS_PER_GROUP no matter what. This is experimental; it is meant to
+# # allow the network to massively overfit in the hope that it will learn *something*.
+# JAM_GROUP_THRESHOLD = 3
+# JAM_EPOCH_THRESHOLD = 3
+
 BATCH_SIZE = 1024
 LR_INIT = 0.001
 LR_DECAY_FACTOR = 0.1
 LR_MILESTONE_ITERS = [50, 100]
 
-RUN_NAME = "panda_gamma_slow"
+RUN_NAME = "panda_gamma_faster"
 
 
 device = "cuda" if torch.cuda.is_available() else "cpu"

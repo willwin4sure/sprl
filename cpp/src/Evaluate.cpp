@@ -35,8 +35,12 @@ constexpr int ACTION_SIZE = SPRL::GO_ACTION_SIZE;
 constexpr int HISTORY_SIZE = SPRL::GO_HISTORY_SIZE;
 
 int main(int argc, char* argv[]) {
-    if (argc != 11) {
-        std::cerr << "Usage: ./Evaluate.exe <modelPath0> <modelPath1> <numGames> <numTraversals> <maxBatchSize> <maxQueueSize> <model0UseSymmetrize> <model0UseParentQ> <model1UseSymmetrize> <model1UseParentQ>" << std::endl;
+    if (argc != 7) {
+        std::cerr << "Usage: ./Evaluate.exe <modelPath0> <modelPath1> <numGames> <numTraversals> <maxBatchSize> <maxQueueSize>" << std::endl;
+        // <model0UseSymmetrize> <model0UseParentQ> <model1UseSymmetrize> <model1UseParentQ>
+
+        // Example:
+        // ./Evaluate /home/gridsan/rzhong/sprl/data/models/panda_gamma_slower/traced_panda_gamma_slower_iteration_179.pt /home/gridsan/rzhong/sprl/data/models/panda_gamma_fast/traced_panda_gamma_fast_iteration_199.pt 100 1024 16 8
         return 1;
     }
 
@@ -46,10 +50,10 @@ int main(int argc, char* argv[]) {
     int numTraversals = std::stoi(argv[4]);
     int maxBatchSize = std::stoi(argv[5]);
     int maxQueueSize = std::stoi(argv[6]);
-    bool model0UseSymmetrize = std::stoi(argv[7]) > 0;
-    bool model0UseParentQ = std::stoi(argv[8]) > 0;
-    bool model1UseSymmetrize = std::stoi(argv[9]) > 0;
-    bool model1UseParentQ = std::stoi(argv[10]) > 0;
+    // bool model0UseSymmetrize = std::stoi(argv[7]) > 0;
+    // bool model0UseParentQ = std::stoi(argv[8]) > 0;
+    // bool model1UseSymmetrize = std::stoi(argv[9]) > 0;
+    // bool model1UseParentQ = std::stoi(argv[10]) > 0;
 
     using State = SPRL::GridState<BOARD_SIZE, HISTORY_SIZE>;
     using ImplNode = SPRL::GoNode;
@@ -95,9 +99,9 @@ int main(int argc, char* argv[]) {
             std::make_unique<ImplNode>(),
             0.25,
             0.1,
-            model0UseParentQ ? SPRL::InitQ::PARENT_LIVE_Q : SPRL::InitQ::ZERO,
+            SPRL::InitQ::PARENT_LIVE_Q,
             true,
-            model0UseSymmetrize ? &symmetrizer : nullptr,
+            &symmetrizer,
             true
         };
 
@@ -105,9 +109,9 @@ int main(int argc, char* argv[]) {
             std::make_unique<ImplNode>(),
             0.25,
             0.1,
-            model1UseParentQ ? SPRL::InitQ::PARENT_LIVE_Q : SPRL::InitQ::ZERO,
+            SPRL::InitQ::PARENT_LIVE_Q,
             true,
-            model1UseSymmetrize ? &symmetrizer : nullptr,
+            &symmetrizer,
             true
         };
 
@@ -154,8 +158,8 @@ int main(int argc, char* argv[]) {
 
         pbar << "Player 0 wins: " << numWins0 << ", Player 1 wins: " << numWins1 << ", Draws: " << t + 1 - numWins0 - numWins1;
 
-        int x;
-        std::cin >> x;
+        // int x;
+        // std::cin >> x;
     }
 
     return 0;

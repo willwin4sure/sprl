@@ -75,7 +75,7 @@ public:
      * @returns This batch of empty leaves, as well as the number of leaf selections performed.
     */
     std::pair<std::vector<UNode*>, int> searchAndGetLeaves(
-        int maxBatchSize, int maxQueueSize, INetwork<State, ACTION_SIZE>* network, float uWeight = 1.0f) {
+        int maxBatchSize, int maxQueueSize, INetwork<State, ACTION_SIZE>* network, bool doFullSearch = true, float uWeight = 1.0f) {
 
         std::vector<UNode*> leaves;
 
@@ -95,7 +95,7 @@ public:
 
             } else if (leaf->m_isNetworkEvaluated) {
                 // Gray case: expand the node to active and backpropagate the network value estimate.
-                leaf->expand(m_addNoise && (leaf == m_decisionNode));  // Only add noise if decision node.
+                leaf->expand(m_addNoise && (leaf == m_decisionNode) && doFullSearch);  // Only add noise if decision node and full search.
 
                 backup(leaf, leaf->m_networkValue);
                 continue;
@@ -122,7 +122,7 @@ public:
      * @param leaves The leaves to evaluate and backpropagate.
      * @param network The network to evaluate the leaves with.
     */
-    void evaluateAndBackpropLeaves(const std::vector<UNode*>& leaves, INetwork<State, ACTION_SIZE>* network) {
+    void evaluateAndBackpropLeaves(const std::vector<UNode*>& leaves, INetwork<State, ACTION_SIZE>* network, bool doFullSearch = true) {
         int numLeaves = leaves.size();
 
         assert(numLeaves > 0);
@@ -176,7 +176,7 @@ public:
 
             if (!leaf->m_isExpanded) {
                 // Expand the node, making the leaf active.
-                leaf->expand(m_addNoise && (leaf == m_decisionNode));  // Only add noise if decision node.
+                leaf->expand(m_addNoise && (leaf == m_decisionNode) && doFullSearch);  // Only add noise if decision node and full search.
             }
             
             // Backpropagate the network value estimate.
