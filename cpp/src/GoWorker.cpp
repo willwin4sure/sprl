@@ -9,7 +9,7 @@
 #include "selfplay/Options.hpp"
 
 
-constexpr SPRL::NodeOptions nodeOptions = {
+constexpr SPRL::NodeOptions goNodeOptions = {
     .dirEps = 0.25f,
     .dirAlpha = 0.2f,
     .initQMethod = SPRL::InitQ::PARENT_LIVE_Q,
@@ -17,33 +17,36 @@ constexpr SPRL::NodeOptions nodeOptions = {
 };
 
 
-constexpr SPRL::TreeOptions treeOptions = {
+constexpr SPRL::TreeOptions goTreeOptions = {
     .addNoise = true,
-    .nodeOptions = nodeOptions
+    .nodeOptions = goNodeOptions
 };
 
-constexpr SPRL::IterationOptions iterationOptions = {
+constexpr SPRL::IterationOptions goIterationOptions = {
     .NUM_GAMES_PER_WORKER = 5,
     .UCT_TRAVERSALS = 4096,
     .MAX_BATCH_SIZE = 16,
     .MAX_QUEUE_SIZE = 8,
-    .treeOptions = treeOptions
+    .treeOptions = goTreeOptions
 };
 
-constexpr SPRL::IterationOptions initIterationOptions = {
+constexpr SPRL::IterationOptions goInitIterationOptions = {
     .NUM_GAMES_PER_WORKER = 5,
     .UCT_TRAVERSALS = 16384,
     .MAX_BATCH_SIZE = 1,
     .MAX_QUEUE_SIZE = 1,
-    .treeOptions = treeOptions
+    .EARLY_GAME_CUTOFF = 15,
+    .EARLY_GAME_EXP = 0.98f,
+    .REST_GAME_EXP = 10.0f,
+    .treeOptions = goTreeOptions
 };
 
-constexpr SPRL::WorkerOptions workerOptions = {
+constexpr SPRL::WorkerOptions goWorkerOptions = {
     .NUM_GROUPS = 4,
     .NUM_WORKER_TASKS = 192,
     .numIters = 200,
-    .iterationOptions = iterationOptions,
-    .initIterationOptions = initIterationOptions,
+    .iterationOptions = goIterationOptions,
+    .initIterationOptions = goInitIterationOptions,
     .model_name = "panda_gamma",
     .model_variant = "slow"
 };
@@ -55,14 +58,14 @@ int main(int argc, char *argv[]) {
         std::cerr << "Usage: ./GoWorker.exe <task_id> <num_tasks>" << std::endl;
         return 1;
     }
-    std::string runName = std::string(workerOptions.model_name) + "_" + workerOptions.model_variant;
+    std::string runName = std::string(goWorkerOptions.model_name) + "_" + goWorkerOptions.model_variant;
 
     int myTaskId = std::stoi(argv[1]);
     int numTasks = std::stoi(argv[2]);
 
-    assert(numTasks == workerOptions.NUM_WORKER_TASKS);
+    assert(numTasks == goWorkerOptions.NUM_WORKER_TASKS);
 
-    int myGroup = myTaskId / (workerOptions.NUM_WORKER_TASKS / workerOptions.NUM_GROUPS);
+    int myGroup = myTaskId / (goWorkerOptions.NUM_WORKER_TASKS / goWorkerOptions.NUM_GROUPS);
 
     // Log who I am.
     std::cout << "Task " << myTaskId << " of " << numTasks << ", in group " << myGroup << "." << std::endl;
@@ -79,7 +82,7 @@ int main(int argc, char *argv[]) {
                     SPRL::GO_BOARD_WIDTH,
                     SPRL::GO_HISTORY_SIZE,
                     SPRL::GO_ACTION_SIZE>(
-        workerOptions, &randomNetwork, &symmetrizer, saveDir
+        goWorkerOptions, &randomNetwork, &symmetrizer, saveDir
     );
 
     return 0;

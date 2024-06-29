@@ -37,9 +37,9 @@ struct IterationOptions {
     int UCT_TRAVERSALS;
     int MAX_BATCH_SIZE;
     int MAX_QUEUE_SIZE;
-    int EARLY_GAME_CUTOFF = 15;
-    float EARLY_GAME_EXP = 0.98f;
-    float REST_GAME_EXP = 10.0f;
+    int EARLY_GAME_CUTOFF;
+    float EARLY_GAME_EXP;
+    float REST_GAME_EXP;
     TreeOptions treeOptions;
 };
 
