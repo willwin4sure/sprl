@@ -4,6 +4,7 @@
 #include "../games/GameNode.hpp"
 #include "../networks/INetwork.hpp"
 #include "../symmetry/ISymmetrizer.hpp"
+#include "../selfplay/Options.hpp"
 
 #include "UCTNode.hpp"
 
@@ -36,21 +37,20 @@ public:
      * @param symmetrizer The symmetrizer for the game state.
      * @param addNoise Whether to add Dirichlet noise to the decision node.
     */
-    UCTTree(std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> gameRoot,
-            float dirEps, float dirAlpha, InitQ initQMethod, bool dropParent = true,
-            ISymmetrizer<State, ACTION_SIZE>* symmetrizer = nullptr, bool addNoise = true)
-
-        : m_edgeStatistics {},
-          m_gameRoot { std::move(gameRoot) },
-          m_uctRoot { std::make_unique<UNode>(
-            &m_edgeStatistics, m_gameRoot.get(), dirEps, dirAlpha, initQMethod, dropParent) },
-          m_decisionNode { m_uctRoot.get() },
-          m_dirEps { dirEps },
-          m_dirAlpha { dirAlpha },
-          m_initQMethod { initQMethod },
-          m_addNoise { addNoise },
-          m_symmetrizer { symmetrizer } {
-
+    UCTTree(
+            TreeOptions treeOptions,
+            ISymmetrizer<State, ACTION_SIZE>* symmetrizer = nullptr
+    ):   
+        m_edgeStatistics {},
+        m_addNoise { treeOptions.addNoise },
+        m_symmetrizer { symmetrizer }
+    {
+        m_gameRoot = std::make_unique<GameNode<ImplNode, State, ACTION_SIZE>>();
+        NodeOptions nodeOptions = treeOptions.nodeOptions;
+        m_uctRoot = std::make_unique<UNode>(
+            nodeOptions, &m_edgeStatistics, m_gameRoot.get()
+        );
+        m_decisionNode = m_uctRoot.get();
     }
 
     /**
@@ -228,7 +228,7 @@ private:
 
         while (current->m_isExpanded && !current->m_isTerminal) {
             // Keep selecting down active nodes.
-            ActionIdx bestAction = current->bestAction(uWeight);
+            ActionIdx bestAction = current->bestAction();
 
             // Record a virtual loss to discount retracing the same path again.
             current->N()++;
@@ -310,9 +310,9 @@ private:
     /// The current node in the tree, i.e. our decision point for the next action.
     UNode* m_decisionNode;
 
-    float m_dirEps {};
-    float m_dirAlpha {};
-    InitQ m_initQMethod { InitQ::PARENT_LIVE_Q };
+    // float m_dirEps {};
+    // float m_dirAlpha {};
+    // InitQ m_initQMethod { InitQ::PARENT_LIVE_Q };
 
     bool m_addNoise { true };
 

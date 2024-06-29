@@ -4,8 +4,10 @@
 #include "../games/GameNode.hpp"
 
 #include "../utils/random.hpp"
+#include "../selfplay/Options.hpp"
 
 #include "../constants.hpp"
+
 
 #include <array>
 #include <cassert>
@@ -17,15 +19,6 @@ namespace SPRL {
 // Forward declaration of the UCT tree class.
 template<typename ImplNode, typename State, int ACTION_SIZE>
 class UCTTree;
-
-/**
- * Supported methods of initializing the Q values of the nodes.
-*/
-enum class InitQ {
-    ZERO,    // Always initialize to zero.
-    PARENT_NN_EVAL,  // Initialize to the network output of the parent, if available.
-    PARENT_LIVE_Q     // Todo: write description.
-};
 
 /**
  * Class representing a node in the tree for the UCT algorithm.
@@ -70,11 +63,16 @@ public:
      * @param dirAlpha The alpha parameter for Dirichlet noise.
      * @param initQMethod The method to use for initializing the Q values of the nodes.
     */
-    UCTNode(EdgeStatistics* edgeStats, GameNode<ImplNode, State, ACTION_SIZE>* gameNode,
-            float dirEps = 0.25f, float dirAlpha = 0.1f, InitQ initQMethod = InitQ::PARENT_LIVE_Q, bool dropParent = true)
-        : m_gameNode { gameNode }, m_parentEdgeStatistics { edgeStats },
-          m_dirEps { dirEps }, m_dirAlpha { dirAlpha }, m_initQMethod { initQMethod }, m_dropParent { dropParent },
-          m_isTerminal { m_gameNode->isTerminal() }, m_actionMask { m_gameNode->getActionMask() } {
+    UCTNode(
+            NodeOptions nodeOptions,
+            EdgeStatistics* edgeStats,
+            GameNode<ImplNode, State, ACTION_SIZE>* gameNode
+    ):
+        m_gameNode { gameNode }, m_parentEdgeStatistics { edgeStats },
+        m_dirEps { nodeOptions.dirEps }, m_dirAlpha { nodeOptions.dirAlpha },
+        m_initQMethod { nodeOptions.initQMethod }, m_dropParent { nodeOptions.dropParent },
+        m_uWeight { nodeOptions.uWeight },
+        m_isTerminal { m_gameNode->isTerminal() }, m_actionMask { m_gameNode->getActionMask() } {
     }
 
     /**
@@ -83,18 +81,14 @@ public:
      * @param parent Pointer to the parent UCT node.
      * @param action The action taken to reach this node.
      * @param gameNode The game node corresponding to this UCT node.
-     * @param dirEps The epsilon parameter for Dirichlet noise.
-     * @param dirAlpha The alpha parameter for Dirichlet noise.
-     * @param initQMethod The method to use for initializing the Q values of the nodes.
-     * @param dropParent Whether to drop the parent's network evaluation after expanding.
     */
-    UCTNode(UCTNode* parent, ActionIdx action, GameNode<ImplNode, State, ACTION_SIZE>* gameNode,
-            float dirEps = 0.25f, float dirAlpha = 0.1f, InitQ initQMethod = InitQ::PARENT_LIVE_Q, bool dropParent = true)
+    UCTNode(UCTNode* parent, ActionIdx action, GameNode<ImplNode, State, ACTION_SIZE>* gameNode)
         : m_parent { parent }, m_action { action }, m_gameNode { gameNode },
-          m_dirEps { dirEps }, m_dirAlpha { dirAlpha }, m_initQMethod { initQMethod }, m_dropParent { dropParent },
+          m_dirEps { parent->m_dirEps }, m_dirAlpha { parent->m_dirAlpha },
+          m_initQMethod { parent->m_initQMethod }, m_dropParent { parent->m_dropParent },
+          m_uWeight { parent->m_uWeight },
           m_isTerminal { m_gameNode->isTerminal() }, m_actionMask { m_gameNode->getActionMask() },
           m_parentEdgeStatistics { &parent->m_edgeStatistics } {
-
     }
 
     /**
@@ -259,7 +253,7 @@ public:
      * 
      * @returns The policy target for the UCT algorithm.
      */
-    ActionDist getPolicyTarget(float uWeight) const {
+    ActionDist getPolicyTarget() const {
         // Subtract 1 because I'm talking about the number of child playouts.
         float total_N = N() - 1;
 
@@ -274,7 +268,7 @@ public:
             }
 
             all_Q[action] = child_Q(action);
-            float value = child_Q(action) + uWeight * child_U(action);
+            float value = child_Q(action) + m_uWeight * child_U(action);
 
             if (value > v_max) {
                 v_max = value;
@@ -311,7 +305,7 @@ public:
                 if(v < child_Q(action)) {
                     inverse_N[action] = 0.0f;
                 } else {
-                    inverse_N[action] = std::max(0.0f, uWeight * child_P_model(action) * sqrt(total_N) / (v - child_Q(action)) - 1);
+                    inverse_N[action] = std::max(0.0f, m_uWeight * child_P_model(action) * sqrt(total_N) / (v - child_Q(action)) - 1);
                 }
                 sum += inverse_N[action];
             }
@@ -332,14 +326,12 @@ public:
 
 
     /**
-     * @param uWeight The weighting of the U value compared to the Q value.
-     * 
      * @returns The action index of the best move according to the UCT algorithm.
      * 
      * @note Can only be applied on active nodes, i.e.
      * non-terminals that are evaluated and expanded.
     */
-    ActionIdx bestAction(float uWeight) {
+    ActionIdx bestAction() {
         assert(!m_isTerminal);
 
         assert(m_isExpanded);
@@ -369,7 +361,7 @@ public:
                 continue;
             }
 
-            const float value = child_Q(action) + uWeight * child_U(action);
+            const float value = child_Q(action) + m_uWeight * child_U(action);
 
             if (value > bestValue) {
                 bestValue = value;
@@ -397,7 +389,7 @@ public:
         if (m_children[action] == nullptr) {
             // Child doesn't exist, so we create it.
             m_children[action] = std::make_unique<UCTNode>(
-                this, action, m_gameNode->getAddChild(action), m_dirEps, m_dirAlpha, m_initQMethod, m_dropParent);
+                this, action, m_gameNode->getAddChild(action));
 
             // Handle Q-initialization based on the method.
             switch (m_initQMethod) {
@@ -465,8 +457,6 @@ public:
             ++numLegal;
         }
 
-        // TODO: @will, why is the m_childPriors not normalized here?
-
         if (addNoise) {
             std::vector<float> noise (numLegal);
             GetRandom().Dirichlet(m_dirAlpha, noise);
@@ -527,6 +517,8 @@ private:
     float m_dirAlpha {};                    // Dirichlet noise alpha.
     InitQ m_initQMethod { InitQ::PARENT_LIVE_Q };  // Method to use for initializing Q values.
     bool m_dropParent { false };                     // Whether to drop the parent's network evaluation after expanding.
+
+    float m_uWeight {}; // PUCT = Q + uWeight * U.
 
     friend class UCTTree<ImplNode, State, ACTION_SIZE>;
 };

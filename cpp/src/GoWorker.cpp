@@ -6,41 +6,63 @@
 
 #include "symmetry/D4GridSymmetrizer.hpp" 
 
-// Parameters controlling the training run.
+#include "selfplay/Options.hpp"
 
-constexpr int NUM_GROUPS = 4;
-constexpr int NUM_WORKER_TASKS = 192;
 
-constexpr int NUM_ITERS = 200;
+constexpr SPRL::NodeOptions nodeOptions = {
+    .dirEps = 0.25f,
+    .dirAlpha = 0.2f,
+    .initQMethod = SPRL::InitQ::PARENT_LIVE_Q,
+    .dropParent = true
+};
 
-constexpr int INIT_NUM_GAMES_PER_WORKER = 5;
-constexpr int INIT_UCT_TRAVERSALS = 16384;
-constexpr int INIT_MAX_BATCH_SIZE = 1;
-constexpr int INIT_MAX_QUEUE_SIZE = 1;
 
-constexpr int NUM_GAMES_PER_WORKER = 5;
-constexpr int UCT_TRAVERSALS = 4096;
-constexpr int MAX_BATCH_SIZE = 16;
-constexpr int MAX_QUEUE_SIZE = 8;
+constexpr SPRL::TreeOptions treeOptions = {
+    .addNoise = true,
+    .nodeOptions = nodeOptions
+};
 
-constexpr float DIRICHLET_EPSILON = 0.25f;
-constexpr float DIRICHLET_ALPHA = 0.2f;
+constexpr SPRL::IterationOptions iterationOptions = {
+    .NUM_GAMES_PER_WORKER = 5,
+    .UCT_TRAVERSALS = 4096,
+    .MAX_BATCH_SIZE = 16,
+    .MAX_QUEUE_SIZE = 8,
+    .treeOptions = treeOptions
+};
+
+constexpr SPRL::IterationOptions initIterationOptions = {
+    .NUM_GAMES_PER_WORKER = 5,
+    .UCT_TRAVERSALS = 16384,
+    .MAX_BATCH_SIZE = 1,
+    .MAX_QUEUE_SIZE = 1,
+    .treeOptions = treeOptions
+};
+
+constexpr SPRL::WorkerOptions workerOptions = {
+    .NUM_GROUPS = 4,
+    .NUM_WORKER_TASKS = 192,
+    .numIters = 200,
+    .iterationOptions = iterationOptions,
+    .initIterationOptions = initIterationOptions,
+    .model_name = "panda_gamma",
+    .model_variant = "slow"
+};
+
 
 
 int main(int argc, char *argv[]) {
-    std::string runName = "panda_gamma_slow";  // Change me too!
-
     if (argc != 3) {
         std::cerr << "Usage: ./GoWorker.exe <task_id> <num_tasks>" << std::endl;
         return 1;
     }
+    std::string runName = std::string(workerOptions.model_name) + "_" + workerOptions.model_variant;
 
     int myTaskId = std::stoi(argv[1]);
     int numTasks = std::stoi(argv[2]);
 
-    assert(numTasks == NUM_WORKER_TASKS);
+    assert(numTasks == workerOptions.NUM_WORKER_TASKS);
 
-    int myGroup = myTaskId / (NUM_WORKER_TASKS / NUM_GROUPS);
+    int myGroup = myTaskId / (workerOptions.NUM_WORKER_TASKS / workerOptions.NUM_GROUPS);
 
     // Log who I am.
     std::cout << "Task " << myTaskId << " of " << numTasks << ", in group " << myGroup << "." << std::endl;
@@ -57,12 +79,7 @@ int main(int argc, char *argv[]) {
                     SPRL::GO_BOARD_WIDTH,
                     SPRL::GO_HISTORY_SIZE,
                     SPRL::GO_ACTION_SIZE>(
-
-        runName, saveDir, &randomNetwork, &symmetrizer,
-        NUM_ITERS,
-        INIT_NUM_GAMES_PER_WORKER, INIT_UCT_TRAVERSALS, INIT_MAX_BATCH_SIZE, INIT_MAX_QUEUE_SIZE,
-        NUM_GAMES_PER_WORKER, UCT_TRAVERSALS, MAX_BATCH_SIZE, MAX_QUEUE_SIZE,
-        DIRICHLET_EPSILON, DIRICHLET_ALPHA
+        workerOptions, &randomNetwork, &symmetrizer, saveDir
     );
 
     return 0;

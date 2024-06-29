@@ -11,6 +11,7 @@
 #include "../networks/INetwork.hpp"
 #include "../symmetry/ISymmetrizer.hpp"
 #include "../uct/UCTTree.hpp"
+#include "../selfplay/Options.hpp"
 
 #include "../utils/random.hpp"
 #include "../utils/tqdm.hpp"
@@ -29,7 +30,6 @@ namespace SPRL {
  * @tparam State The state of the game, e.g. `GridState`.
  * @tparam ACTION_SIZE The size of the action space.
  * 
- * @param rootNode The root node of the game tree.
  * @param network The neural network to use for evaluation.
  * @param numTraversals The number of UCT traversals to run per move.
  * @param maxBatchSize The maximum number of traversals per batch of search.
@@ -50,11 +50,11 @@ namespace SPRL {
 */
 template <typename ImplNode, typename State, int ACTION_SIZE>
 std::tuple<std::vector<State>, std::vector<GameActionDist<ACTION_SIZE>>, std::vector<Value>>
-selfPlay(std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> rootNode,
-         INetwork<State, ACTION_SIZE>* network,
-         int numTraversals, int maxBatchSize, int maxQueueSize,
-         float dirEps, float dirAlpha, InitQ initQMethod, bool dropParent = true,
-         ISymmetrizer<State, ACTION_SIZE>* symmetrizer = nullptr, bool addNoise = true) {
+selfPlay(
+        IterationOptions iterationOptions,
+        INetwork<State, ACTION_SIZE>* network,
+        ISymmetrizer<State, ACTION_SIZE>* symmetrizer
+    ) {
 
     using ActionDist = GameActionDist<ACTION_SIZE>;
 
@@ -74,13 +74,8 @@ selfPlay(std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> rootNode,
 
     // Initialize the UCT tree.
     UCTTree<ImplNode, State, ACTION_SIZE> tree {
-        std::move(rootNode),
-        dirEps,
-        dirAlpha,
-        initQMethod,
-        dropParent,
-        symmetrizer,
-        addNoise,
+        iterationOptions.treeOptions,
+        symmetrizer
     };
 
     int moveCount = 0;
@@ -93,10 +88,10 @@ selfPlay(std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> rootNode,
 
         // Perform `numTraversals` many search iterations.
         int traversals = 0;
-        int numTraversalsOnThisTurn = doFullSearch ? numTraversals : numTraversals / 6; // In the paper, (600, 100). 
+        int numTraversalsOnThisTurn = doFullSearch ? iterationOptions.UCT_TRAVERSALS : iterationOptions.UCT_TRAVERSALS / 6; // In the paper, (600, 100). 
         
         while (traversals < numTraversalsOnThisTurn) {
-            auto [leaves, trav] = tree.searchAndGetLeaves(maxBatchSize, maxQueueSize, network, U_WEIGHT);
+            auto [leaves, trav] = tree.searchAndGetLeaves(iterationOptions.MAX_BATCH_SIZE, iterationOptions.MAX_QUEUE_SIZE, network);
 
             if (leaves.size() > 0) {
                 tree.evaluateAndBackpropLeaves(leaves, network);
@@ -121,10 +116,10 @@ selfPlay(std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> rootNode,
 
 
         // Raise it to 0.98f (temp ~ 1) if early game, else 10.0f (temp -> 0), then renormalize.
-        if (moveCount < EARLY_GAME_CUTOFF) {
-            pdf = pdf.pow(EARLY_GAME_EXP);
+        if (moveCount < iterationOptions.EARLY_GAME_CUTOFF) {
+            pdf = pdf.pow(iterationOptions.EARLY_GAME_EXP);
         } else {
-            pdf = pdf.pow(REST_GAME_EXP);
+            pdf = pdf.pow(iterationOptions.REST_GAME_EXP);
         }
 
         pdf = pdf / pdf.sum();
@@ -222,7 +217,7 @@ void insertTrainingData(UCTTree<ImplNode, State, ACTION_SIZE>& tree,
         states.push_back(tree.getDecisionNode()->getGameState());
     }
     
-    ActionDist pdf = tree.getDecisionNode()->getPolicyTarget(U_WEIGHT);
+    ActionDist pdf = tree.getDecisionNode()->getPolicyTarget();
     
     if (symmetrizer != nullptr) {
         // Symmetrize the distributions and add to data.
@@ -253,10 +248,9 @@ void insertTrainingData(UCTTree<ImplNode, State, ACTION_SIZE>& tree,
 */
 template <typename ImplNode, typename State, int ACTION_SIZE>
 std::tuple<std::vector<State>, std::vector<GameActionDist<ACTION_SIZE>>, std::vector<Value>>
-runIteration(INetwork<State, ACTION_SIZE>* network, int numGames,
-             int numTraversals, int maxBatchSize, int maxQueueSize,
-             float dirEps, float dirAlpha, InitQ initQMethod, bool dropParent,
-             ISymmetrizer<State, ACTION_SIZE>* symmetrizer, bool addNoise = true) {
+runIteration(IterationOptions iterationOptions,
+            INetwork<State, ACTION_SIZE>* network,
+            ISymmetrizer<State, ACTION_SIZE>* symmetrizer) {
 
     using ActionDist = GameActionDist<ACTION_SIZE>;
 
@@ -264,21 +258,11 @@ runIteration(INetwork<State, ACTION_SIZE>* network, int numGames,
     std::vector<ActionDist> allDistributions;
     std::vector<Value> allOutcomes;
 
-    for (int t = 0; t < numGames; ++t) {
-        std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> rootNode = std::make_unique<ImplNode>();
-
-        auto [states, distributions, outcomes] = selfPlay(
-            std::move(rootNode),
+    for (int t = 0; t < iterationOptions.NUM_GAMES_PER_WORKER; ++t) {
+        auto [states, distributions, outcomes] = selfPlay<ImplNode, State, ACTION_SIZE>(
+            iterationOptions,
             network,
-            numTraversals,
-            maxBatchSize,
-            maxQueueSize,
-            dirEps,
-            dirAlpha,
-            initQMethod,
-            dropParent,
-            symmetrizer,
-            addNoise
+            symmetrizer
         );
 
         allStates.reserve(allStates.size() + states.size());

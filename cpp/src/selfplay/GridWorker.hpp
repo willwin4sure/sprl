@@ -65,33 +65,21 @@ std::string waitModelPath(int iteration, const std::string& runName) {
  * @tparam HISTORY_SIZE The number of previous states to include in the state.
  * @tparam ACTION_SIZE The number of actions in the action space.
  * 
- * @param runName The name of the run, defining the model file path.
- * @param saveDir The directory to save the self-play data to.
- * @param initialNetwork The initial network to use for the first iteration.
- * @param symmetrizer The symmetrizer to use for symmetrizing the network and data.
  * @param numIters The number of self-play/training loop iterations to run.
- * @param initNumGamesPerWorker The initial number of games to play per worker, per iteration.
- * @param initUctTraversals The initial number of UCT traversals to run per move.
- * @param initMaxBatchSize The initial maximum number of traversals per batch of search.
- * @param initMaxQueueSize The initial maximum number of states to evaluate per batch of search.
- * @param numGamesPerWorker The number of games to play per worker, per iteration.
- * @param uctTraversals The number of UCT traversals to run per move.
- * @param maxBatchSize The maximum number of traversals per batch of search.
- * @param maxQueueSize The maximum number of states to evaluate per batch of search.
- * @param dirEps The epsilon value for the Dirichlet noise.
- * @param dirAlpha The alpha value for the Dirichlet noise.
+ * @param symmetrizer The symmetrizer to use for symmetrizing the network and data.
+ * @param options See `options.md` for a description of the options.
+ * @param saveDir The directory to save the self-play data to.
  */
 template <typename NeuralNetwork, typename ImplNode, int NUM_ROWS, int NUM_COLS, int HISTORY_SIZE, int ACTION_SIZE>
-void runWorker(std::string runName, std::string saveDir,
+void runWorker(SPRL::WorkerOptions workerOptions,
                INetwork<GridState<NUM_ROWS * NUM_COLS, HISTORY_SIZE>, ACTION_SIZE>* initialNetwork,
                ISymmetrizer<GridState<NUM_ROWS * NUM_COLS, HISTORY_SIZE>, ACTION_SIZE>* symmetrizer,
-               int numIters,
-               int initNumGamesPerWorker, int initUctTraversals, int initMaxBatchSize, int initMaxQueueSize,
-               int numGamesPerWorker, int uctTraversals, int maxBatchSize, int maxQueueSize,
-               float dirEps, float dirAlpha) {
+               const std::string& saveDir) {
 
     using State = GridState<NUM_ROWS * NUM_COLS, HISTORY_SIZE>;
     using ActionDist = GameActionDist<ACTION_SIZE>;
+
+    std::string runName = std::string(workerOptions.model_name) + "_" + workerOptions.model_variant;
 
     // Make the save directory if it doesn't exist.
     try {
@@ -108,17 +96,14 @@ void runWorker(std::string runName, std::string saveDir,
 
     INetwork<State, ACTION_SIZE>* network;  // Holds the current network.
 
-    for (int iter = 0; iter < numIters; ++iter) {
+    for (int iter = 0; iter < workerOptions.numIters; ++iter) {
         std::cout << "Starting iteration " << iter << "..." << std::endl;
 
         // Block until the model file for the previous iteration exists.
         std::string modelPath = waitModelPath(iter - 1, runName);
         std::string savePath = saveDir + "/" + runName + "_iteration_" + std::to_string(iter);
 
-        int numGames      = (iter == 0) ? initNumGamesPerWorker : numGamesPerWorker;
-        int numTraversals = (iter == 0) ? initUctTraversals : uctTraversals;
-        int maxBatchSize  = (iter == 0) ? initMaxBatchSize : maxBatchSize;
-        int maxQueueSize  = (iter == 0) ? initMaxQueueSize : maxQueueSize;
+        IterationOptions iterationOptions = (iter == 0) ? workerOptions.initIterationOptions : workerOptions.iterationOptions;
 
         NeuralNetwork neuralNetwork { modelPath };
 
@@ -131,17 +116,9 @@ void runWorker(std::string runName, std::string saveDir,
         }
 
         auto [states, distributions, outcomes] = runIteration<ImplNode, State, ACTION_SIZE>(
+            iterationOptions,
             network,
-            numGames,
-            numTraversals,
-            maxBatchSize,
-            maxQueueSize,
-            dirEps,
-            dirAlpha,
-            InitQ::PARENT_LIVE_Q,
-            true,
-            symmetrizer,
-            true
+            symmetrizer
         );
 
         std::vector<float> embeddedStates;
