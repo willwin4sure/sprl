@@ -78,7 +78,7 @@ selfPlay(IterationOptions iterationOptions,
 
             // If leaves were collected, evaluate and backpropagate them.
             if (leaves.size() > 0) {
-                tree.evaluateAndBackpropLeaves(leaves, network);
+                tree.evaluateAndBackpropLeaves(leaves, network, doFullSearch);
             }
 
             traversals += trav;

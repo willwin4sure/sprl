@@ -144,8 +144,8 @@ int main(int argc, char* argv[]) {
 
         pbar << "Player 0 wins: " << numWins0 << ", Player 1 wins: " << numWins1 << ", Draws: " << t + 1 - numWins0 - numWins1;
 
-        int x;
-        std::cin >> x;
+        // int x;
+        // std::cin >> x;
     }
 
     return 0;

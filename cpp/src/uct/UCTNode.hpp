@@ -213,7 +213,7 @@ public:
     /**
      * @returns The policy target for the UCT algorithm.
      */
-    ActionDist getPolicyTarget() const {
+    ActionDist getPrunedPolicyTarget() const {
         // Subtract 1 because I'm talking about the number of child playouts.
         float total_N = N() - 1;
 
@@ -318,7 +318,7 @@ public:
                 return bestActions[GetRandom().UniformInt(0, bestActions.size() - 1)];
             }
         }
-
+        
         for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
             if (m_actionMask[action] == 0.0f) {
                 // Illegal action, skip.

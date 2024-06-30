@@ -117,7 +117,7 @@ public:
      * @param leaves The leaves to evaluate and backpropagate.
      * @param network The network to evaluate the leaves with.
     */
-    void evaluateAndBackpropLeaves(const std::vector<UNode*>& leaves, INetwork<State, ACTION_SIZE>* network) {
+    void evaluateAndBackpropLeaves(const std::vector<UNode*>& leaves, INetwork<State, ACTION_SIZE>* network, bool doFullSearch = true) {
         int numLeaves = leaves.size();
         assert(numLeaves > 0);
 

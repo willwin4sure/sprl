@@ -28,18 +28,6 @@ NUM_WORKER_TASKS = 192
 WORKER_TIME_TO_KILL = 1200
 WORKER_DATA_WAIT_INTERVAL = 30
 
-INIT_NUM_GAMES_PER_WORKER = 5
-INIT_UCT_TRAVERSALS = 16384
-INIT_MAX_BATCH_SIZE = 1
-INIT_MAX_QUEUE_SIZE = 1
-
-NUM_GAMES_PER_WORKER = 5
-UCT_TRAVERSALS = 4096
-MAX_BATCH_SIZE = 16
-MAX_QUEUE_SIZE = 8
-
-DIRICHLET_EPSILON = 0.25
-DIRICHLET_ALPHA = 0.2
 
 MODEL_NUM_BLOCKS = 6
 MODEL_NUM_CHANNELS = 64
@@ -47,17 +35,38 @@ MODEL_NUM_CHANNELS = 64
 RESET_NETWORK = False
 LINEAR_WEIGHTING = True
 
-NUM_PAST_ITERS_TO_TRAIN = 10
+NUM_PAST_ITERS_TO_TRAIN = 5
 
 MAX_GROUPS = 10
 EPOCHS_PER_GROUP = 10
+
 
 BATCH_SIZE = 1024
 LR_INIT = 0.001
 LR_DECAY_FACTOR = 0.1
 LR_MILESTONE_ITERS = [50, 100]
 
-RUN_NAME = "panda_gamma_slow"
+RUN_NAME = "panda_delta_fast_equiv"
+
+
+# INIT_NUM_GAMES_PER_WORKER = 5
+# INIT_UCT_TRAVERSALS = 16384
+# INIT_MAX_BATCH_SIZE = 1
+# INIT_MAX_QUEUE_SIZE = 1
+
+# NUM_GAMES_PER_WORKER = 5
+# UCT_TRAVERSALS = 4096
+# MAX_BATCH_SIZE = 16
+# MAX_QUEUE_SIZE = 8
+
+# DIRICHLET_EPSILON = 0.25
+# DIRICHLET_ALPHA = 0.2
+
+# # If the neural network is fully optimized on epoch <= JAM_EPOCH_THRESHOLD for JAM_GROUP_THRESHOLD groups,
+# # we will train the network for EPOCHS_PER_GROUP no matter what. This is experimental; it is meant to
+# # allow the network to massively overfit in the hope that it will learn *something*.
+# JAM_GROUP_THRESHOLD = 3
+# JAM_EPOCH_THRESHOLD = 3
 
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -259,18 +268,18 @@ def main():
         f.write(f"NUM_WORKER_TASKS = {NUM_WORKER_TASKS}\n")
         f.write(f"WORKER_TIME_TO_KILL = {WORKER_TIME_TO_KILL}\n")
 
-        f.write(f"INIT_NUM_GAMES_PER_WORKER = {INIT_NUM_GAMES_PER_WORKER}\n")
-        f.write(f"INIT_UCT_TRAVERSALS = {INIT_UCT_TRAVERSALS}\n")
-        f.write(f"INIT_MAX_BATCH_SIZE = {INIT_MAX_BATCH_SIZE}\n")
-        f.write(f"INIT_MAX_QUEUE_SIZE = {INIT_MAX_QUEUE_SIZE}\n")
+        # f.write(f"INIT_NUM_GAMES_PER_WORKER = {INIT_NUM_GAMES_PER_WORKER}\n")
+        # f.write(f"INIT_UCT_TRAVERSALS = {INIT_UCT_TRAVERSALS}\n")
+        # f.write(f"INIT_MAX_BATCH_SIZE = {INIT_MAX_BATCH_SIZE}\n")
+        # f.write(f"INIT_MAX_QUEUE_SIZE = {INIT_MAX_QUEUE_SIZE}\n")
 
-        f.write(f"NUM_GAMES_PER_WORKER = {NUM_GAMES_PER_WORKER}\n")
-        f.write(f"UCT_TRAVERSALS = {UCT_TRAVERSALS}\n")
-        f.write(f"MAX_BATCH_SIZE = {MAX_BATCH_SIZE}\n")
-        f.write(f"MAX_QUEUE_SIZE = {MAX_QUEUE_SIZE}\n")
+        # f.write(f"NUM_GAMES_PER_WORKER = {NUM_GAMES_PER_WORKER}\n")
+        # f.write(f"UCT_TRAVERSALS = {UCT_TRAVERSALS}\n")
+        # f.write(f"MAX_BATCH_SIZE = {MAX_BATCH_SIZE}\n")
+        # f.write(f"MAX_QUEUE_SIZE = {MAX_QUEUE_SIZE}\n")
 
-        f.write(f"DIRICHLET_EPSILON = {DIRICHLET_EPSILON}\n")
-        f.write(f"DIRICHLET_ALPHA = {DIRICHLET_ALPHA}\n")
+        # f.write(f"DIRICHLET_EPSILON = {DIRICHLET_EPSILON}\n")
+        # f.write(f"DIRICHLET_ALPHA = {DIRICHLET_ALPHA}\n")
 
         f.write(f"MODEL_NUM_BLOCKS = {MODEL_NUM_BLOCKS}\n")
         f.write(f"MODEL_NUM_CHANNELS = {MODEL_NUM_CHANNELS}\n")
