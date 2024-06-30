@@ -2,6 +2,7 @@
 go_controller.py
 """
 
+import json
 import os
 import time
 from typing import Set
@@ -19,54 +20,31 @@ NUM_COLS = 7
 ACTION_SIZE = 50
 HISTORY_SIZE = 8
 
-###  MAKE SURE THESE CONSTANTS ARE IN SYNC WITH `GoWorker.cpp`  ###
+# Read all of the above from ./config/config_selfplay.json.
+with open("./config/config_selfplay.json", "r") as f:
+    config_selfplay = json.load(f)
+    MODEL_NAME = config_selfplay["modelName"]
+    MODEL_VARIANT = config_selfplay["modelVariant"]
+    NUM_GROUPS = config_selfplay["numGroups"]
+    NUM_WORKER_TASKS = config_selfplay["numWorkerTasks"]
+    NUM_ITERS = config_selfplay["numIters"]
 
-NUM_ITERS = 200
-
-NUM_GROUPS = 4
-NUM_WORKER_TASKS = 192
-WORKER_TIME_TO_KILL = 1200
-WORKER_DATA_WAIT_INTERVAL = 30
-
-
-MODEL_NUM_BLOCKS = 6
-MODEL_NUM_CHANNELS = 64
-
-RESET_NETWORK = False
-LINEAR_WEIGHTING = True
-
-NUM_PAST_ITERS_TO_TRAIN = 5
-
-MAX_GROUPS = 10
-EPOCHS_PER_GROUP = 10
-
-
-BATCH_SIZE = 1024
-LR_INIT = 0.001
-LR_DECAY_FACTOR = 0.1
-LR_MILESTONE_ITERS = [50, 100]
-
-RUN_NAME = "panda_delta_fast_equiv"
+    controllerOptions = config_selfplay["controllerOptions"]
+    WORKER_TIME_TO_KILL = controllerOptions["workerTimeToKill"]
+    MODEL_NUM_BLOCKS = controllerOptions["modelNumBlocks"]
+    MODEL_NUM_CHANNELS = controllerOptions["modelNumChannels"]
+    RESET_NETWORK = controllerOptions["resetNetwork"]
+    LINEAR_WEIGHTING = controllerOptions["linearWeighting"]
+    NUM_PAST_ITERS_TO_TRAIN = controllerOptions["numPastItersToTrain"]
+    MAX_GROUPS = controllerOptions["maxGroups"]
+    EPOCHS_PER_GROUP = controllerOptions["epochsPerGroup"]
+    BATCH_SIZE = controllerOptions["batchSize"]
+    LR_INIT = controllerOptions["lrInit"]
+    LR_DECAY_FACTOR = controllerOptions["lrDecayFactor"]
+    LR_MILESTONE_ITERS = controllerOptions["lrMilestoneIters"]
 
 
-# INIT_NUM_GAMES_PER_WORKER = 5
-# INIT_UCT_TRAVERSALS = 16384
-# INIT_MAX_BATCH_SIZE = 1
-# INIT_MAX_QUEUE_SIZE = 1
-
-# NUM_GAMES_PER_WORKER = 5
-# UCT_TRAVERSALS = 4096
-# MAX_BATCH_SIZE = 16
-# MAX_QUEUE_SIZE = 8
-
-# DIRICHLET_EPSILON = 0.25
-# DIRICHLET_ALPHA = 0.2
-
-# # If the neural network is fully optimized on epoch <= JAM_EPOCH_THRESHOLD for JAM_GROUP_THRESHOLD groups,
-# # we will train the network for EPOCHS_PER_GROUP no matter what. This is experimental; it is meant to
-# # allow the network to massively overfit in the hope that it will learn *something*.
-# JAM_GROUP_THRESHOLD = 3
-# JAM_EPOCH_THRESHOLD = 3
+RUN_NAME = f"{MODEL_NAME}_{MODEL_VARIANT}"
 
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -133,7 +111,7 @@ def collate_data(iteration: int, live_workers: Set[int]):
 
         print(
             f"Spinning on workers to finish... {len(finished_workers)} / {len(live_workers)} are complete.")
-        time.sleep(WORKER_DATA_WAIT_INTERVAL)
+        time.sleep(30)
 
     print(
         f"Total samples for iteration {iteration}: {sum([s.shape[0] for s in new_states])}")
@@ -260,44 +238,20 @@ def main():
 
     print(f"Created necessary directories for {RUN_NAME}.")
 
-    # Write the config of the run to a file
-    with open(f"./data/configs/{RUN_NAME}_config.txt", "w") as f:
-        f.write(f"NUM_ITERS = {NUM_ITERS}\n")
+    # Take that entire json file and write it to data/configs/...
+    with open(f"data/configs/{RUN_NAME}_config_selfplay.json", "w") as f:
+        json.dump(config_selfplay, f, indent=4)
 
-        f.write(f"NUM_GROUPS = {NUM_GROUPS}\n")
-        f.write(f"NUM_WORKER_TASKS = {NUM_WORKER_TASKS}\n")
-        f.write(f"WORKER_TIME_TO_KILL = {WORKER_TIME_TO_KILL}\n")
+    print(
+        f"Wrote config file to data/configs/{RUN_NAME}_config_selfplay.json."
+    )
 
-        # f.write(f"INIT_NUM_GAMES_PER_WORKER = {INIT_NUM_GAMES_PER_WORKER}\n")
-        # f.write(f"INIT_UCT_TRAVERSALS = {INIT_UCT_TRAVERSALS}\n")
-        # f.write(f"INIT_MAX_BATCH_SIZE = {INIT_MAX_BATCH_SIZE}\n")
-        # f.write(f"INIT_MAX_QUEUE_SIZE = {INIT_MAX_QUEUE_SIZE}\n")
-
-        # f.write(f"NUM_GAMES_PER_WORKER = {NUM_GAMES_PER_WORKER}\n")
-        # f.write(f"UCT_TRAVERSALS = {UCT_TRAVERSALS}\n")
-        # f.write(f"MAX_BATCH_SIZE = {MAX_BATCH_SIZE}\n")
-        # f.write(f"MAX_QUEUE_SIZE = {MAX_QUEUE_SIZE}\n")
-
-        # f.write(f"DIRICHLET_EPSILON = {DIRICHLET_EPSILON}\n")
-        # f.write(f"DIRICHLET_ALPHA = {DIRICHLET_ALPHA}\n")
-
-        f.write(f"MODEL_NUM_BLOCKS = {MODEL_NUM_BLOCKS}\n")
-        f.write(f"MODEL_NUM_CHANNELS = {MODEL_NUM_CHANNELS}\n")
-
-        f.write(f"RESET_NETWORK = {RESET_NETWORK}\n")
-        f.write(f"LINEAR_WEIGHTING = {LINEAR_WEIGHTING}\n")
-
-        f.write(f"NUM_PAST_ITERS_TO_TRAIN = {NUM_PAST_ITERS_TO_TRAIN}\n")
-
-        f.write(f"MAX_GROUPS = {MAX_GROUPS}\n")
-        f.write(f"EPOCHS_PER_GROUP = {EPOCHS_PER_GROUP}\n")
-
-        f.write(f"BATCH_SIZE = {BATCH_SIZE}\n")
-        f.write(f"LR_INIT = {LR_INIT}\n")
-        f.write(f"LR_DECAY_FACTOR = {LR_DECAY_FACTOR}\n")
-        f.write(f"LR_MILESTONE_ITERS = {LR_MILESTONE_ITERS}\n")
-
-    print(f"Wrote configuration file at ./data/configs/{RUN_NAME}_config.txt.")
+    # read config from config_uct
+    with open(f"config/config_uct.json", "r") as f:
+        config_uct = json.load(f)
+    # same thing, with uct
+    with open(f"data/configs/{RUN_NAME}_config_uct.json", "w") as f:
+        json.dump(config_uct, f, indent=4)
 
     all_state_tensors = []
     all_distribution_tensors = []
