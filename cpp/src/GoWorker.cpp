@@ -12,8 +12,10 @@
 constexpr SPRL::NodeOptions goNodeOptions = {
     .dirEps = 0.25f,
     .dirAlpha = 0.2f,
+    .uWeight = 1.1f,
     .initQMethod = SPRL::InitQ::PARENT_LIVE_Q,
-    .dropParent = true
+    .dropParent = true,
+    .forcedPlayouts = false
 };
 
 
@@ -27,7 +29,8 @@ constexpr SPRL::IterationOptions goIterationOptions = {
     .UCT_TRAVERSALS = 4096,
     .MAX_BATCH_SIZE = 16,
     .MAX_QUEUE_SIZE = 8,
-    .FAST_PLAY_PROBABILITY = 0.75f,
+    .FAST_PLAY_PROBABILITY = 0.0f,
+    .USE_PTP = false,
     .treeOptions = goTreeOptions
 };
 

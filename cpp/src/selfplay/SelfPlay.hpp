@@ -104,7 +104,9 @@ selfPlay(
         
         /* ------------------ Training Data Insertion ------------- */
         if (doFullSearch) {
-            insertTrainingData(tree, states, distributions, players, symmetrizer, allSymmetries);
+            insertTrainingData(
+                iterationOptions,
+                tree, states, distributions, players, symmetrizer, allSymmetries);
         }
         
         /* ------------------- Move Selection --------------- */
@@ -197,7 +199,9 @@ selfPlay(
  * @param allSymmetries The vector of all symmetries to use for symmetrizing the data.
  */
 template <typename ImplNode, typename State, int ACTION_SIZE>
-void insertTrainingData(UCTTree<ImplNode, State, ACTION_SIZE>& tree,
+void insertTrainingData(
+    IterationOptions iterationOptions,
+    UCTTree<ImplNode, State, ACTION_SIZE>& tree,
                         std::vector<State>& states,
                         std::vector<GameActionDist<ACTION_SIZE>>& distributions,
                         std::vector<Player>& players,
@@ -218,7 +222,7 @@ void insertTrainingData(UCTTree<ImplNode, State, ACTION_SIZE>& tree,
         states.push_back(tree.getDecisionNode()->getGameState());
     }
     
-    ActionDist pdf = tree.getDecisionNode()->getPolicyTarget();
+    ActionDist pdf = iterationOptions.USE_PTP ? (tree.getDecisionNode()->getPrunedPolicyTarget()) : (tree.getDecisionNode()->getEdgeStatistics()->m_numVisits);
     
     if (symmetrizer != nullptr) {
         // Symmetrize the distributions and add to data.

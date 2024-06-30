@@ -24,6 +24,7 @@ struct NodeOptions {
     float uWeight;
     InitQ initQMethod;
     bool dropParent;
+    bool forcedPlayouts;
 };
 
 // See `options.md` for a description of each option.
@@ -41,6 +42,7 @@ struct IterationOptions {
     float EARLY_GAME_EXP;
     float REST_GAME_EXP;
     float FAST_PLAY_PROBABILITY;
+    bool USE_PTP;
     TreeOptions treeOptions;
 };
 
