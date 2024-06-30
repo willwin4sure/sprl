@@ -25,17 +25,17 @@ constexpr SPRL::TreeOptions goTreeOptions = {
 };
 
 constexpr SPRL::IterationOptions goIterationOptions = {
-    .NUM_GAMES_PER_WORKER = 5,
+    .NUM_GAMES_PER_WORKER = 4,
     .UCT_TRAVERSALS = 4096,
     .MAX_BATCH_SIZE = 16,
     .MAX_QUEUE_SIZE = 8,
-    .FAST_PLAY_PROBABILITY = 0.0f,
+    .FAST_PLAY_PROBABILITY = 0.75f,
     .USE_PTP = false,
     .treeOptions = goTreeOptions
 };
 
 constexpr SPRL::IterationOptions goInitIterationOptions = {
-    .NUM_GAMES_PER_WORKER = 5,
+    .NUM_GAMES_PER_WORKER = 4,
     .UCT_TRAVERSALS = 16384,
     .MAX_BATCH_SIZE = 1,
     .MAX_QUEUE_SIZE = 1,
@@ -45,14 +45,31 @@ constexpr SPRL::IterationOptions goInitIterationOptions = {
     .treeOptions = goTreeOptions
 };
 
-constexpr SPRL::WorkerOptions goWorkerOptions = {
+const SPRL::ControllerOptions goControllerOptions = {
+    .WORKER_TIME_TO_KILL = 1200,
+    .WORKER_DATA_WAIT_INTERVAL = 30,
+    .MODEL_NUM_BLOCKS = 6,
+    .MODEL_NUM_CHANNELS = 64,
+    .RESET_NETWORK = false,
+    .LINEAR_WEIGHTING = true,
+    .NUM_PAST_ITERS_TO_TRAIN = 5,
+    .MAX_GROUPS = 10,
+    .EPOCHS_PER_GROUP = 10,
+    .BATCH_SIZE = 1024,
+    .LR_INIT = 0.001,
+    .LR_DECAY_FACTOR = 0.1,
+    .LR_MILESTONE_ITERS = {50, 100}
+};
+
+const SPRL::WorkerOptions goWorkerOptions = {
     .NUM_GROUPS = 4,
     .NUM_WORKER_TASKS = 192,
     .numIters = 200,
     .iterationOptions = goIterationOptions,
     .initIterationOptions = goInitIterationOptions,
-    .model_name = "panda_gamma",
-    .model_variant = "slow"
+    .controllerOptions = goControllerOptions,
+    .model_name = "panda",
+    .model_variant = "delta_fast_equiv"
 };
 
 
@@ -62,7 +79,7 @@ int main(int argc, char *argv[]) {
         std::cerr << "Usage: ./GoWorker.exe <task_id> <num_tasks>" << std::endl;
         return 1;
     }
-    std::string runName = std::string(goWorkerOptions.model_name) + "_" + goWorkerOptions.model_variant;
+    std::string runName = goWorkerOptions.model_name + "_" + goWorkerOptions.model_variant;
 
     int myTaskId = std::stoi(argv[1]);
     int numTasks = std::stoi(argv[2]);

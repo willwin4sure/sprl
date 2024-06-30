@@ -46,6 +46,23 @@ struct IterationOptions {
     TreeOptions treeOptions;
 };
 
+struct ControllerOptions {
+    int WORKER_TIME_TO_KILL;
+    int WORKER_DATA_WAIT_INTERVAL;
+    int MODEL_NUM_BLOCKS;
+    int MODEL_NUM_CHANNELS;
+    bool RESET_NETWORK;
+    bool LINEAR_WEIGHTING;
+    int NUM_PAST_ITERS_TO_TRAIN;
+    int MAX_GROUPS;
+    int EPOCHS_PER_GROUP;
+
+    int BATCH_SIZE;
+    float LR_INIT;
+    float LR_DECAY_FACTOR;
+    std::vector<int> LR_MILESTONE_ITERS;
+};
+
 
 // See `options.md` for a description of each option.
 // Implementation detail: model_name and model_variant
@@ -59,8 +76,10 @@ struct WorkerOptions {
     IterationOptions iterationOptions;
     IterationOptions initIterationOptions;
 
-    char model_name[32];
-    char model_variant[32];
+    ControllerOptions controllerOptions;
+
+    std::string model_name;
+    std::string model_variant;
 };
 
 

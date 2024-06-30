@@ -6,10 +6,11 @@ Here is a list of options which should be held in an Options struct.
 
     1. `NUM_GROUPS`, `NUM_WORKER_TASKS`: supercloud settings.
     2. `numIters`: Total number of iterations for the entire training process.
-    3. `iterationOptions`: Options for the main training loop.
-    4. `initIterationOptions`: Options for the initial iteration of the training loop.
-    5. `model_name` The name of the model.
-    6. `model_variant` The variant of the model, possibly the empty string.
+    3. `NUM_PAST_ITERS_TO_TRAIN`: How many past iterations to train on. This is solely used in the controller.
+    4. `iterationOptions`: Options for the main training loop.
+    5. `initIterationOptions`: Options for the initial iteration of the training loop.
+    6. `model_name` The name of the model.
+    7. `model_variant` The variant of the model, possibly the empty string.
 
 2.  Iteration Options:
 
@@ -17,7 +18,8 @@ Here is a list of options which should be held in an Options struct.
     2. `UCT_TRAVERSALS` How many traversals a worker should make at a root node when playing. This is called `numTraversals` internally.
     3. `MAX_BATCH_SIZE`, `MAX_QUEUE_SIZE`: Within a single `searchAndGetLeaves()` call, leaves are collected until there are `MAX_QUEUE_SIZE` leaves or `MAX_BATCH_SIZE` total traversals. Not all traversals return leaves.
     4. `EARLY_GAME_CUTOFF`, `EARLY_GAME_EXP`, `REST_GAME_EXP`, `FAST_PLAY_PROBABILITY`: Early game cutoff, early game exploration, rest game exploration, and fast play probability.
-    5. `treeOptions`: Options for the tree.
+    5. `USE_PTP`: Whether to use Policy Target Pruning (described in `cpp/src/uct/UCTDesc.md`)
+    6. `treeOptions`: Options for the tree.
 
 3.  Tree Options:
 
@@ -29,3 +31,4 @@ Here is a list of options which should be held in an Options struct.
     1. `dirEps`, `dirAlpha`: If `addNoise` is true, `dirEps` of the priors on the root node will be Dirichlet noise with alpha parameter `dirAlpha`.
     2. `uWeight`: The weight of the U value in the UCT formula.
     3. `initQMethod`, `dropParent`: Child node expansion setting.
+    4. `forcedPlayouts`: If `forcedPlayouts` is true, the all nodes will be forced to play out a certain number of playouts.

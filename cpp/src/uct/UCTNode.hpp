@@ -467,7 +467,7 @@ public:
                     continue;
                 }
 
-                m_edgeStatistics.m_modelChildPriors[action]
+                m_edgeStatistics.m_childPriors[action]
                     = (1.0 - m_nodeOptions.dirEps) * m_edgeStatistics.m_childPriors[action]
                             + m_nodeOptions.dirEps * noise[readIdx];
                                                         
