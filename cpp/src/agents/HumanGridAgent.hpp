@@ -49,7 +49,7 @@ public:
                 return action;
             }
 
-            int row = rank - '0';
+            int row = NUM_ROWS - (rank - '0');
             int col = file - 'A';
 
             if (row < 0 || row >= NUM_ROWS || col < 0 || col >= NUM_COLS) {

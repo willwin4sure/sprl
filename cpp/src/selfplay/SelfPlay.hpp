@@ -212,7 +212,7 @@ void insertTrainingData(IterationOptions iterationOptions,
     
     // Either use policy target pruning or move sampling pdf.
     ActionDist policyTarget = iterationOptions.policyTargetPruning
-        ? tree.getDecisionNode()->getPolicyTarget() : pdf;
+        ? tree.getDecisionNode()->getPrunedPolicyTarget() : pdf;
     
     if (iterationOptions.symmetrizeData && symmetrizer != nullptr) {
         // Symmetrize the distributions and add to data.

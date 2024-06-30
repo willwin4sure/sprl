@@ -408,13 +408,12 @@ std::array<Value, 2> GoNode::getRewardsImpl() const {
 std::string GoNode::toStringImpl() const {
     std::string str = "";
 
-    str += "Player: " + std::to_string(static_cast<int>(m_player)) + "\n";
-    str += "Winner: " + std::to_string(static_cast<int>(m_winner)) + "\n";
-    str += "IsTerminal: " + std::to_string(m_isTerminal) + "\n";
-    str += "Action: " + std::to_string(m_action) + "\n";
-    str += "Depth: " + std::to_string(m_depth) + "\n";
-    str += "Hash: " + std::to_string(m_hash) + "\n";
-
+    // str += "Player: " + std::to_string(static_cast<int>(m_player)) + "\n";
+    // str += "Winner: " + std::to_string(static_cast<int>(m_winner)) + "\n";
+    // str += "IsTerminal: " + std::to_string(m_isTerminal) + "\n";
+    // str += "Action: " + std::to_string(m_action) + "\n";
+    // str += "Depth: " + std::to_string(m_depth) + "\n";
+    // str += "Hash: " + std::to_string(m_hash) + "\n";
 
     str += "Board:\n";
     
@@ -426,7 +425,7 @@ std::string GoNode::toStringImpl() const {
     str += "\n";
     
     for (int row = 0; row < GO_BOARD_WIDTH; row++) {
-        str += std::to_string(row) + " ";
+        str += std::to_string(GO_BOARD_WIDTH - row) + " ";
         for (int col = 0; col < GO_BOARD_WIDTH; col++) {
             switch (m_board[toCoord(row, col)]) {
             case Piece::NONE:
@@ -455,7 +454,7 @@ std::string GoNode::toStringImpl() const {
                 assert(false);
             }
         }
-        str += std::to_string(row);
+        str += std::to_string(GO_BOARD_WIDTH - row);
         str += "\n";   
     }
 
@@ -467,63 +466,63 @@ std::string GoNode::toStringImpl() const {
     str += "\n";
 
 
-    str += "ActionMask:\n";
+    // str += "ActionMask:\n";
 
-    str += "  ";
-    for (int col = 0; col < GO_BOARD_WIDTH; col++) {
-        str += ('A' + col);
-        str += " ";
-    }
-    str += "\n";    
+    // str += "  ";
+    // for (int col = 0; col < GO_BOARD_WIDTH; col++) {
+    //     str += ('A' + col);
+    //     str += " ";
+    // }
+    // str += "\n";    
 
-    for (int i = 0; i < GO_BOARD_WIDTH; ++i) {
-        str += std::to_string(i) + " ";
-        for (int j = 0; j < GO_BOARD_WIDTH; j++) {
-            if(m_actionMask[toCoord(i, j)] == 1.0f) {
-                str += "1 ";
-            } else {
-                str += "0 ";
-            }
-        }
-        str += std::to_string(i);
-        str += "\n";
-    }
+    // for (int i = 0; i < GO_BOARD_WIDTH; ++i) {
+    //     str += std::to_string(i) + " ";
+    //     for (int j = 0; j < GO_BOARD_WIDTH; j++) {
+    //         if(m_actionMask[toCoord(i, j)] == 1.0f) {
+    //             str += "1 ";
+    //         } else {
+    //             str += "0 ";
+    //         }
+    //     }
+    //     str += std::to_string(i);
+    //     str += "\n";
+    // }
     
-    str += "  ";
-    for (int col = 0; col < GO_BOARD_WIDTH; col++) {
-        str += ('A' + col);
-        str += " ";
-    }
-    str += "\n";
+    // str += "  ";
+    // for (int col = 0; col < GO_BOARD_WIDTH; col++) {
+    //     str += ('A' + col);
+    //     str += " ";
+    // }
+    // str += "\n";
 
 
-    str += "Liberties:\n";
+    // str += "Liberties:\n";
 
-    str += "  ";
-    for (int col = 0; col < GO_BOARD_WIDTH; col++) {
-        str += ('A' + col);
-        str += " ";
-    }
-    str += "\n";
+    // str += "  ";
+    // for (int col = 0; col < GO_BOARD_WIDTH; col++) {
+    //     str += ('A' + col);
+    //     str += " ";
+    // }
+    // str += "\n";
     
 
-    for (int i = 0; i < GO_BOARD_WIDTH; ++i) {
-        str += std::to_string(i) + " ";
-        for (int j = 0; j < GO_BOARD_WIDTH; j++) {
-            str += std::to_string(getLiberties(toCoord(i, j))) + " ";
-        }
-        str += std::to_string(i);
-        str += "\n";
-    }
+    // for (int i = 0; i < GO_BOARD_WIDTH; ++i) {
+    //     str += std::to_string(i) + " ";
+    //     for (int j = 0; j < GO_BOARD_WIDTH; j++) {
+    //         str += std::to_string(getLiberties(toCoord(i, j))) + " ";
+    //     }
+    //     str += std::to_string(i);
+    //     str += "\n";
+    // }
 
-    str += "  ";
-    for (int col = 0; col < GO_BOARD_WIDTH; col++) {
-        str += ('A' + col);
-        str += " ";
-    }
-    str += "\n";
+    // str += "  ";
+    // for (int col = 0; col < GO_BOARD_WIDTH; col++) {
+    //     str += ('A' + col);
+    //     str += " ";
+    // }
+    // str += "\n";
     
-    str += "  ";
+    // str += "  ";
 
 
     str += "Territories: " + std::to_string(countTerritory()[0])
