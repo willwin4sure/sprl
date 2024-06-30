@@ -3,54 +3,17 @@
 #include "networks/GridNetwork.hpp"
 
 #include "selfplay/GridWorker.hpp"
+#include "selfplay/SelfPlayOptions.hpp"
 
 #include "symmetry/D4GridSymmetrizer.hpp" 
 
-#include "selfplay/Options.hpp"
+#include "uct/UCTOptions.hpp"
 
 
-constexpr SPRL::NodeOptions goNodeOptions = {
-    .dirEps = 0.25f,
-    .dirAlpha = 0.2f,
-    .initQMethod = SPRL::InitQ::PARENT_LIVE_Q,
-    .dropParent = true
-};
-
-
-constexpr SPRL::TreeOptions goTreeOptions = {
-    .addNoise = true,
-    .nodeOptions = goNodeOptions
-};
-
-constexpr SPRL::IterationOptions goIterationOptions = {
-    .NUM_GAMES_PER_WORKER = 5,
-    .UCT_TRAVERSALS = 4096,
-    .MAX_BATCH_SIZE = 16,
-    .MAX_QUEUE_SIZE = 8,
-    .treeOptions = goTreeOptions
-};
-
-constexpr SPRL::IterationOptions goInitIterationOptions = {
-    .NUM_GAMES_PER_WORKER = 5,
-    .UCT_TRAVERSALS = 16384,
-    .MAX_BATCH_SIZE = 1,
-    .MAX_QUEUE_SIZE = 1,
-    .EARLY_GAME_CUTOFF = 15,
-    .EARLY_GAME_EXP = 0.98f,
-    .REST_GAME_EXP = 10.0f,
-    .treeOptions = goTreeOptions
-};
-
-constexpr SPRL::WorkerOptions goWorkerOptions = {
-    .NUM_GROUPS = 4,
-    .NUM_WORKER_TASKS = 192,
-    .numIters = 200,
-    .iterationOptions = goIterationOptions,
-    .initIterationOptions = goInitIterationOptions,
-    .model_name = "panda_gamma",
-    .model_variant = "slow"
-};
-
+constexpr int BOARD_WIDTH = SPRL::GO_BOARD_WIDTH;
+constexpr int BOARD_SIZE = SPRL::GO_BOARD_SIZE;
+constexpr int ACTION_SIZE = SPRL::GO_ACTION_SIZE;
+constexpr int HISTORY_SIZE = SPRL::GO_HISTORY_SIZE;
 
 
 int main(int argc, char *argv[]) {
@@ -58,31 +21,42 @@ int main(int argc, char *argv[]) {
         std::cerr << "Usage: ./GoWorker.exe <task_id> <num_tasks>" << std::endl;
         return 1;
     }
-    std::string runName = std::string(goWorkerOptions.model_name) + "_" + goWorkerOptions.model_variant;
+
+    SPRL::WorkerOptions workerOptions {};
+    SPRL::SelfPlayOptionsParser selfPlayParser {};
+
+    // Parse the self-play options from hard-coded path.
+    selfPlayParser.parse("config/config_selfplay.json", workerOptions);
+
+    SPRL::TreeOptions treeOptions {};
+    SPRL::UCTOptionsParser uctParser {};
+
+    // Parse the UCT options from hard-coded path.
+    uctParser.parse("config/config_uct.json", treeOptions);
+
+    std::string runName = workerOptions.modelName + "_" + workerOptions.modelVariant;
 
     int myTaskId = std::stoi(argv[1]);
     int numTasks = std::stoi(argv[2]);
+    assert(numTasks == workerOptions.numWorkerTasks);
 
-    assert(numTasks == goWorkerOptions.NUM_WORKER_TASKS);
-
-    int myGroup = myTaskId / (goWorkerOptions.NUM_WORKER_TASKS / goWorkerOptions.NUM_GROUPS);
+    int myGroup = myTaskId / (workerOptions.numWorkerTasks / workerOptions.numGroups);
 
     // Log who I am.
     std::cout << "Task " << myTaskId << " of " << numTasks << ", in group " << myGroup << "." << std::endl;
 
     std::string saveDir = "data/games/" + runName + "/" + std::to_string(myGroup) + "/" + std::to_string(myTaskId);
 
-    // SPRL::OthelloHeuristic heuristicNetwork {};
-    SPRL::RandomNetwork<SPRL::GridState<SPRL::GO_BOARD_SIZE, SPRL::GO_HISTORY_SIZE>, SPRL::GO_ACTION_SIZE> randomNetwork {};
-    SPRL::D4GridSymmetrizer<SPRL::GO_BOARD_WIDTH, SPRL::GO_HISTORY_SIZE> symmetrizer {};
 
-    SPRL::runWorker<SPRL::GridNetwork<SPRL::GO_BOARD_WIDTH, SPRL::GO_BOARD_WIDTH, SPRL::GO_HISTORY_SIZE, SPRL::GO_ACTION_SIZE>,
-                    SPRL::GoNode,
-                    SPRL::GO_BOARD_WIDTH,
-                    SPRL::GO_BOARD_WIDTH,
-                    SPRL::GO_HISTORY_SIZE,
-                    SPRL::GO_ACTION_SIZE>(
-        goWorkerOptions, &randomNetwork, &symmetrizer, saveDir
+    using State = SPRL::GridState<BOARD_SIZE, HISTORY_SIZE>;
+    using Node = SPRL::GoNode;
+
+    SPRL::RandomNetwork<State, ACTION_SIZE> randomNetwork {};
+    SPRL::D4GridSymmetrizer<BOARD_WIDTH, HISTORY_SIZE> symmetrizer {};
+
+    SPRL::runWorker<SPRL::GridNetwork<BOARD_WIDTH, BOARD_WIDTH, HISTORY_SIZE, ACTION_SIZE>,
+                    Node, BOARD_WIDTH, BOARD_WIDTH, HISTORY_SIZE, ACTION_SIZE>(
+        workerOptions, treeOptions, &randomNetwork, &symmetrizer, saveDir
     );
 
     return 0;

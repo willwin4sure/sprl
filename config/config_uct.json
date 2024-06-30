@@ -1,0 +1,11 @@
+{
+    "addNoise": true,
+    "symmetrizeState": true,
+    "nodeOptions": {
+        "dirEps": 0.25,
+        "dirAlpha": 0.2,
+        "uWeight": 1.1,
+        "initQMethod": "ZERO",
+        "takeTrueQAvg": false
+    }
+}

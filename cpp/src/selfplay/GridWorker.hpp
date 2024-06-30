@@ -8,6 +8,9 @@
 #include "../networks/RandomNetwork.hpp"
 
 #include "../selfplay/SelfPlay.hpp"
+#include "../selfplay/SelfPlayOptions.hpp"
+
+#include "../uct/UCTOptions.hpp"
 
 #include "../utils/npy.hpp"
 
@@ -31,7 +34,7 @@ constexpr int MODEL_PATH_WAIT_INTERVAL = 30;  // Seconds to wait between checkin
  * @param runName The name of the run, defining the model file path.
  * 
  * @returns The path to the model file for the given iteration.
- */
+*/
 std::string waitModelPath(int iteration, const std::string& runName) {
     if (iteration == -1) {
         return "random";
@@ -65,13 +68,15 @@ std::string waitModelPath(int iteration, const std::string& runName) {
  * @tparam HISTORY_SIZE The number of previous states to include in the state.
  * @tparam ACTION_SIZE The number of actions in the action space.
  * 
- * @param numIters The number of self-play/training loop iterations to run.
+ * @param workerOptions The options for the worker process.
+ * @param treeOptions The options for the UCT tree.
+ * @param initialNetwork The network to use for the first iteration.
  * @param symmetrizer The symmetrizer to use for symmetrizing the network and data.
- * @param options See `options.md` for a description of the options.
  * @param saveDir The directory to save the self-play data to.
  */
 template <typename NeuralNetwork, typename ImplNode, int NUM_ROWS, int NUM_COLS, int HISTORY_SIZE, int ACTION_SIZE>
 void runWorker(SPRL::WorkerOptions workerOptions,
+               SPRL::TreeOptions treeOptions,
                INetwork<GridState<NUM_ROWS * NUM_COLS, HISTORY_SIZE>, ACTION_SIZE>* initialNetwork,
                ISymmetrizer<GridState<NUM_ROWS * NUM_COLS, HISTORY_SIZE>, ACTION_SIZE>* symmetrizer,
                const std::string& saveDir) {
@@ -79,8 +84,8 @@ void runWorker(SPRL::WorkerOptions workerOptions,
     using State = GridState<NUM_ROWS * NUM_COLS, HISTORY_SIZE>;
     using ActionDist = GameActionDist<ACTION_SIZE>;
 
-    std::string runName = std::string(workerOptions.model_name) + "_" + workerOptions.model_variant;
-
+    std::string runName = workerOptions.modelName + "_" + workerOptions.modelVariant;
+    
     // Make the save directory if it doesn't exist.
     try {
         bool result = std::filesystem::create_directories(saveDir);
@@ -110,6 +115,7 @@ void runWorker(SPRL::WorkerOptions workerOptions,
         if (modelPath == "random") {
             std::cout << "Using initial network..." << std::endl;
             network = initialNetwork;
+            
         } else {
             std::cout << "Using traced PyTorch network..." << std::endl;
             network = &neuralNetwork;
@@ -117,6 +123,7 @@ void runWorker(SPRL::WorkerOptions workerOptions,
 
         auto [states, distributions, outcomes] = runIteration<ImplNode, State, ACTION_SIZE>(
             iterationOptions,
+            treeOptions,
             network,
             symmetrizer
         );
@@ -126,7 +133,7 @@ void runWorker(SPRL::WorkerOptions workerOptions,
         for (const State& state : states) {
             Piece ourPiece = pieceFromPlayer(state.getPlayer());
 
-            // Stone bitmasks.
+            // Stone bitmasks. The iteration order is important; must match input to network.
             for (int t = 0; t < state.size(); ++t) {
                 for (Piece piece : { ourPiece, otherPiece(ourPiece) }) {
                     for (int row = 0; row < NUM_ROWS; ++row) {

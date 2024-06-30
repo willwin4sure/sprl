@@ -35,21 +35,34 @@ constexpr int ACTION_SIZE = SPRL::GO_ACTION_SIZE;
 constexpr int HISTORY_SIZE = SPRL::GO_HISTORY_SIZE;
 
 int main(int argc, char* argv[]) {
-    if (argc != 11) {
-        std::cerr << "Usage: ./Evaluate.exe <modelPath0> <modelPath1> <numGames> <numTraversals> <maxBatchSize> <maxQueueSize> <model0UseSymmetrize> <model0UseParentQ> <model1UseSymmetrize> <model1UseParentQ>" << std::endl;
+    if (argc != 9) {
+        std::cerr << "Usage: ./Evaluate.exe <modelPath0> <optionsPath0> <modelPath1> <optionsPath1> <numGames> <numTraversals> <maxBatchSize> <maxQueueSize>" << std::endl;
         return 1;
     }
 
     std::string modelPath0 = argv[1];
-    std::string modelPath1 = argv[2];
-    int numGames = std::stoi(argv[3]);
-    int numTraversals = std::stoi(argv[4]);
-    int maxBatchSize = std::stoi(argv[5]);
-    int maxQueueSize = std::stoi(argv[6]);
-    bool model0UseSymmetrize = std::stoi(argv[7]) > 0;
-    bool model0UseParentQ = std::stoi(argv[8]) > 0;
-    bool model1UseSymmetrize = std::stoi(argv[9]) > 0;
-    bool model1UseParentQ = std::stoi(argv[10]) > 0;
+    std::string optionsPath0 = argv[2];
+
+    std::string modelPath1 = argv[3];
+    std::string optionsPath1 = argv[4];
+
+    int numGames = std::stoi(argv[5]);
+    int numTraversals = std::stoi(argv[6]);
+    int maxBatchSize = std::stoi(argv[7]);
+    int maxQueueSize = std::stoi(argv[8]);
+
+    SPRL::UCTOptionsParser uctParser {};
+
+    SPRL::TreeOptions treeOptions0;
+    SPRL::TreeOptions treeOptions1;
+    uctParser.parse(optionsPath0, treeOptions0);
+    uctParser.parse(optionsPath1, treeOptions1);
+
+    std::cout << "Model 0 options:" << std::endl;
+    std::cout << uctParser.toString(treeOptions0) << std::endl;
+
+    std::cout << "Model 1 options:" << std::endl;
+    std::cout << uctParser.toString(treeOptions1) << std::endl;
 
     using State = SPRL::GridState<BOARD_SIZE, HISTORY_SIZE>;
     using ImplNode = SPRL::GoNode;
@@ -58,13 +71,7 @@ int main(int argc, char* argv[]) {
     SPRL::INetwork<State, ACTION_SIZE>* network1;
 
     SPRL::RandomNetwork<State, ACTION_SIZE> randomNetwork {};
-    // SPRL::OthelloHeuristic heuristicNetwork {};
-
-    // network0 = &randomNetwork;
-    // network1 = &heuristicNetwork;
-
     SPRL::D4GridSymmetrizer<SPRL::GO_BOARD_WIDTH, HISTORY_SIZE> symmetrizer {};
-    // SPRL::ConnectFourSymmetrizer symmetrizer {};
 
     SPRL::GridNetwork<NUM_ROWS, NUM_COLS, HISTORY_SIZE, ACTION_SIZE> neuralNetwork0 { modelPath0 };
     SPRL::GridNetwork<NUM_ROWS, NUM_COLS, HISTORY_SIZE, ACTION_SIZE> neuralNetwork1 { modelPath1 };
@@ -91,25 +98,8 @@ int main(int argc, char* argv[]) {
     auto pbar = tq::trange(numGames);
 
     for (int t : pbar) {
-        SPRL::UCTTree<ImplNode, State, ACTION_SIZE> tree0 {
-            std::make_unique<ImplNode>(),
-            0.25,
-            0.1,
-            model0UseParentQ ? SPRL::InitQ::PARENT_LIVE_Q : SPRL::InitQ::ZERO,
-            true,
-            model0UseSymmetrize ? &symmetrizer : nullptr,
-            true
-        };
-
-        SPRL::UCTTree<ImplNode, State, ACTION_SIZE> tree1 {
-            std::make_unique<ImplNode>(),
-            0.25,
-            0.1,
-            model1UseParentQ ? SPRL::InitQ::PARENT_LIVE_Q : SPRL::InitQ::ZERO,
-            true,
-            model1UseSymmetrize ? &symmetrizer : nullptr,
-            true
-        };
+        SPRL::UCTTree<ImplNode, State, ACTION_SIZE> tree0 { treeOptions0, &symmetrizer };
+        SPRL::UCTTree<ImplNode, State, ACTION_SIZE> tree1 { treeOptions1, &symmetrizer };
 
         SPRL::UCTNetworkAgent<ImplNode, State, ACTION_SIZE> networkAgent0 {
             network0,

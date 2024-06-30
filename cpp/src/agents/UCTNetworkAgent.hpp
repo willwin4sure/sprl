@@ -46,7 +46,7 @@ public:
         while (traversals < m_numTraversals) {
             // Greedily search and collect leaves, expanding the tree iteratively.
             auto [leaves, trav] = m_tree->searchAndGetLeaves(
-                m_maxBatchSize, m_maxQueueSize, m_network);
+                m_maxBatchSize, m_maxQueueSize, false, m_network);
 
             // If we have leaves, evaluate them using the NN and backpropagate.
             if (leaves.size() > 0) {

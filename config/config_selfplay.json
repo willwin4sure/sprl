@@ -1,0 +1,41 @@
+{
+    "modelName": "panda_delta",
+    "modelVariant": "base",
+    "numGroups": 4,
+    "numWorkerTasks": 192,
+    "numIters": 100,
+
+    "initIterationOptions": {
+        "numGamesPerWorker": 5,
+        "uctTraversals": 16384,
+        "maxBatchSize": 1,
+        "maxQueueSize": 1,
+
+        "symmetrizeData": true,
+        "fastPlayoutProb": 0.0,
+        "fastPlayoutFactor": 1.0,
+        "policyTargetPruning": false,
+        "forcedPlayouts": false,
+
+        "earlyGameCutoff": 15,
+        "earlyGameExp": 0.98,
+        "restGameExp": 10.0
+    },
+
+    "iterationOptions": {
+        "numGamesPerWorker": 5,
+        "uctTraversals": 4096,
+        "maxBatchSize": 16,
+        "maxQueueSize": 8,
+
+        "symmetrizeData": true,
+        "fastPlayoutProb": 0.0,
+        "fastPlayoutFactor": 1.0,
+        "policyTargetPruning": false,
+        "forcedPlayouts": false,
+
+        "earlyGameCutoff": 15,
+        "earlyGameExp": 0.98,
+        "restGameExp": 10.0
+    }
+}

@@ -5,13 +5,14 @@
  * @file SelfPlay.cpp
  * 
  * Provides functionality to generate self-play data.
- */
+*/
 
 #include "../games/GameNode.hpp"
 #include "../networks/INetwork.hpp"
+#include "../selfplay/SelfPlayOptions.hpp"
 #include "../symmetry/ISymmetrizer.hpp"
+#include "../uct/UCTOptions.hpp"
 #include "../uct/UCTTree.hpp"
-#include "../selfplay/Options.hpp"
 
 #include "../utils/random.hpp"
 #include "../utils/tqdm.hpp"
@@ -30,16 +31,10 @@ namespace SPRL {
  * @tparam State The state of the game, e.g. `GridState`.
  * @tparam ACTION_SIZE The size of the action space.
  * 
+ * @param iterationOptions The options for the iteration.
+ * @param treeOptions The options for the UCT tree.
  * @param network The neural network to use for evaluation.
- * @param numTraversals The number of UCT traversals to run per move.
- * @param maxBatchSize The maximum number of traversals per batch of search.
- * @param maxQueueSize The maximum number of states to evaluate per batch of search.
- * @param dirEps The epsilon value for the Dirichlet noise.
- * @param dirAlpha The alpha value for the Dirichlet noise.
- * @param initQMethod The method to initialize the Q values.
- * @param dropParent Whether to drop the parent network evaluation from the Q values.
  * @param symmetrizer The symmetrizer to use for symmetrizing the network and data (or nullptr).
- * @param addNoise Whether to add Dirichlet noise to the root node.
  * 
  * @returns A tuple of:
  *     1. A vector of states, where each state is a symmetrized version of the game state over time.
@@ -50,49 +45,38 @@ namespace SPRL {
 */
 template <typename ImplNode, typename State, int ACTION_SIZE>
 std::tuple<std::vector<State>, std::vector<GameActionDist<ACTION_SIZE>>, std::vector<Value>>
-selfPlay(
-        IterationOptions iterationOptions,
-        INetwork<State, ACTION_SIZE>* network,
-        ISymmetrizer<State, ACTION_SIZE>* symmetrizer
-    ) {
+selfPlay(IterationOptions iterationOptions,
+         TreeOptions treeOptions,
+         INetwork<State, ACTION_SIZE>* network,
+         ISymmetrizer<State, ACTION_SIZE>* symmetrizer) {
 
     using ActionDist = GameActionDist<ACTION_SIZE>;
 
     std::vector<State> states;
     std::vector<ActionDist> distributions;
     std::vector<Player> players;
-    
     std::vector<Value> outcomes;
 
-    std::vector<SymmetryIdx> allSymmetries;  // Contains all symmetries if symmetrizer exists.
-
-    if (symmetrizer != nullptr) {
-        for (int i = 0; i < symmetrizer->numSymmetries(); ++i) {
-            allSymmetries.push_back(i);
-        }
-    }
-
-    // Initialize the UCT tree.
-    UCTTree<ImplNode, State, ACTION_SIZE> tree {
-        iterationOptions.treeOptions,
-        symmetrizer
-    };
+    UCTTree<ImplNode, State, ACTION_SIZE> tree { treeOptions, symmetrizer };
 
     int moveCount = 0;
 
     while (!tree.getDecisionNode()->isTerminal()) {
-
-        // With some probability, decide to make a fast play!
-        bool doFullSearch = GetRandom().UniformInt(0, 3) == 0;
-        // bool doFullSearch = true;
+        // Decide whether to make a full search or a fast playout.
+        bool doFullSearch = GetRandom()() >= iterationOptions.fastPlayoutProb;
 
         // Perform `numTraversals` many search iterations.
-        int traversals = 0;
-        int numTraversalsOnThisTurn = doFullSearch ? iterationOptions.UCT_TRAVERSALS : iterationOptions.UCT_TRAVERSALS / 6; // In the paper, (600, 100). 
+        int numTraversals = doFullSearch
+            ? iterationOptions.uctTraversals
+            : iterationOptions.uctTraversals * iterationOptions.fastPlayoutFactor;
         
-        while (traversals < numTraversalsOnThisTurn) {
-            auto [leaves, trav] = tree.searchAndGetLeaves(iterationOptions.MAX_BATCH_SIZE, iterationOptions.MAX_QUEUE_SIZE, network);
+        int traversals = 0;
+        while (traversals < numTraversals) {
+            // Returns vector of collected leaves and total number of traversals performed.
+            auto [leaves, trav] = tree.searchAndGetLeaves(
+                iterationOptions.maxBatchSize, iterationOptions.maxQueueSize, iterationOptions.forcedPlayouts, network);
 
+            // If leaves were collected, evaluate and backpropagate them.
             if (leaves.size() > 0) {
                 tree.evaluateAndBackpropLeaves(leaves, network);
             }
@@ -100,29 +84,28 @@ selfPlay(
             traversals += trav;
         }
 
-        
-        /* ------------------ Training Data Insertion ------------- */
-        if (doFullSearch) {
-            insertTrainingData(tree, states, distributions, players, symmetrizer, allSymmetries);
-        }
-        
-        /* ------------------- Move Selection --------------- */
-
-        // Remember: a la PTP, move selection is entirely decoupled from the policy target!
-
         // Generate a PDF from the visit counts.
         ActionDist visits = tree.getDecisionNode()->getEdgeStatistics()->m_numVisits;
         ActionDist pdf = visits / visits.sum();
 
-
         // Raise it to 0.98f (temp ~ 1) if early game, else 10.0f (temp -> 0), then renormalize.
-        if (moveCount < iterationOptions.EARLY_GAME_CUTOFF) {
-            pdf = pdf.pow(iterationOptions.EARLY_GAME_EXP);
+        if (moveCount < iterationOptions.earlyGameCutoff) {
+            pdf = pdf.pow(iterationOptions.earlyGameExp);
+
         } else {
-            pdf = pdf.pow(iterationOptions.REST_GAME_EXP);
+            pdf = pdf.pow(iterationOptions.restGameExp);
         }
 
         pdf = pdf / pdf.sum();
+
+        // Insert training data if doing full search.
+        // Includes policy target pruning, decoupled from move selection.
+
+        if (doFullSearch) {
+            insertTrainingData(iterationOptions, pdf, tree, states, distributions, players, symmetrizer);
+        }
+
+        // Perform move sampling.
 
         // Generate a CDF from the PDF.
         ActionDist cdf = pdf.cumsum();
@@ -139,15 +122,16 @@ selfPlay(
 
     std::array<Value, 2> rewards = tree.getDecisionNode()->getRewards();
 
+    // Now that we have the rewards, construct the relative outcomes based on the players.
+
     outcomes.reserve(states.size());
 
     for (Player player : players) {
         switch (player) {
         case Player::ZERO:
-            if (symmetrizer != nullptr) {
-                for (int i = 0; i < symmetrizer->numSymmetries(); ++i) {
-                    outcomes.push_back(rewards[0]);
-                }
+            if (iterationOptions.symmetrizeData && symmetrizer != nullptr) {
+                outcomes.resize(outcomes.size() + symmetrizer->numSymmetries(), rewards[0]);
+
             } else {
                 outcomes.push_back(rewards[0]);
             }
@@ -155,10 +139,9 @@ selfPlay(
             break;
 
         case Player::ONE:
-            if (symmetrizer != nullptr) {
-                for (int i = 0; i < symmetrizer->numSymmetries(); ++i) {
-                    outcomes.push_back(rewards[1]);
-                }
+            if (iterationOptions.symmetrizeData && symmetrizer != nullptr) {
+                outcomes.resize(outcomes.size() + symmetrizer->numSymmetries(), rewards[1]);
+
             } else {
                 outcomes.push_back(rewards[1]);
             }
@@ -167,11 +150,10 @@ selfPlay(
 
         default:
             assert(false);
+            // Should never happen, but we fill with zeros anyway.
+            if (iterationOptions.symmetrizeData && symmetrizer != nullptr) {
+                outcomes.resize(outcomes.size() + symmetrizer->numSymmetries(), 0.0f);
 
-            if (symmetrizer != nullptr) {
-                for (int i = 0; i < symmetrizer->numSymmetries(); ++i) {
-                    outcomes.push_back(0.0f);
-                }
             } else {
                 outcomes.push_back(0.0f);
             }
@@ -188,6 +170,8 @@ selfPlay(
  * @tparam State The state of the game, e.g. `GridState`.
  * @tparam ACTION_SIZE The size of the action space.
  * 
+ * @param iterationOptions The options for the iteration.
+ * @param pdf The policy distribution that we are sampling from, i.e. exponentiated visit counts.
  * @param tree The UCT tree to extract data from.
  * @param states The vector of states to insert into.
  * @param distributions The vector of distributions to insert into.
@@ -196,16 +180,25 @@ selfPlay(
  * @param allSymmetries The vector of all symmetries to use for symmetrizing the data.
  */
 template <typename ImplNode, typename State, int ACTION_SIZE>
-void insertTrainingData(UCTTree<ImplNode, State, ACTION_SIZE>& tree,
+void insertTrainingData(IterationOptions iterationOptions,
+                        const GameActionDist<ACTION_SIZE>& pdf,
+                        UCTTree<ImplNode, State, ACTION_SIZE>& tree,
                         std::vector<State>& states,
                         std::vector<GameActionDist<ACTION_SIZE>>& distributions,
                         std::vector<Player>& players,
-                        ISymmetrizer<State, ACTION_SIZE>* symmetrizer,
-                        const std::vector<SymmetryIdx>& allSymmetries) {
+                        ISymmetrizer<State, ACTION_SIZE>* symmetrizer) {
+
+    // Contains all symmetries if symmetrizeData is true and a symmetrizer is provided.
+    std::vector<SymmetryIdx> allSymmetries;
+    if (iterationOptions.symmetrizeData && symmetrizer != nullptr) {
+        for (int i = 0; i < symmetrizer->numSymmetries(); ++i) {
+            allSymmetries.push_back(i);
+        }
+    }
     
     using ActionDist = GameActionDist<ACTION_SIZE>;
     
-    if (symmetrizer != nullptr) {
+    if (iterationOptions.symmetrizeData && symmetrizer != nullptr) {
         // Symmetrize the state and add to data.
         std::vector<State> symmetrizedStates = symmetrizer->symmetrizeState(
             tree.getDecisionNode()->getGameState(), allSymmetries);
@@ -217,24 +210,25 @@ void insertTrainingData(UCTTree<ImplNode, State, ACTION_SIZE>& tree,
         states.push_back(tree.getDecisionNode()->getGameState());
     }
     
-    ActionDist pdf = tree.getDecisionNode()->getPolicyTarget();
+    // Either use policy target pruning or move sampling pdf.
+    ActionDist policyTarget = iterationOptions.policyTargetPruning
+        ? tree.getDecisionNode()->getPolicyTarget() : pdf;
     
-    if (symmetrizer != nullptr) {
+    if (iterationOptions.symmetrizeData && symmetrizer != nullptr) {
         // Symmetrize the distributions and add to data.
         std::vector<ActionDist> symmetrizedDists = symmetrizer->symmetrizeActionDist(
-            pdf, allSymmetries);
+            policyTarget, allSymmetries);
 
         distributions.reserve(distributions.size() + symmetrizedDists.size());
         distributions.insert(distributions.end(), symmetrizedDists.begin(), symmetrizedDists.end());
-    } else {
-        distributions.push_back(pdf);
-    }
 
+    } else {
+        distributions.push_back(policyTarget);
+    }
 
     // Record the player that just took the action.
     players.push_back(tree.getDecisionNode()->getPlayer());
 }
-
 
 
 /**
@@ -244,13 +238,17 @@ void insertTrainingData(UCTTree<ImplNode, State, ACTION_SIZE>& tree,
  * @tparam State The state of the game, e.g. `GridState`.
  * @tparam ACTION_SIZE The size of the action space.
  * 
- * @note See `selfPlay()` for more details.
+ * @param iterationOptions The options for the iteration.
+ * @param treeOptions The options for the UCT tree.
+ * @param network The neural network to use for evaluation.
+ * @param symmetrizer The symmetrizer to use for symmetrizing the network and data (or nullptr).
 */
 template <typename ImplNode, typename State, int ACTION_SIZE>
 std::tuple<std::vector<State>, std::vector<GameActionDist<ACTION_SIZE>>, std::vector<Value>>
 runIteration(IterationOptions iterationOptions,
-            INetwork<State, ACTION_SIZE>* network,
-            ISymmetrizer<State, ACTION_SIZE>* symmetrizer) {
+             TreeOptions treeOptions,
+             INetwork<State, ACTION_SIZE>* network,
+             ISymmetrizer<State, ACTION_SIZE>* symmetrizer) {
 
     using ActionDist = GameActionDist<ACTION_SIZE>;
 
@@ -258,12 +256,16 @@ runIteration(IterationOptions iterationOptions,
     std::vector<ActionDist> allDistributions;
     std::vector<Value> allOutcomes;
 
-    for (int t = 0; t < iterationOptions.NUM_GAMES_PER_WORKER; ++t) {
+    for (int t = 0; t < iterationOptions.numGamesPerWorker; ++t) {
         auto [states, distributions, outcomes] = selfPlay<ImplNode, State, ACTION_SIZE>(
             iterationOptions,
+            treeOptions,
             network,
             symmetrizer
         );
+
+        // Push on the new state, distribution, and outcome data.
+        // This data is ready for training on after the states are embedded.
 
         allStates.reserve(allStates.size() + states.size());
         allStates.insert(allStates.end(), states.begin(), states.end());
