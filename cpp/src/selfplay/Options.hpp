@@ -40,6 +40,7 @@ struct IterationOptions {
     int EARLY_GAME_CUTOFF;
     float EARLY_GAME_EXP;
     float REST_GAME_EXP;
+    float FAST_PLAY_PROBABILITY;
     TreeOptions treeOptions;
 };
 

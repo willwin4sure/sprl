@@ -83,8 +83,9 @@ selfPlay(
     while (!tree.getDecisionNode()->isTerminal()) {
 
         // With some probability, decide to make a fast play!
-        bool doFullSearch = GetRandom().UniformInt(0, 3) == 0;
-        // bool doFullSearch = true;
+        // Get a uniform random number from 0 to 1, then
+        // with probability iterationOptions.fastPlayProbability, do a fast play.
+        bool doFullSearch = GetRandom()() > iterationOptions.FAST_PLAY_PROBABILITY;
 
         // Perform `numTraversals` many search iterations.
         int traversals = 0;

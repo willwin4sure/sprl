@@ -27,6 +27,7 @@ constexpr SPRL::IterationOptions goIterationOptions = {
     .UCT_TRAVERSALS = 4096,
     .MAX_BATCH_SIZE = 16,
     .MAX_QUEUE_SIZE = 8,
+    .FAST_PLAY_PROBABILITY = 0.75f,
     .treeOptions = goTreeOptions
 };
 
