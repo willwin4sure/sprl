@@ -1,0 +1,14 @@
+{
+    "workerTimeToKill": 1200,
+    "modelNumBlocks": 6,
+    "modelNumChannels": 64,
+    "resetNetwork": false,
+    "linearWeighting": true,
+    "numPastItersToTrain": 10,
+    "maxGroups": 10,
+    "epochsPerGroup": 10,
+    "batchSize": 1024,
+    "lrInit": 0.001,
+    "lrDecayFactor": 0.1,
+    "lrMilestoneIters": [50, 100]
+}

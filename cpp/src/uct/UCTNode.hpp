@@ -265,7 +265,7 @@ public:
                 if(v < child_Q(action)) {
                     inverse_N[action] = 0.0f;
                 } else {
-                    inverse_N[action] = std::max(0.0f, m_nodeOptions.uWeight * m_networkPolicy[action] * sqrt(total_N) / (v - child_Q(action)) - 1);
+                    inverse_N[action] = std::max(0.0f, m_nodeOptions.uWeight * m_networkPolicy[action] * sqrtf(total_N) / (v - child_Q(action)) - 1);
                 }
                 sum += inverse_N[action];
             }

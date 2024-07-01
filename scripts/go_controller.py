@@ -20,7 +20,9 @@ NUM_COLS = 7
 ACTION_SIZE = 50
 HISTORY_SIZE = 8
 
-# Read all of the above from ./config/config_selfplay.json.
+with open(f"config/config_uct.json", "r") as f:
+    config_uct = json.load(f)
+
 with open("./config/config_selfplay.json", "r") as f:
     config_selfplay = json.load(f)
     MODEL_NAME = config_selfplay["modelName"]
@@ -29,19 +31,20 @@ with open("./config/config_selfplay.json", "r") as f:
     NUM_WORKER_TASKS = config_selfplay["numWorkerTasks"]
     NUM_ITERS = config_selfplay["numIters"]
 
-    controllerOptions = config_selfplay["controllerOptions"]
-    WORKER_TIME_TO_KILL = controllerOptions["workerTimeToKill"]
-    MODEL_NUM_BLOCKS = controllerOptions["modelNumBlocks"]
-    MODEL_NUM_CHANNELS = controllerOptions["modelNumChannels"]
-    RESET_NETWORK = controllerOptions["resetNetwork"]
-    LINEAR_WEIGHTING = controllerOptions["linearWeighting"]
-    NUM_PAST_ITERS_TO_TRAIN = controllerOptions["numPastItersToTrain"]
-    MAX_GROUPS = controllerOptions["maxGroups"]
-    EPOCHS_PER_GROUP = controllerOptions["epochsPerGroup"]
-    BATCH_SIZE = controllerOptions["batchSize"]
-    LR_INIT = controllerOptions["lrInit"]
-    LR_DECAY_FACTOR = controllerOptions["lrDecayFactor"]
-    LR_MILESTONE_ITERS = controllerOptions["lrMilestoneIters"]
+with open("./config/config_controller.json", "r") as f:
+    config_controller = json.load(f)
+    WORKER_TIME_TO_KILL = config_controller["workerTimeToKill"]
+    MODEL_NUM_BLOCKS = config_controller["modelNumBlocks"]
+    MODEL_NUM_CHANNELS = config_controller["modelNumChannels"]
+    RESET_NETWORK = config_controller["resetNetwork"]
+    LINEAR_WEIGHTING = config_controller["linearWeighting"]
+    NUM_PAST_ITERS_TO_TRAIN = config_controller["numPastItersToTrain"]
+    MAX_GROUPS = config_controller["maxGroups"]
+    EPOCHS_PER_GROUP = config_controller["epochsPerGroup"]
+    BATCH_SIZE = config_controller["batchSize"]
+    LR_INIT = config_controller["lrInit"]
+    LR_DECAY_FACTOR = config_controller["lrDecayFactor"]
+    LR_MILESTONE_ITERS = config_controller["lrMilestoneIters"]
 
 
 RUN_NAME = f"{MODEL_NAME}_{MODEL_VARIANT}"
@@ -242,16 +245,13 @@ def main():
     with open(f"data/configs/{RUN_NAME}_config_selfplay.json", "w") as f:
         json.dump(config_selfplay, f, indent=4)
 
-    print(
-        f"Wrote config file to data/configs/{RUN_NAME}_config_selfplay.json."
-    )
-
-    # read config from config_uct
-    with open(f"config/config_uct.json", "r") as f:
-        config_uct = json.load(f)
-    # same thing, with uct
     with open(f"data/configs/{RUN_NAME}_config_uct.json", "w") as f:
         json.dump(config_uct, f, indent=4)
+
+    with open(f"data/configs/{RUN_NAME}_config_controller.json", "w") as f:
+        json.dump(config_controller, f, indent=4)
+
+    print(f"Saved configs for {RUN_NAME}.")
 
     all_state_tensors = []
     all_distribution_tensors = []
@@ -287,8 +287,8 @@ def main():
         new_timestamp_tensor = torch.cat(
             new_timestamps, dim=0).unsqueeze(1).to(device)
 
-        assert new_state_tensor.shape[0] == new_distribution_tensor.shape[
-            0] == new_outcome_tensor.shape[0] == new_timestamp_tensor.shape[0]
+        assert new_state_tensor.shape[0] == new_distribution_tensor.shape[0] \
+            == new_outcome_tensor.shape[0] == new_timestamp_tensor.shape[0]
 
         all_state_tensors.append(new_state_tensor)
         all_distribution_tensors.append(new_distribution_tensor)
@@ -310,8 +310,8 @@ def main():
         train_timestamp_tensor = torch.cat(
             all_timestamp_tensors, dim=0) - max(0, iteration + 1 - NUM_PAST_ITERS_TO_TRAIN)
 
-        assert train_state_tensor.shape[0] == train_distribution_tensor.shape[
-            0] == train_outcome_tensor.shape[0] == train_timestamp_tensor.shape[0]
+        assert train_state_tensor.shape[0] == train_distribution_tensor.shape[0]\
+            == train_outcome_tensor.shape[0] == train_timestamp_tensor.shape[0]
         assert torch.min(train_timestamp_tensor) > 0
 
         train_network(network, learning_rate, iteration, train_state_tensor,

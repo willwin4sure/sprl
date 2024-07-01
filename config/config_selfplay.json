@@ -1,31 +1,15 @@
 {
     "modelName": "panda_delta",
-    "modelVariant": "base",
+    "modelVariant": "replicate_fast_new_prime",
     "numGroups": 4,
     "numWorkerTasks": 192,
     "numIters": 100,
-
-    "controllerOptions": {
-        "workerTimeToKill": 1200,
-        "modelNumBlocks": 6,
-        "modelNumChannels": 64,
-        "resetNetwork": false,
-        "linearWeighting": true,
-        "numPastItersToTrain": 5,
-        "maxGroups": 10,
-        "epochsPerGroup": 10,
-        "batchSize": 1024,
-        "lrInit": 0.001,
-        "lrDecayFactor": 0.1,
-        "lrMilestoneIters": [50, 100]
-    },
 
     "initIterationOptions": {
         "numGamesPerWorker": 5,
         "uctTraversals": 16384,
         "maxBatchSize": 1,
         "maxQueueSize": 1,
-
         "symmetrizeData": true,
         "fastPlayoutProb": 0.0,
         "fastPlayoutFactor": 1.0,
@@ -44,8 +28,8 @@
         "maxQueueSize": 8,
 
         "symmetrizeData": true,
-        "fastPlayoutProb": 0.0,
-        "fastPlayoutFactor": 1.0,
+        "fastPlayoutProb": 0.8,
+        "fastPlayoutFactor": 0.1667,
         "policyTargetPruning": false,
         "forcedPlayouts": false,
 
