@@ -39,26 +39,75 @@ constexpr int BOARD_SIZE = NUM_ROWS * NUM_COLS;
 constexpr int ACTION_SIZE = SPRL::GO_ACTION_SIZE;
 constexpr int HISTORY_SIZE = SPRL::GO_HISTORY_SIZE;
 
+
+/**
+ * E.g. the iteration of panda_delta_replicate_slow_new_prime iteration 20 should be pdrsnp20.
+ * Split the teamName by underscores, take the first letter of each word, and append the iteration number.
+ */
+std::string nickName(std::string teamName, int iteration){
+    std::string nick = "";
+    int idx = 0;
+    while (idx < teamName.size()) {
+        nick += teamName[idx];
+        while (idx < teamName.size() && teamName[idx] != '_') {
+            idx++;
+        }
+        while (idx < teamName.size() && teamName[idx] == '_') {
+            idx++;
+        }
+    }
+
+    nick += std::to_string(iteration);
+    return nick
+}
+
 int main(int argc, char* argv[]) {
-    if (argc < 5) {
-        std::cerr << "Usage: ./RobinWorker.exe <task_id> <num_tasks> <num_players> (<modelPath>)+";
+
+    if (argc < 4) {
+        std::cerr << "Usage: ./RobinWorker.exe <task_id> <num_tasks> <tournament name> <num_teams> (<team_name> <num_players> (<iteration>)+)+";
         return 1;
     }
 
     int myTaskId = std::stoi(argv[1]);
     int numTasks = std::stoi(argv[2]);
-    int numPlayers = std::stoi(argv[3]);
+    std::string runName = argv[3];
+    int numTeams = std::stoi(argv[4]);
 
-    // Check if the right number of players.
-    if (argc != 4 + numPlayers) {
-        std::cerr << "Usage: ./RobinWorker.exe <task_id> <num_tasks> <num_players> (<modelPath>)+";
+    std::vector<std::string> teamNames(numTeams);
+    std::vector<int> numPlayersPerTeam(numTeams);
+    std::vector<std::vector<int>> iterations(numTeams);
+
+    int argIdx = 5;
+    int numPlayers = 0;
+    for (int i = 0; i < numTeams; ++i) {
+        teamNames[i] = argv[argIdx++];
+        numPlayersPerTeam[i] = std::stoi(argv[argIdx++]);
+        numPlayers += numPlayersPerTeam[i];
+
+        iterations[i].resize(numPlayersPerTeam[i]);
+        for (int j = 0; j < numPlayersPerTeam[i]; ++j) {
+            iterations[i][j] = std::stoi(argv[argIdx++]);
+        }
+    }
+
+    if (argc != argIdx) {
+        std::cerr << "Too many teams."
+        std::cerr << "Usage: ./RobinWorker.exe <task_id> <num_tasks> <tournament name> <num_teams> (<team_name> <num_players> (<iteration>)+)+";
         return 1;
     }
 
     int myGroup = myTaskId / (numTasks / 4);
     std::cout << "I am task " << myTaskId << " of " << numTasks << " in group " << myGroup << std::endl;
+    std::cout << "Running tournament " << runName << " with " << numTeams << " teams." << std::endl;
+    for (int i = 0; i < numTeams; ++i) {
+        // print all player iterations on one line
+        std::cout << "Team " << teamNames[i] << " has " << numPlayersPerTeam[i] << " players:";
+        for (int j = 0; j < numPlayersPerTeam[i]; ++j) {
+            std::cout << " " << iterations[i][j];
+        }
+        std::cout << std::endl;
+    }
 
-    std::string runName = "panda_fight";
     std::string saveDir = "data/robin/" + runName + "/" + std::to_string(myGroup) + "/" + std::to_string(myTaskId);
 
     // Make the directory if it doesn't exist.
@@ -77,10 +126,11 @@ int main(int argc, char* argv[]) {
     // Setup the players.
     std::vector<std::string> modelPaths(numPlayers);
 
-    for (int i = 0; i < numPlayers; ++i) {
-        modelPaths[i] = argv[4 + i];
-
-        std::cout << "Player " << i << " has model path: " << modelPaths[i] << std::endl;
+    int playerIdx = 0;
+    for (int i = 0; i < numTeams; ++i) {
+        for (int j = 0; j < numPlayersPerTeam[i]; ++j) {
+            modelPaths[playerIdx++] = "./data/models/" + teamNames[i] + "/traced_" + teamNames[i] + "_" + std::to_string(iterations[i][j]) + ".pt";
+        }
     }
 
     // A win is worth 2 points; a draw is worth 1 point.
@@ -118,6 +168,9 @@ int main(int argc, char* argv[]) {
         for (int j = 0; j < numPlayers; ++j) {
             int i = (k + myTaskId) % numPlayers;
             if (i == j) continue;
+
+            // TreeOptions treeOptions,
+            // ISymmetrizer<State, ACTION_SIZE>* symmetrizer = nullptr
 
             SPRL::UCTTree<ImplNode, State, ACTION_SIZE> tree0 {
                 std::make_unique<ImplNode>(),

@@ -87,7 +87,7 @@ void runWorker(SPRL::WorkerOptions workerOptions,
     using State = GridState<NUM_ROWS * NUM_COLS, HISTORY_SIZE>;
     using ActionDist = GameActionDist<ACTION_SIZE>;
 
-    Timer total_t {}
+    Timer total_t {};
     total_t.reset();
     std::string runName = workerOptions.modelName + "_" + workerOptions.modelVariant;
     

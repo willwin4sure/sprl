@@ -4,11 +4,18 @@ go_controller.py
 
 import json
 import os
+import sys
+import tempfile
 import time
 from typing import Set
 
 import numpy as np
 import torch
+import torch.distributed as dist
+import torch.multiprocessing as mp
+import torch.nn as nn
+import torch.optim as optim
+from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader, TensorDataset, random_split
 from tqdm import tqdm
 
@@ -51,6 +58,20 @@ RUN_NAME = f"{MODEL_NAME}_{MODEL_VARIANT}"
 
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
+
+
+def setup(rank, world_size):
+    # This needs to be changed if we are using multiple machines.
+    os.environ['MASTER_ADDR'] = 'localhost'
+    # This can be any number.
+    os.environ['MASTER_PORT'] = '12355'
+
+    # initialize the process group
+    dist.init_process_group("gloo", rank=rank, world_size=world_size)
+
+
+def cleanup():
+    dist.destroy_process_group()
 
 
 def collate_data(iteration: int, live_workers: Set[int]):
