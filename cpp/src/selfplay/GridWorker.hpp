@@ -13,7 +13,7 @@
 #include "../uct/UCTOptions.hpp"
 
 #include "../utils/npy.hpp"
-
+#include "../utils/timer.hpp"
 #include "../constants.hpp"
 
 #include <filesystem>
@@ -41,18 +41,21 @@ std::string waitModelPath(int iteration, const std::string& runName) {
     }
 
     std::string modelPath;
-
+    // std::cout << "Spinning on traced model from iteration " << iteration << "..." << std::endl;
+    Timer t {};
+    t.reset();
     do {
         modelPath = "data/models/" + runName + "/traced_" + runName + "_iteration_" + std::to_string(iteration) + ".pt";
 
         if (!std::filesystem::exists(modelPath)) {
-            std::cout << "Spinning on traced model from iteration " << iteration << "..." << std::endl;
             std::this_thread::sleep_for(std::chrono::seconds(MODEL_PATH_WAIT_INTERVAL));
         }
         
     } while (!std::filesystem::exists(modelPath));
+    double elapsed = t.elapsed();
+    std::cout << "Found traced model in " << elapsed << " seconds." << std::endl;
 
-    std::this_thread::sleep_for(std::chrono::seconds(5));
+    // std::this_thread::sleep_for(std::chrono::seconds(5));
 
     return modelPath;
 }
@@ -80,10 +83,12 @@ void runWorker(SPRL::WorkerOptions workerOptions,
                INetwork<GridState<NUM_ROWS * NUM_COLS, HISTORY_SIZE>, ACTION_SIZE>* initialNetwork,
                ISymmetrizer<GridState<NUM_ROWS * NUM_COLS, HISTORY_SIZE>, ACTION_SIZE>* symmetrizer,
                const std::string& saveDir) {
-
+    
     using State = GridState<NUM_ROWS * NUM_COLS, HISTORY_SIZE>;
     using ActionDist = GameActionDist<ACTION_SIZE>;
 
+    Timer total_t {}
+    total_t.reset();
     std::string runName = workerOptions.modelName + "_" + workerOptions.modelVariant;
     
     // Make the save directory if it doesn't exist.
@@ -101,7 +106,10 @@ void runWorker(SPRL::WorkerOptions workerOptions,
 
     INetwork<State, ACTION_SIZE>* network;  // Holds the current network.
 
-    for (int iter = 0; iter < workerOptions.numIters; ++iter) {
+    for (int iter = 0; iter < workerOptions.numIters; ++iter) {        
+        Timer t {};
+        t.reset();
+
         std::cout << "Starting iteration " << iter << "..." << std::endl;
 
         // Block until the model file for the previous iteration exists.
@@ -178,8 +186,12 @@ void runWorker(SPRL::WorkerOptions workerOptions,
         outcomeData.data_ptr = outcomes.data();
         outcomeData.shape = { static_cast<unsigned long>(outcomes.size()) };
 
-        npy::write_npy(savePath + "_outcomes.npy", outcomeData);
+        npy::write_npy(savePath + "_outcomes.npy", outcomeData);        
+        std::cout << "Games collected in " << t.elapsed() << " seconds." << std::endl;
     }
+
+    std::cout << "Worker process completed in " << total_t.elapsed() << " seconds." << std::endl;
+
 }
 
 } // namespace SPRL
