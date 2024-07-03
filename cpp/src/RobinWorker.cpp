@@ -26,12 +26,6 @@
 #include "uct/UCTTree.hpp"
 
 
-// struct Player {
-//     std::string modelPath;
-//     bool useSymmetrize;
-//     bool useParentQ;
-// };
-
 constexpr int NUM_ROWS = SPRL::GO_BOARD_WIDTH;
 constexpr int NUM_COLS = SPRL::GO_BOARD_WIDTH;
 constexpr int BOARD_SIZE = NUM_ROWS * NUM_COLS;
@@ -58,7 +52,7 @@ std::string nickName(std::string teamName, int iteration){
     }
 
     nick += std::to_string(iteration);
-    return nick
+    return nick;
 }
 
 int main(int argc, char* argv[]) {
@@ -91,7 +85,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (argc != argIdx) {
-        std::cerr << "Too many teams."
+        std::cerr << "Too many teams.";
         std::cerr << "Usage: ./RobinWorker.exe <task_id> <num_tasks> <tournament name> <num_teams> (<team_name> <num_players> (<iteration>)+)+";
         return 1;
     }
@@ -125,11 +119,22 @@ int main(int argc, char* argv[]) {
 
     // Setup the players.
     std::vector<std::string> modelPaths(numPlayers);
+    std::vector<SPRL::TreeOptions> treeOptions(numPlayers);
+    SPRL::UCTOptionsParser uctParser {};
 
     int playerIdx = 0;
     for (int i = 0; i < numTeams; ++i) {
         for (int j = 0; j < numPlayersPerTeam[i]; ++j) {
-            modelPaths[playerIdx++] = "./data/models/" + teamNames[i] + "/traced_" + teamNames[i] + "_" + std::to_string(iterations[i][j]) + ".pt";
+            if(teamNames[i] == "random") {
+                modelPaths[playerIdx] = "random";
+            }else{
+                modelPaths[playerIdx] = "./data/models/" + teamNames[i] + "/traced_" + teamNames[i] + "_" + std::to_string(iterations[i][j]) + ".pt";
+            }
+            // Parse the UCT options from hard-coded path. The random player also has one of these.
+
+            uctParser.parse("./data/configs/" + teamNames[i] + "_config_uct.json", treeOptions[playerIdx]);
+
+            playerIdx++;
         }
     }
 
@@ -172,25 +177,8 @@ int main(int argc, char* argv[]) {
             // TreeOptions treeOptions,
             // ISymmetrizer<State, ACTION_SIZE>* symmetrizer = nullptr
 
-            SPRL::UCTTree<ImplNode, State, ACTION_SIZE> tree0 {
-                std::make_unique<ImplNode>(),
-                0.25,
-                0.1,
-                SPRL::InitQ::PARENT_LIVE_Q,
-                true,
-                &symmetrizer,
-                true
-            };
-
-            SPRL::UCTTree<ImplNode, State, ACTION_SIZE> tree1 {
-                std::make_unique<ImplNode>(),
-                0.25,
-                0.1,
-                SPRL::InitQ::PARENT_LIVE_Q,
-                true,
-                &symmetrizer,
-                true
-            };
+            SPRL::UCTTree<ImplNode, State, ACTION_SIZE> tree0 { treeOptions[i], &symmetrizer };
+            SPRL::UCTTree<ImplNode, State, ACTION_SIZE> tree1 { treeOptions[j], &symmetrizer };
 
             SPRL::UCTNetworkAgent<ImplNode, State, ACTION_SIZE> networkAgent0 {
                 networks[i].get(),
