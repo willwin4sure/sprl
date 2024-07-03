@@ -128,11 +128,12 @@ int main(int argc, char* argv[]) {
             if(teamNames[i] == "random") {
                 modelPaths[playerIdx] = "random";
             }else{
-                modelPaths[playerIdx] = "./data/models/" + teamNames[i] + "/traced_" + teamNames[i] + "_" + std::to_string(iterations[i][j]) + ".pt";
+                modelPaths[playerIdx] = "./data/models/" + teamNames[i] + "/traced_" + teamNames[i] + "_iteration_" + std::to_string(iterations[i][j]) + ".pt";
             }
             // Parse the UCT options from hard-coded path. The random player also has one of these.
 
             uctParser.parse("./data/configs/" + teamNames[i] + "_config_uct.json", treeOptions[playerIdx]);
+            treeOptions[playerIdx].addNoise = false; // No noise for the tournament.
 
             playerIdx++;
         }
@@ -173,9 +174,6 @@ int main(int argc, char* argv[]) {
         for (int j = 0; j < numPlayers; ++j) {
             int i = (k + myTaskId) % numPlayers;
             if (i == j) continue;
-
-            // TreeOptions treeOptions,
-            // ISymmetrizer<State, ACTION_SIZE>* symmetrizer = nullptr
 
             SPRL::UCTTree<ImplNode, State, ACTION_SIZE> tree0 { treeOptions[i], &symmetrizer };
             SPRL::UCTTree<ImplNode, State, ACTION_SIZE> tree1 { treeOptions[j], &symmetrizer };

@@ -61,9 +61,13 @@ class Elo(nn.Module):
         """
         super(Elo, self).__init__()
         self.elos = nn.Parameter(torch.ones(num_players - 1) * 1000)
+        self.freeze_first = freeze_first
 
     def get_elos(self):
-        return torch.cat([torch.tensor([1000]), self.elos])
+        if self.freeze_first:
+            return torch.cat([torch.tensor([1000]), self.elos])
+        else:
+            return self.elos
 
 
 def getEloLogprob(elos: torch.Tensor, total_scores: torch.Tensor):
@@ -77,7 +81,7 @@ def getEloLogprob(elos: torch.Tensor, total_scores: torch.Tensor):
     return torch.sum(total_scores * log_probs)
 
 
-def converge_on_elos(elo_model, total_scores, lr=0.1, max_iter=10):
+def converge_on_elos(elo_model, total_scores, lr=0.1, max_iter=1000):
     """
     Given an Elo model and a win matrix, converge on the ELOs that maximize the likelihood of the win matrix.
 
@@ -126,7 +130,7 @@ def plot_heatmap(total_scores, players, results_path):
     plt.close()
 
 
-def compute_plot_elos(elos, elo_model, team_names, player_iterations, total_scores, results_path, iterations=10):
+def compute_plot_elos(elo_model, team_names, player_iterations, total_scores, results_path, iterations=10):
     # Now, do an ELO computation for each player.
     elos = converge_on_elos(elo_model, total_scores)
     elos = elos.detach().numpy()
@@ -151,8 +155,8 @@ def compute_plot_elos(elos, elo_model, team_names, player_iterations, total_scor
     plt.close()
 
 
-def handle_master(results_path, num_games, num_workers, group_size, robin_config_path,
-                  plot_heatmap=True, plot_elo=True, live_heatmap=True, live_elo=True):
+def handle_master(num_games, num_workers, group_size, robin_config_path,
+                  heatmap=True, elo=True, live_heatmap=True, live_elo=True):
 
     print("I am responsible for checking the results periodically and writing them all to a big file.")
 
@@ -175,6 +179,8 @@ def handle_master(results_path, num_games, num_workers, group_size, robin_config
         for _ in range(num_players):
             player_iterations[-1].append(int(config[idx]))
             idx += 1
+
+    results_path = f"./data/robin/{tournament_name}"
 
     players = []
 
@@ -226,6 +232,7 @@ def handle_master(results_path, num_games, num_workers, group_size, robin_config
         win_matrix = {player: {opponent: score.item() for opponent, score in zip(
             players, scores)} for player, scores in zip(players, total_scores)}
 
+        print("Total games played: ", total_games)
         with open(results_path + ".txt", "w") as f:
             f.write("DASHBOARD: " + tournament_name + "\n")
             f.write("-"*100+"\n")
@@ -234,28 +241,29 @@ def handle_master(results_path, num_games, num_workers, group_size, robin_config
             f.write(win_statistics(win_matrix))
             f.write(
                 f"\n\nTotal games played: {total_games} / {num_games * len(players) * (len(players) - 1)}")
+
         if live_heatmap:
             plot_heatmap(total_scores, players, results_path)
         if live_elo:
             compute_plot_elos(elo_model, team_names, player_iterations,
                               total_scores, results_path)
+
         # Now, do an ELO computation for each player.
 
         if total_games >= num_games * len(players) * (len(players) - 1):
             break
-    if plot_heatmap:
+    if heatmap:
         plot_heatmap(total_scores, players, results_path)
-    if plot_elo:
+    if elo:
         compute_plot_elos(elo_model, team_names, player_iterations,
                           total_scores, results_path, iterations=1000)
 
 
 if __name__ == "__main__":
-    NUM_GAMES = 192
-    RESULTS_PATH = "/home/gridsan/rzhong/sprl/data/robin/panda_fight"
+    NUM_GAMES = 144
     GROUP_SIZE = 48
-    NUM_TASKS = 192
+    NUM_TASKS = 144
 
     ROBIN_CONFIG_PATH = "/home/gridsan/rzhong/sprl/robin/robin_config.txt"
-    handle_master(RESULTS_PATH, NUM_GAMES, NUM_TASKS,
+    handle_master(NUM_GAMES, NUM_TASKS,
                   GROUP_SIZE, ROBIN_CONFIG_PATH)
