@@ -37,6 +37,7 @@ with open("./config/config_selfplay.json", "r") as f:
     NUM_GROUPS = config_selfplay["numGroups"]
     NUM_WORKER_TASKS = config_selfplay["numWorkerTasks"]
     NUM_ITERS = config_selfplay["numIters"]
+    SYNC = config_selfplay["sync"]
 
 with open("./config/config_controller.json", "r") as f:
     config_controller = json.load(f)
@@ -139,6 +140,83 @@ def collate_data(iteration: int, live_workers: Set[int]):
 
     print(
         f"Total samples for iteration {iteration}: {sum([s.shape[0] for s in new_states])}")
+
+    return new_states, new_distributions, new_outcomes, new_timestamps
+
+
+worker_seen = [0 for i in range(NUM_WORKER_TASKS)]
+
+
+def scoop_data(iteration: int):
+    """
+    For each worker, scoop up all data that has not already been scooped up.
+    """
+
+    global worker_seen
+
+    # in the case where iteration is 0, only, wait until every single worker has completed at least one game.
+    if iteration == 0:
+        print("Waiting for all workers to have data...")
+        while True:
+            all_workers_have_data = True
+            for task_id in range(NUM_WORKER_TASKS):
+                group = task_id // (NUM_WORKER_TASKS // NUM_GROUPS)
+
+                thread_save_path = f"data/games/{RUN_NAME}/{group}/{task_id}"
+
+                if not (os.path.exists(f"{thread_save_path}/{RUN_NAME}_iteration_{worker_seen[task_id]}_states.npy") and
+                        os.path.exists(f"{thread_save_path}/{RUN_NAME}_iteration_{worker_seen[task_id]}_distributions.npy") and
+                        os.path.exists(f"{thread_save_path}/{RUN_NAME}_iteration_{worker_seen[task_id]}_outcomes.npy")):
+                    all_workers_have_data = False
+                    break
+
+            if all_workers_have_data:
+                break
+
+            time.sleep(30)
+
+    new_states = []
+    new_distributions = []
+    new_outcomes = []
+    new_timestamps = []
+
+    start_time = None
+
+    for task_id in range(NUM_WORKER_TASKS):
+        group = task_id // (NUM_WORKER_TASKS // NUM_GROUPS)
+
+        thread_save_path = f"data/games/{RUN_NAME}/{group}/{task_id}"
+
+        while True:
+            if (os.path.exists(f"{thread_save_path}/{RUN_NAME}_iteration_{worker_seen[task_id]}_states.npy") and
+                os.path.exists(f"{thread_save_path}/{RUN_NAME}_iteration_{worker_seen[task_id]}_distributions.npy") and
+                    os.path.exists(f"{thread_save_path}/{RUN_NAME}_iteration_{worker_seen[task_id]}_outcomes.npy")):
+
+                states = torch.Tensor(
+                    np.load(f"{thread_save_path}/{RUN_NAME}_iteration_{worker_seen[task_id]}_states.npy"))
+                distributions = torch.Tensor(np.load(
+                    f"{thread_save_path}/{RUN_NAME}_iteration_{worker_seen[task_id]}_distributions.npy"))
+                outcomes = torch.Tensor(
+                    np.load(f"{thread_save_path}/{RUN_NAME}_iteration_{worker_seen[task_id]}_outcomes.npy"))
+                timestamps = torch.Tensor(
+                    [iteration if LINEAR_WEIGHTING else 1 for _ in range(states.shape[0])])
+
+                assert states.shape[0] == distributions.shape[0] == outcomes.shape[0] == timestamps.shape[0]
+
+                new_states.append(states)
+                new_distributions.append(distributions)
+                new_outcomes.append(outcomes)
+                new_timestamps.append(timestamps)
+
+                worker_seen[task_id] += 1
+            else:
+                break
+
+    print(
+        f"Total samples for iteration {iteration}: {sum([s.shape[0] for s in new_states])}")
+
+    print(f"Total scooped samples from each worker:")
+    print(" ".join(str(i) for i in worker_seen))
 
     return new_states, new_distributions, new_outcomes, new_timestamps
 
@@ -297,24 +375,37 @@ def main():
             network = BasicGridNetwork(
                 NUM_ROWS, NUM_COLS, ACTION_SIZE, HISTORY_SIZE, MODEL_NUM_BLOCKS, MODEL_NUM_CHANNELS)
 
-        new_states, new_distributions, new_outcomes, new_timestamps = collate_data(
-            iteration, live_workers)
+        if SYNC:
+            new_states, new_distributions, new_outcomes, new_timestamps = collate_data(
+                iteration, live_workers)
 
-        new_state_tensor = torch.cat(new_states, dim=0).to(device)
-        new_distribution_tensor = torch.cat(
-            new_distributions, dim=0).to(device)
-        new_outcome_tensor = torch.cat(
-            new_outcomes, dim=0).unsqueeze(1).to(device)
-        new_timestamp_tensor = torch.cat(
-            new_timestamps, dim=0).unsqueeze(1).to(device)
+            new_state_tensor = torch.cat(new_states, dim=0).to(device)
+            new_distribution_tensor = torch.cat(
+                new_distributions, dim=0).to(device)
+            new_outcome_tensor = torch.cat(
+                new_outcomes, dim=0).unsqueeze(1).to(device)
+            new_timestamp_tensor = torch.cat(
+                new_timestamps, dim=0).unsqueeze(1).to(device)
 
-        assert new_state_tensor.shape[0] == new_distribution_tensor.shape[0] \
-            == new_outcome_tensor.shape[0] == new_timestamp_tensor.shape[0]
+            assert new_state_tensor.shape[0] == new_distribution_tensor.shape[0] \
+                == new_outcome_tensor.shape[0] == new_timestamp_tensor.shape[0]
 
-        all_state_tensors.append(new_state_tensor)
-        all_distribution_tensors.append(new_distribution_tensor)
-        all_outcome_tensors.append(new_outcome_tensor)
-        all_timestamp_tensors.append(new_timestamp_tensor)
+            # When sync, all games in a single iteration are a single tensor.
+            # NUM_PAST_ITERS_TO_TRAIN is the number of iterations to keep.
+            all_state_tensors.append(new_state_tensor)
+            all_distribution_tensors.append(new_distribution_tensor)
+            all_outcome_tensors.append(new_outcome_tensor)
+            all_timestamp_tensors.append(new_timestamp_tensor)
+        else:
+            new_states, new_distributions, new_outcomes, new_timestamps = scoop_data(
+                iteration)
+
+            # When async, each game is a separate tensor.
+            # NUM_PAST_ITERS_TO_TRAIN is the number of games to keep.
+            all_state_tensors.extend(new_states)
+            all_distribution_tensors.extend(new_distributions)
+            all_outcome_tensors.extend(new_outcomes)
+            all_timestamp_tensors.extend(new_timestamps)
 
         assert (len(all_state_tensors) == len(all_distribution_tensors)
                 == len(all_outcome_tensors) == len(all_timestamp_tensors))

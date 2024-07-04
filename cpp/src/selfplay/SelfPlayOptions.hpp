@@ -36,6 +36,8 @@ struct WorkerOptions {
     int numWorkerTasks;  // Supercloud: number of total worker threads.
     int numIters;        // The total number of iterations to run.
 
+    bool sync;  // If False, numGamesPerWorker should be 1, and worker will not wait for new model.
+
     IterationOptions initIterationOptions;  // Iteration options for the first iteration.
     IterationOptions iterationOptions;      // Iteration options for all subsequent iterations.
 };
@@ -68,6 +70,9 @@ public:
         sm::reg(&WorkerOptions::numGroups, "numGroups", sm::Required {});
         sm::reg(&WorkerOptions::numWorkerTasks, "numWorkerTasks", sm::Required {});
         sm::reg(&WorkerOptions::numIters, "numIters", sm::Required {});
+
+        // Default is true to be reverse-compatible with panda-gamma and prior.
+        sm::reg(&WorkerOptions::synchronous, "synchronous", sm::Default { true });
 
         sm::reg(&WorkerOptions::initIterationOptions, "initIterationOptions", sm::Required {});
         sm::reg(&WorkerOptions::iterationOptions, "iterationOptions", sm::Required {});

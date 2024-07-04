@@ -35,29 +35,51 @@ constexpr int MODEL_PATH_WAIT_INTERVAL = 30;  // Seconds to wait between checkin
  * 
  * @returns The path to the model file for the given iteration.
 */
-std::string waitModelPath(int iteration, const std::string& runName) {
-    if (iteration == -1) {
-        return "random";
-    }
-
-    std::string modelPath;
-    // std::cout << "Spinning on traced model from iteration " << iteration << "..." << std::endl;
-    Timer t {};
-    t.reset();
-    do {
-        modelPath = "data/models/" + runName + "/traced_" + runName + "_iteration_" + std::to_string(iteration) + ".pt";
-
-        if (!std::filesystem::exists(modelPath)) {
-            std::this_thread::sleep_for(std::chrono::seconds(MODEL_PATH_WAIT_INTERVAL));
+std::string waitModelPath(int iteration, const std::string& runName, bool sync) {
+    if (sync) {
+        if (iteration == -1) {
+            return "random";
         }
+
+        std::string modelPath;
+        // std::cout << "Spinning on traced model from iteration " << iteration << "..." << std::endl;
+        Timer t {};
+        t.reset();
+        do {
+            modelPath = "data/models/" + runName + "/traced_" + runName + "_iteration_" + std::to_string(iteration) + ".pt";
+
+            if (!std::filesystem::exists(modelPath)) {
+                std::this_thread::sleep_for(std::chrono::seconds(MODEL_PATH_WAIT_INTERVAL));
+            }
+            
+        } while (!std::filesystem::exists(modelPath));
+        double elapsed = t.elapsed();
+        std::cout << "Found traced model in " << elapsed << " seconds." << std::endl;
+
+        // std::this_thread::sleep_for(std::chrono::seconds(5));
+
+        return modelPath;
+    } else {
+        // Otherwise, follow a different algorithm.
+        // Check if model 0 exists. If it doesn't, return random.
+        // Else, iteratively, find the last model which exists, and return that model.
         
-    } while (!std::filesystem::exists(modelPath));
-    double elapsed = t.elapsed();
-    std::cout << "Found traced model in " << elapsed << " seconds." << std::endl;
+        int last_exists = -1;
+        while (true) {
+            std::string modelPath = "data/models/" + runName + "/traced_" + runName + "_iteration_" + std::to_string(last_exists + 1) + ".pt";
+            if (!std::filesystem::exists(modelPath)) {
+                break;
+            }
+            last_exists++;
+        }
 
-    // std::this_thread::sleep_for(std::chrono::seconds(5));
-
-    return modelPath;
+        if (last_exists == -1) {
+            std::cout << "No models found, using random network..." << std::endl;
+            return "random";
+        }
+        std::cout << "Using traced model from iteration " << last_exists << "..." << std::endl;
+        return "data/models/" + runName + "/traced_" + runName + "_iteration_" + std::to_string(last_exists) + ".pt";
+    }
 }
 
 /**
@@ -113,7 +135,7 @@ void runWorker(SPRL::WorkerOptions workerOptions,
         std::cout << "Starting iteration " << iter << "..." << std::endl;
 
         // Block until the model file for the previous iteration exists.
-        std::string modelPath = waitModelPath(iter - 1, runName);
+        std::string modelPath = waitModelPath(iter - 1, runName, workerOptions.sync);
         std::string savePath = saveDir + "/" + runName + "_iteration_" + std::to_string(iter);
 
         IterationOptions iterationOptions = (iter == 0) ? workerOptions.initIterationOptions : workerOptions.iterationOptions;
@@ -123,7 +145,6 @@ void runWorker(SPRL::WorkerOptions workerOptions,
         if (modelPath == "random") {
             std::cout << "Using initial network..." << std::endl;
             network = initialNetwork;
-            
         } else {
             std::cout << "Using traced PyTorch network..." << std::endl;
             network = &neuralNetwork;

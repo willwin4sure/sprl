@@ -126,7 +126,7 @@ def plot_heatmap(total_scores, players, results_path):
     cbar = ax.figure.colorbar(im, ax=ax)
     cbar.ax.set_ylabel("Scores", rotation=-90, va="bottom")
 
-    plt.savefig(results_path + "_heatmap.png", dpi=300)
+    plt.savefig(results_path + "_heatmap.png", dpi=100)
     plt.close()
 
 
@@ -151,7 +151,7 @@ def compute_plot_elos(elo_model, team_names, player_iterations, total_scores, re
         plt.plot(iterations, tmp, label=team, marker="o")
 
     plt.legend()
-    plt.savefig(results_path + "_elo.png", dpi=300)
+    plt.savefig(results_path + "_elo.png", dpi=100)
     plt.close()
 
 
@@ -232,7 +232,6 @@ def handle_master(num_games, num_workers, group_size, robin_config_path,
         win_matrix = {player: {opponent: score.item() for opponent, score in zip(
             players, scores)} for player, scores in zip(players, total_scores)}
 
-        print("Total games played: ", total_games)
         with open(results_path + ".txt", "w") as f:
             f.write("DASHBOARD: " + tournament_name + "\n")
             f.write("-"*100+"\n")
@@ -242,26 +241,26 @@ def handle_master(num_games, num_workers, group_size, robin_config_path,
             f.write(
                 f"\n\nTotal games played: {total_games} / {num_games * len(players) * (len(players) - 1)}")
 
+        # Now, do an ELO computation for each player.
+
+        if total_games >= num_games * len(players) * (len(players) - 1):
+            break
         if live_heatmap:
             plot_heatmap(total_scores, players, results_path)
         if live_elo:
             compute_plot_elos(elo_model, team_names, player_iterations,
                               total_scores, results_path)
 
-        # Now, do an ELO computation for each player.
-
-        if total_games >= num_games * len(players) * (len(players) - 1):
-            break
     if heatmap:
         plot_heatmap(total_scores, players, results_path)
     if elo:
         compute_plot_elos(elo_model, team_names, player_iterations,
-                          total_scores, results_path, iterations=1000)
+                          total_scores, results_path, iterations=1000000)
 
 
 if __name__ == "__main__":
     NUM_GAMES = 144
-    GROUP_SIZE = 48
+    GROUP_SIZE = 36
     NUM_TASKS = 144
 
     ROBIN_CONFIG_PATH = "/home/gridsan/rzhong/sprl/robin/robin_config.txt"

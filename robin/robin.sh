@@ -16,7 +16,7 @@ echo "Number of Tasks: " $LLSUB_SIZE
 #    ...
 
 
-./cpp/build/RobinWorker $LLSUB_RANK $LLSUB_SIZE yottapanda 5 \
+./cpp/build/RobinWorker $LLSUB_RANK $LLSUB_SIZE yottapandaQ 5 \
     random 1 0\
     panda_gamma_fast 8 0 20 40 60 80 100 150 199 \
     panda_gamma_slower 8 0 20 40 60 80 100 150 189 \
@@ -24,6 +24,3 @@ echo "Number of Tasks: " $LLSUB_SIZE
     panda_delta_replicate_slow_new_prime 6 0 20 40 60 80 99 \
 
 echo "Done."
-
-echo "Starting robin.py"
-python ./robin/robin.py

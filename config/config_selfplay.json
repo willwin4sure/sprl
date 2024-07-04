@@ -1,12 +1,12 @@
 {
     "modelName": "panda_delta",
-    "modelVariant": "replicate_fast_new_prime",
+    "modelVariant": "async_fast",
     "numGroups": 4,
     "numWorkerTasks": 192,
     "numIters": 100,
 
     "initIterationOptions": {
-        "numGamesPerWorker": 5,
+        "numGamesPerWorker": 1,
         "uctTraversals": 16384,
         "maxBatchSize": 1,
         "maxQueueSize": 1,
@@ -22,8 +22,8 @@
     },
 
     "iterationOptions": {
-        "numGamesPerWorker": 5,
-        "uctTraversals": 4096,
+        "numGamesPerWorker": 1,
+        "uctTraversals": 8192,
         "maxBatchSize": 16,
         "maxQueueSize": 8,
 
