@@ -127,8 +127,9 @@ void runWorker(SPRL::WorkerOptions workerOptions,
     }
 
     INetwork<State, ACTION_SIZE>* network;  // Holds the current network.
-
-    for (int iter = 0; iter < workerOptions.numIters; ++iter) {        
+    int iter = 0;
+    while(true){
+    // for (int iter = 0; iter < workerOptions.numIters; ++iter) {        
         Timer t {};
         t.reset();
 
@@ -138,7 +139,16 @@ void runWorker(SPRL::WorkerOptions workerOptions,
         std::string modelPath = waitModelPath(iter - 1, runName, workerOptions.sync);
         std::string savePath = saveDir + "/" + runName + "_iteration_" + std::to_string(iter);
 
-        IterationOptions iterationOptions = (iter == 0) ? workerOptions.initIterationOptions : workerOptions.iterationOptions;
+        IterationOptions iterationOptions = workerOptions.iterationOptions;
+        if (workerOptions.sync) {
+            if (modelPath == "random") {
+                iterationOptions = workerOptions.initIterationOptions;
+            }
+        }else{
+            if (iter == 0){
+                iterationOptions = workerOptions.initIterationOptions;
+            }
+        }
 
         NeuralNetwork neuralNetwork { modelPath };
 
@@ -209,6 +219,17 @@ void runWorker(SPRL::WorkerOptions workerOptions,
 
         npy::write_npy(savePath + "_outcomes.npy", outcomeData);        
         std::cout << "Games collected in " << t.elapsed() << " seconds." << std::endl;
+    
+        iter++;
+        if(workerOptions.sync){
+            if (iter >= workerOptions.numIters){
+                break;
+            }
+        } else {
+            if (std::filesystem::exists("data/models/" + runName + "/traced_" + runName + "_iteration_" + std::to_string(workerOptions.numIters) + ".pt")){
+                break;
+            }
+        }
     }
 
     std::cout << "Worker process completed in " << total_t.elapsed() << " seconds." << std::endl;

@@ -72,7 +72,7 @@ public:
         sm::reg(&WorkerOptions::numIters, "numIters", sm::Required {});
 
         // Default is true to be reverse-compatible with panda-gamma and prior.
-        sm::reg(&WorkerOptions::synchronous, "synchronous", sm::Default { true });
+        sm::reg(&WorkerOptions::sync, "sync", sm::Default { true });
 
         sm::reg(&WorkerOptions::initIterationOptions, "initIterationOptions", sm::Required {});
         sm::reg(&WorkerOptions::iterationOptions, "iterationOptions", sm::Required {});

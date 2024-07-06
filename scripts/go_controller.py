@@ -7,7 +7,7 @@ import os
 import sys
 import tempfile
 import time
-from typing import Set
+from typing import List, Set, Tuple
 
 import numpy as np
 import torch
@@ -61,7 +61,7 @@ RUN_NAME = f"{MODEL_NAME}_{MODEL_VARIANT}"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
-def setup(rank, world_size):
+def setup(rank: int, world_size: int):
     # This needs to be changed if we are using multiple machines.
     os.environ['MASTER_ADDR'] = 'localhost'
     # This can be any number.
@@ -75,7 +75,7 @@ def cleanup():
     dist.destroy_process_group()
 
 
-def collate_data(iteration: int, live_workers: Set[int]):
+def collate_data(iteration: int, live_workers: Set[int]) -> Tuple[List[torch.Tensor], List[torch.Tensor], List[torch.Tensor], List[torch.Tensor]]:
     new_states = []
     new_distributions = []
     new_outcomes = []
@@ -147,7 +147,7 @@ def collate_data(iteration: int, live_workers: Set[int]):
 worker_seen = [0 for i in range(NUM_WORKER_TASKS)]
 
 
-def scoop_data(iteration: int):
+def scoop_data(iteration: int) -> Tuple[List[torch.Tensor], List[torch.Tensor], List[torch.Tensor], List[torch.Tensor]]:
     """
     For each worker, scoop up all data that has not already been scooped up.
     """
@@ -173,7 +173,7 @@ def scoop_data(iteration: int):
             if all_workers_have_data:
                 break
 
-            time.sleep(30)
+            time.sleep(10)
 
     new_states = []
     new_distributions = []
@@ -199,7 +199,7 @@ def scoop_data(iteration: int):
                 outcomes = torch.Tensor(
                     np.load(f"{thread_save_path}/{RUN_NAME}_iteration_{worker_seen[task_id]}_outcomes.npy"))
                 timestamps = torch.Tensor(
-                    [iteration if LINEAR_WEIGHTING else 1 for _ in range(states.shape[0])])
+                    [iteration + 1 if LINEAR_WEIGHTING else 1 for _ in range(states.shape[0])])
 
                 assert states.shape[0] == distributions.shape[0] == outcomes.shape[0] == timestamps.shape[0]
 
@@ -221,7 +221,15 @@ def scoop_data(iteration: int):
     return new_states, new_distributions, new_outcomes, new_timestamps
 
 
-def train_network(network: BasicGridNetwork, learning_rate: float, iteration: int, state_tensor, distribution_tensor, outcome_tensor, timestamp_tensor):
+epochify_time = 0
+save_time = 0
+trace_time = 0
+
+
+def train_network(network: BasicGridNetwork, learning_rate: float, iteration: int,
+                  state_tensor: torch.Tensor, distribution_tensor: torch.Tensor,
+                  outcome_tensor: torch.Tensor, timestamp_tensor: torch.Tensor):
+    global epochify_time, save_time, trace_time
     network.to(device)
 
     dataset = TensorDataset(
@@ -254,12 +262,14 @@ def train_network(network: BasicGridNetwork, learning_rate: float, iteration: in
     for group in range(MAX_GROUPS):
         with tqdm(range(EPOCHS_PER_GROUP)) as pbar:
             for epoch in pbar:
-
+                epochify_time -= time.time()
                 train_average_policy_loss, train_average_value_loss = epochify(
                     network, train_dataloader, optimizer, train=True)
 
                 val_average_policy_loss, val_average_value_loss = epochify(
                     network, val_dataloader, train=False)
+                epochify_time += time.time()
+                save_time -= time.time()
 
                 val_loss = val_average_policy_loss + val_average_value_loss
 
@@ -275,21 +285,27 @@ def train_network(network: BasicGridNetwork, learning_rate: float, iteration: in
 
                 pbar.set_description(
                     f"Tr Pol: {train_init_policy_loss:.4f} -> {train_average_policy_loss:.4f}, Tr Val: {train_init_value_loss:.4f} -> {train_average_value_loss:.4f}, Val Pol: {val_init_policy_loss:.4f} -> {val_average_policy_loss:.4f}, Val Val: {val_init_value_loss:.4f} -> {val_average_value_loss:.4f}")
-
+                save_time += time.time()
             # If the best epoch is among the last EPOCHS_PER_GROUP // 2 epochs, don't break, might get more from training
             if best_epoch < (group + 1) * EPOCHS_PER_GROUP - EPOCHS_PER_GROUP // 2:
                 break
 
+    trace_time -= time.time()
     print(f"The best model was at epoch {best_epoch}.")
 
     trace_model(f"./data/models/{RUN_NAME}/{RUN_NAME}_iteration_{iteration}.pt",
                 torch.randn(1, 2 * HISTORY_SIZE + 1, NUM_ROWS, NUM_COLS),
                 f"./data/models/{RUN_NAME}/traced_{RUN_NAME}_iteration_{iteration}.pt")
-
     network.to("cpu")
 
+    trace_time += time.time()
 
-def epochify(network: BasicGridNetwork, train_dataloader, optimizer=None, train=True, EPS=1e-8):
+    print(
+        f"Epochify: {epochify_time:.2f}s, Save: {save_time:.2f}s, Trace: {trace_time:.2f}s")
+
+
+def epochify(network: BasicGridNetwork, train_dataloader: DataLoader,
+             optimizer: optim.Optimizer = None, train: bool = True, EPS: float = 1e-8) -> Tuple[float, float]:
     if train:
         network.train()
     else:
@@ -330,7 +346,14 @@ def epochify(network: BasicGridNetwork, train_dataloader, optimizer=None, train=
     return average_policy_loss, average_value_loss
 
 
+collation_time = 0
+mem_time = 0
+cat_time = 0
+train_time = 0
+
+
 def main():
+    global collation_time, mem_time, cat_time, train_time
     print(f"I have access to {device}.")
 
     # Create the necessary directories
@@ -352,10 +375,10 @@ def main():
 
     print(f"Saved configs for {RUN_NAME}.")
 
-    all_state_tensors = []
-    all_distribution_tensors = []
-    all_outcome_tensors = []
-    all_timestamp_tensors = []
+    all_state_tensors: List[torch.Tensor] = []
+    all_distribution_tensors: List[torch.Tensor] = []
+    all_outcome_tensors: List[torch.Tensor] = []
+    all_timestamp_tensors: List[torch.Tensor] = []
 
     network = BasicGridNetwork(
         NUM_ROWS, NUM_COLS, ACTION_SIZE, HISTORY_SIZE, MODEL_NUM_BLOCKS, MODEL_NUM_CHANNELS)
@@ -364,6 +387,7 @@ def main():
     live_workers = set(range(NUM_WORKER_TASKS))
 
     for iteration in range(NUM_ITERS):
+        collation_time -= time.time()
         print(f"Starting iteration {iteration}...")
 
         if iteration in LR_MILESTONE_ITERS:
@@ -379,13 +403,14 @@ def main():
             new_states, new_distributions, new_outcomes, new_timestamps = collate_data(
                 iteration, live_workers)
 
-            new_state_tensor = torch.cat(new_states, dim=0).to(device)
+            # Do not push anybody to GPU yet, before we clear out the old data from vram.
+            new_state_tensor = torch.cat(new_states, dim=0)
             new_distribution_tensor = torch.cat(
-                new_distributions, dim=0).to(device)
+                new_distributions, dim=0)
             new_outcome_tensor = torch.cat(
-                new_outcomes, dim=0).unsqueeze(1).to(device)
+                new_outcomes, dim=0).unsqueeze(1)
             new_timestamp_tensor = torch.cat(
-                new_timestamps, dim=0).unsqueeze(1).to(device)
+                new_timestamps, dim=0).unsqueeze(1)
 
             assert new_state_tensor.shape[0] == new_distribution_tensor.shape[0] \
                 == new_outcome_tensor.shape[0] == new_timestamp_tensor.shape[0]
@@ -406,28 +431,73 @@ def main():
             all_distribution_tensors.extend(new_distributions)
             all_outcome_tensors.extend(new_outcomes)
             all_timestamp_tensors.extend(new_timestamps)
-
+        collation_time += time.time()
+        mem_time -= time.time()
         assert (len(all_state_tensors) == len(all_distribution_tensors)
                 == len(all_outcome_tensors) == len(all_timestamp_tensors))
 
         while len(all_state_tensors) > NUM_PAST_ITERS_TO_TRAIN:
-            all_state_tensors.pop(0)
-            all_distribution_tensors.pop(0)
-            all_outcome_tensors.pop(0)
-            all_timestamp_tensors.pop(0)
+            # del all_state_tensors[0]
+            # del all_distribution_tensors[0]
+            # del all_outcome_tensors[0]
+            # del all_timestamp_tensors[0]
+            s = all_state_tensors.pop(0)
+            d = all_distribution_tensors.pop(0)
+            o = all_outcome_tensors.pop(0)
+            t = all_timestamp_tensors.pop(0)
+            s.detach()
+            s.grad = None
+            d.detach()
+            d.grad = None
+            o.detach()
+            o.grad = None
+            t.detach()
+            t.grad = None
+        if device == "cuda":
+            with torch.no_grad():
+                torch.cuda.empty_cache()
+
+        t = torch.cuda.get_device_properties(0).total_memory
+        r = torch.cuda.memory_reserved(0)
+        a = torch.cuda.memory_allocated(0)
+        f = r-a  # free inside reserved
+        print(
+            f"Total (MiB): {t / (2 ** 10)}, Reserved: {r / (2 ** 10)}, Allocated: {a / (2 ** 10)}, Free: {f / (2 ** 10)}")
+        # print the number of samples in the training set
+        print(
+            f"Total blocks for training: {len(all_state_tensors)}")
+        print(
+            f"Total samples for training: {sum([s.shape[0] for s in all_state_tensors])}")
+
+        mem_time += time.time()
+        cat_time -= time.time()
+        # Push everything to gpu.
+        all_state_tensors = [s.to(device) for s in all_state_tensors]
+        all_distribution_tensors = [d.to(device)
+                                    for d in all_distribution_tensors]
+        all_outcome_tensors = [o.to(device) for o in all_outcome_tensors]
+        all_timestamp_tensors = [t.to(device)
+                                 for t in all_timestamp_tensors]
 
         train_state_tensor = torch.cat(all_state_tensors, dim=0)
         train_distribution_tensor = torch.cat(all_distribution_tensors, dim=0)
         train_outcome_tensor = torch.cat(all_outcome_tensors, dim=0)
         train_timestamp_tensor = torch.cat(
-            all_timestamp_tensors, dim=0) - max(0, iteration + 1 - NUM_PAST_ITERS_TO_TRAIN)
+            all_timestamp_tensors, dim=0)  # - max(0, iteration + 1 - NUM_PAST_ITERS_TO_TRAIN)
 
         assert train_state_tensor.shape[0] == train_distribution_tensor.shape[0]\
             == train_outcome_tensor.shape[0] == train_timestamp_tensor.shape[0]
         assert torch.min(train_timestamp_tensor) > 0
 
-        train_network(network, learning_rate, iteration, train_state_tensor,
+        cat_time += time.time()
+        train_time -= time.time()
+        train_network(network, learning_rate, iteration,
+                      train_state_tensor,
                       train_distribution_tensor, train_outcome_tensor, train_timestamp_tensor)
+        train_time += time.time()
+
+        print(
+            f"Col: {collation_time:.2f}s, Mem: {mem_time:.2f}s, Cat: {cat_time:.2f}s, Tr: {train_time:.2f}s")
 
 
 if __name__ == "__main__":

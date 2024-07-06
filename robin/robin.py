@@ -9,6 +9,7 @@ against yourself, in order to test it.
 import os
 import sys
 import time
+from typing import List
 
 import matplotlib.pyplot as plt
 import torch
@@ -55,63 +56,91 @@ def nickName(teamName, iteration):
 
 
 class Elo(nn.Module):
-    def __init__(self, num_players, freeze_first=True):
+    def __init__(self, num_players, freeze_first=True, freeze_gamma=False):
         """
         freeze_first: If True, the first player's ELO is fixed at 1000.
         """
         super(Elo, self).__init__()
-        self.elos = nn.Parameter(torch.ones(num_players - 1) * 1000)
+        self.elos = nn.Parameter(torch.ones(num_players) * 1000)
+        if freeze_gamma:
+            self.gamma = torch.tensor(0.0, requires_grad=False)
+        else:
+            self.gamma = nn.Parameter(torch.tensor(0.5))
         self.freeze_first = freeze_first
 
     def get_elos(self):
+        # For viewing, not training.
         if self.freeze_first:
-            return torch.cat([torch.tensor([1000]), self.elos])
-        else:
-            return self.elos
+            return (self.elos - self.elos[0] + 1000).detach()
+        return self.elos
 
 
-def getEloLogprob(elos: torch.Tensor, total_scores: torch.Tensor):
+def getEloLogprob(elos: torch.Tensor, gamma: torch.Tensor, total_wins: torch.Tensor, total_ties: torch.Tensor):
     """
     Given a win_matrix, calculate the log probability of the win_matrix given the elos.
     """
-    assert elos.shape[0] == total_scores.shape[0] == total_scores.shape[1]
-    # elo_diffs[i][j] = elos[i] - elos[j]
-    elo_diffs = elos[:, None] - elos[None, :]
-    log_probs = torch.log(1 / (1 + torch.exp(-elo_diffs / 400)))
-    return torch.sum(total_scores * log_probs)
+    assert elos.shape[0] == total_wins.shape[0] == total_wins.shape[1] == total_ties.shape[0] == total_ties.shape[1]
+    # num_players = elos.shape[0]
+    strength = (elos * torch.log(torch.tensor(10)) /
+                400)
+    # [:, None] # .reshape(num_players, 1).expand(num_players, num_players)
+    # lose_strength = (elos * torch.log(torch.tensor(10)) /
+    #                  400).reshape(1, num_players).expand(num_players, num_players)
+    tie_strength = torch.log(
+        gamma) * (strength[:, None] + strength[None, :]) / 2
+    denominator = torch.logaddexp(torch.logaddexp(
+        strength[:, None], strength[None, :]), tie_strength)
+
+    win_log_probs = strength[:, None] - denominator
+    tie_log_probs = tie_strength - denominator
+    return torch.sum(total_wins * win_log_probs) + torch.sum(total_ties * tie_log_probs)
 
 
-def converge_on_elos(elo_model, total_scores, lr=0.1, max_iter=1000):
+def converge_on_elos(elo_model: Elo, total_wins: torch.Tensor, total_ties: torch.Tensor, lr=1, max_iter=int(1e3)):
     """
     Given an Elo model and a win matrix, converge on the ELOs that maximize the likelihood of the win matrix.
 
     Modifies the elo model in place.
     """
+    # num_players = total_wins.shape[0]
+    total_games = torch.sum(total_wins + total_ties)
     optimizer = torch.optim.Adam(elo_model.parameters(), lr=lr)
+    # with tqdm(total=max_iter) as pbar:
+    loss = None
     for i in range(max_iter):
         optimizer.zero_grad()
-        logprob = getEloLogprob(elo_model.get_elos(), total_scores)
-        loss = -logprob
+        # logprob = getEloLogprob(elo_model.get_elos(), total_scores)
+        logprob = getEloLogprob(
+            elo_model.elos, elo_model.gamma, total_wins, total_ties)
+        loss = -logprob / total_games
         loss.backward()
         optimizer.step()
-    return elo_model.get_elos()
+        # pbar.update(1)
+        # pbar.set_description(f"Average NLL: {loss.item()}")
+    return elo_model.get_elos(), loss.item()
 
 
-def plot_heatmap(total_scores, players, results_path):
+def plot_heatmap(total_scores, total_ties, players, results_path):
+    numerator = total_scores + total_ties
+    denominator = torch.max(numerator + numerator.T,
+                            torch.ones_like(numerator))
+
     # Now, matplotlib a heatmap win matrix. This should be a 1920 x 1080 image.
     fig, ax = plt.subplots()
-    im = ax.imshow(total_scores, cmap="viridis")
+    im = ax.imshow(numerator / denominator,
+                   cmap="RdYlGn", interpolation='none')
 
-    # We want to show all ticks...
-    ax.set_xticks(range(len(players)))
-    ax.set_yticks(range(len(players)))
-    # ... and label them with the respective list entries
-    ax.set_xticklabels(players)
-    ax.set_yticklabels(players)
+    if len(players) <= 10:
+        # We want to show all ticks...
+        ax.set_xticks(range(len(players)))
+        ax.set_yticks(range(len(players)))
+        # ... and label them with the respective list entries
+        ax.set_xticklabels(players)
+        ax.set_yticklabels(players)
 
-    # Rotate the tick labels and set their alignment.
-    plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
-             rotation_mode="anchor")
+        # Rotate the tick labels and set their alignment.
+        plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
+                 rotation_mode="anchor")
 
     # Loop over data dimensions and create text annotations.
     if len(players) <= 5:  # Else, the boxes are too small.
@@ -129,15 +158,64 @@ def plot_heatmap(total_scores, players, results_path):
     plt.savefig(results_path + "_heatmap.png", dpi=100)
     plt.close()
 
+    # Next, plot a heatmap of the frequency of ties.
+    denominator = total_scores + total_ties
+    denominator = torch.max(denominator + denominator.T,
+                            torch.ones_like(denominator))
+    numerator = total_ties + total_ties.T
+    fig, ax = plt.subplots()
+    im = ax.imshow(numerator / denominator,
+                   cmap="viridis", interpolation='none')
 
-def compute_plot_elos(elo_model, team_names, player_iterations, total_scores, results_path, iterations=10):
+    if len(players) <= 10:
+        # We want to show all ticks...
+        ax.set_xticks(range(len(players)))
+        ax.set_yticks(range(len(players)))
+        # ... and label them with the respective list entries
+        ax.set_xticklabels(players)
+        ax.set_yticklabels(players)
+
+        # Rotate the tick labels and set their alignment.
+        plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
+                 rotation_mode="anchor")
+
+    # Loop over data dimensions and create text annotations.
+    if len(players) <= 5:  # Else, the boxes are too small.
+        for i in range(len(players)):
+            for j in range(len(players)):
+                text = ax.text(j, i, round(numerator[i][j].item() / denominator[i][j].item(), 2),
+                               ha="center", va="center", color="w", fontsize=10)
+
+    ax.set_title("Frequency of ties between players")
+    fig.tight_layout()
+    # colorbar
+    cbar = ax.figure.colorbar(im, ax=ax)
+    cbar.ax.set_ylabel("Frequency of ties", rotation=-90, va="bottom")
+    plt.savefig(results_path + "_ties.png", dpi=100)
+    plt.close()
+
+
+def compute_plot_elos(
+        elo_model: Elo,
+        team_names: List[str],
+        player_iterations: List[List[int]],
+        total_wins: torch.Tensor,
+        total_ties: torch.Tensor,
+        results_path: str,
+        iterations=1000000,
+        max_iter=int(1e3)):
+
     # Now, do an ELO computation for each player.
-    elos = converge_on_elos(elo_model, total_scores)
+    elos, nll = converge_on_elos(elo_model, total_wins,
+                                 total_ties, max_iter=max_iter)
     elos = elos.detach().numpy()
     idx = 0
 
     plt.figure()
-    plt.title("ELOs of players")
+    plt.title(
+        f"ELOs of players: gamma = {elo_model.gamma.item():.2f}, NLL = {nll:.2f}")
+    # plt.figtext(s=f"gamma={elo_model.gamma.item()}, NLL= {nll}",
+    #             x=0.5, y=0.05, ha="center")
     plt.xlabel("Iterations")
     plt.ylabel("ELO")
 
@@ -196,14 +274,18 @@ def handle_master(num_games, num_workers, group_size, robin_config_path,
 
     # First, figure out who the players are by reading the first file.
     while True:
+
+        print("ping")
         time.sleep(1)
         # wait until this file exists
         if not os.path.exists(f"{results_path}/0/0/log.txt"):
             continue
 
+        # start_time = time.time()
         # total_scores = [[0 for __ in range(len(players))]
         #                 for _ in range(len(players))]
-        total_scores = torch.zeros(len(players), len(players))
+        total_wins = torch.zeros(len(players), len(players))
+        total_ties = torch.zeros(len(players), len(players))
 
         total_games = 0
         for i in range(num_workers):
@@ -219,18 +301,18 @@ def handle_master(num_games, num_workers, group_size, robin_config_path,
                             continue
                         player, opponent, winner = map(int, line.split())
                         if winner == 0:
-                            total_scores[player][opponent] += 1
+                            total_wins[player][opponent] += 1
                         elif winner == 1:
-                            total_scores[opponent][player] += 1
+                            total_wins[opponent][player] += 1
                         else:
-                            total_scores[player][opponent] += 0.5
-                            total_scores[opponent][player] += 0.5
+                            total_ties[player][opponent] += 0.5
+                            total_ties[opponent][player] += 0.5
                         total_games += 1
             except Exception as e:
                 print("Error reading file ", results_file)
                 print(e)
         win_matrix = {player: {opponent: score.item() for opponent, score in zip(
-            players, scores)} for player, scores in zip(players, total_scores)}
+            players, scores)} for player, scores in zip(players, total_wins + total_ties)}
 
         with open(results_path + ".txt", "w") as f:
             f.write("DASHBOARD: " + tournament_name + "\n")
@@ -241,27 +323,36 @@ def handle_master(num_games, num_workers, group_size, robin_config_path,
             f.write(
                 f"\n\nTotal games played: {total_games} / {num_games * len(players) * (len(players) - 1)}")
 
-        # Now, do an ELO computation for each player.
+        # time_taken = time.time() - start_time
+        # print(f"Time taken to read games: {time_taken}")
 
+        # Now, do an ELO computation for each player.
         if total_games >= num_games * len(players) * (len(players) - 1):
             break
+        # time this
+        # start_time = time.time()
         if live_heatmap:
-            plot_heatmap(total_scores, players, results_path)
+            plot_heatmap(total_wins,  total_ties, players, results_path)
+        # time_taken = time.time() - start_time
+        # print(f"Time taken to plot heatmap: {time_taken}")
+        # start_time = time.time()
+
         if live_elo:
             compute_plot_elos(elo_model, team_names, player_iterations,
-                              total_scores, results_path)
-
+                              total_wins, total_ties, results_path)
+        # time_taken = time.time() - start_time
+        # print(f"Time taken to do elos: {time_taken}")
     if heatmap:
-        plot_heatmap(total_scores, players, results_path)
+        plot_heatmap(total_wins, players, results_path)
     if elo:
         compute_plot_elos(elo_model, team_names, player_iterations,
-                          total_scores, results_path, iterations=1000000)
+                          total_wins, total_ties, results_path, max_iter=int(1e6))
 
 
 if __name__ == "__main__":
-    NUM_GAMES = 144
-    GROUP_SIZE = 36
-    NUM_TASKS = 144
+    NUM_GAMES = 192
+    GROUP_SIZE = 48
+    NUM_TASKS = 192
 
     ROBIN_CONFIG_PATH = "/home/gridsan/rzhong/sprl/robin/robin_config.txt"
     handle_master(NUM_GAMES, NUM_TASKS,

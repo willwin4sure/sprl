@@ -1,13 +1,14 @@
 {
-    "modelName": "panda_delta",
+    "modelName": "panda_epsilon",
     "modelVariant": "async_fast",
     "numGroups": 4,
     "numWorkerTasks": 192,
-    "numIters": 100,
+    "numIters": 400,
+    "sync": false,
 
     "initIterationOptions": {
         "numGamesPerWorker": 1,
-        "uctTraversals": 16384,
+        "uctTraversals": 32768,
         "maxBatchSize": 1,
         "maxQueueSize": 1,
         "symmetrizeData": true,

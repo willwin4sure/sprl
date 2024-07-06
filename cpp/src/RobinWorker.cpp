@@ -172,7 +172,7 @@ int main(int argc, char* argv[]) {
     // Play two games between each pair of players.
     for (int k = 0; k < numPlayers; ++k) {
         for (int j = 0; j < numPlayers; ++j) {
-            int i = (k + myTaskId) % numPlayers;
+            int i = (k + ((myTaskId * numPlayers) / numTasks)) % numPlayers;
             if (i == j) continue;
 
             SPRL::UCTTree<ImplNode, State, ACTION_SIZE> tree0 { treeOptions[i], &symmetrizer };
