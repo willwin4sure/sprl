@@ -1,11 +1,10 @@
 {
     "modelName": "panda_epsilon",
-    "modelVariant": "async_fast",
+    "modelVariant": "async_slow_mm",
     "numGroups": 4,
     "numWorkerTasks": 192,
     "numIters": 400,
     "sync": false,
-
     "initIterationOptions": {
         "numGamesPerWorker": 1,
         "uctTraversals": 32768,
@@ -16,24 +15,20 @@
         "fastPlayoutFactor": 1.0,
         "policyTargetPruning": false,
         "forcedPlayouts": false,
-
         "earlyGameCutoff": 15,
         "earlyGameExp": 0.98,
         "restGameExp": 10.0
     },
-
     "iterationOptions": {
         "numGamesPerWorker": 1,
         "uctTraversals": 8192,
         "maxBatchSize": 16,
         "maxQueueSize": 8,
-
         "symmetrizeData": true,
-        "fastPlayoutProb": 0.8,
-        "fastPlayoutFactor": 0.1667,
+        "fastPlayoutProb": 0.0,
+        "fastPlayoutFactor": 1.0,
         "policyTargetPruning": false,
         "forcedPlayouts": false,
-
         "earlyGameCutoff": 15,
         "earlyGameExp": 0.98,
         "restGameExp": 10.0

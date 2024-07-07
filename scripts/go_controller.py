@@ -22,6 +22,18 @@ from tqdm import tqdm
 from src.interface.tracer import trace_model
 from src.networks.grid_networks import BasicGridNetwork
 
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
+
+
+def show_memory():
+    t = torch.cuda.get_device_properties(0).total_memory
+    r = torch.cuda.memory_reserved(0)
+    a = torch.cuda.memory_allocated(0)
+    f = r-a  # free inside reserved
+    print(
+        f"Total (MiB): {t / (2 ** 20)}, Reserved: {r / (2 ** 20)}, Allocated: {a / (2 ** 20)}, Free: {f / (2 ** 20)}")
+
+
 NUM_ROWS = 7
 NUM_COLS = 7
 ACTION_SIZE = 50
@@ -41,6 +53,7 @@ with open("./config/config_selfplay.json", "r") as f:
 
 with open("./config/config_controller.json", "r") as f:
     config_controller = json.load(f)
+    # WORLD_SIZE = config_controller["worldSize"]
     WORKER_TIME_TO_KILL = config_controller["workerTimeToKill"]
     MODEL_NUM_BLOCKS = config_controller["modelNumBlocks"]
     MODEL_NUM_CHANNELS = config_controller["modelNumChannels"]
@@ -61,14 +74,14 @@ RUN_NAME = f"{MODEL_NAME}_{MODEL_VARIANT}"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
-def setup(rank: int, world_size: int):
+def setup(device: int, world_size: int):
     # This needs to be changed if we are using multiple machines.
     os.environ['MASTER_ADDR'] = 'localhost'
     # This can be any number.
     os.environ['MASTER_PORT'] = '12355'
 
     # initialize the process group
-    dist.init_process_group("gloo", rank=rank, world_size=world_size)
+    dist.init_process_group("gloo", device=device, world_size=world_size)
 
 
 def cleanup():
@@ -437,53 +450,52 @@ def main():
                 == len(all_outcome_tensors) == len(all_timestamp_tensors))
 
         while len(all_state_tensors) > NUM_PAST_ITERS_TO_TRAIN:
-            # del all_state_tensors[0]
-            # del all_distribution_tensors[0]
-            # del all_outcome_tensors[0]
-            # del all_timestamp_tensors[0]
-            s = all_state_tensors.pop(0)
-            d = all_distribution_tensors.pop(0)
-            o = all_outcome_tensors.pop(0)
-            t = all_timestamp_tensors.pop(0)
-            s.detach()
-            s.grad = None
-            d.detach()
-            d.grad = None
-            o.detach()
-            o.grad = None
-            t.detach()
-            t.grad = None
-        if device == "cuda":
-            with torch.no_grad():
-                torch.cuda.empty_cache()
-
-        t = torch.cuda.get_device_properties(0).total_memory
-        r = torch.cuda.memory_reserved(0)
-        a = torch.cuda.memory_allocated(0)
-        f = r-a  # free inside reserved
-        print(
-            f"Total (MiB): {t / (2 ** 10)}, Reserved: {r / (2 ** 10)}, Allocated: {a / (2 ** 10)}, Free: {f / (2 ** 10)}")
-        # print the number of samples in the training set
-        print(
-            f"Total blocks for training: {len(all_state_tensors)}")
-        print(
-            f"Total samples for training: {sum([s.shape[0] for s in all_state_tensors])}")
-
+            del all_state_tensors[0]
+            del all_distribution_tensors[0]
+            del all_outcome_tensors[0]
+            del all_timestamp_tensors[0]
+        #     s = all_state_tensors.pop(0).to('cpu')
+        #     d = all_distribution_tensors.pop(0).to('cpu')
+        #     o = all_outcome_tensors.pop(0).to('cpu')
+        #     t = all_timestamp_tensors.pop(0).to('cpu')
+        #     s.detach()
+        #     s.grad = None
+        #     d.detach()
+        #     d.grad = None
+        #     o.detach()
+        #     o.grad = None
+        #     t.detach()
+        #     t.grad = None
+        # with torch.no_grad():
+        #     torch.cuda.empty_cache()
         mem_time += time.time()
         cat_time -= time.time()
-        # Push everything to gpu.
-        all_state_tensors = [s.to(device) for s in all_state_tensors]
-        all_distribution_tensors = [d.to(device)
-                                    for d in all_distribution_tensors]
-        all_outcome_tensors = [o.to(device) for o in all_outcome_tensors]
-        all_timestamp_tensors = [t.to(device)
-                                 for t in all_timestamp_tensors]
 
-        train_state_tensor = torch.cat(all_state_tensors, dim=0)
-        train_distribution_tensor = torch.cat(all_distribution_tensors, dim=0)
-        train_outcome_tensor = torch.cat(all_outcome_tensors, dim=0)
+        # Push everything to gpu.
+        # all_state_tensors = [s.to(device) for s in all_state_tensors]
+        # all_distribution_tensors = [d.to(device)
+        #                             for d in all_distribution_tensors]
+        # all_outcome_tensors = [o.to(device) for o in all_outcome_tensors]
+        # all_timestamp_tensors = [t.to(device)
+        #                          for t in all_timestamp_tensors]
+
+        train_state_tensor = torch.cat(all_state_tensors, dim=0).to(device)
+        train_distribution_tensor = torch.cat(
+            all_distribution_tensors, dim=0).to(device)
+        train_outcome_tensor = torch.cat(all_outcome_tensors, dim=0).to(device)
         train_timestamp_tensor = torch.cat(
-            all_timestamp_tensors, dim=0)  # - max(0, iteration + 1 - NUM_PAST_ITERS_TO_TRAIN)
+            all_timestamp_tensors, dim=0).to(device)  # - max(0, iteration + 1 - NUM_PAST_ITERS_TO_TRAIN)
+
+        # assert that all tensors are on cpu.
+
+        assert all([s.device == torch.device(type='cpu')
+                   for s in all_state_tensors])
+        assert all([d.device == torch.device(type='cpu')
+                   for d in all_distribution_tensors])
+        assert all([o.device == torch.device(type='cpu')
+                   for o in all_outcome_tensors])
+        assert all([t.device == torch.device(type='cpu')
+                   for t in all_timestamp_tensors])
 
         assert train_state_tensor.shape[0] == train_distribution_tensor.shape[0]\
             == train_outcome_tensor.shape[0] == train_timestamp_tensor.shape[0]
@@ -496,9 +508,31 @@ def main():
                       train_distribution_tensor, train_outcome_tensor, train_timestamp_tensor)
         train_time += time.time()
 
+        cat_time -= time.time()
+
+        # Take everything off gpu, manually.
+        train_state_tensor = train_state_tensor.to('cpu')
+        train_distribution_tensor = train_distribution_tensor.to('cpu')
+        train_outcome_tensor = train_outcome_tensor.to('cpu')
+        train_timestamp_tensor = train_timestamp_tensor.to('cpu')
+        # all_state_tensors = [s.to('cpu') for s in all_state_tensors]
+        # all_distribution_tensors = [d.to('cpu')
+        #                             for d in all_distribution_tensors]
+        # all_outcome_tensors = [o.to('cpu') for o in all_outcome_tensors]
+        # all_timestamp_tensors = [t.to('cpu') for t in all_timestamp_tensors]
+
+        # wipe the gpu memory
+        with torch.no_grad():
+            torch.cuda.empty_cache()
+        # Show wiped memory
+        print("Wiped memory.")
+        show_memory()
+        cat_time += time.time()
+
         print(
             f"Col: {collation_time:.2f}s, Mem: {mem_time:.2f}s, Cat: {cat_time:.2f}s, Tr: {train_time:.2f}s")
 
 
 if __name__ == "__main__":
+    # mp.spawn(main, args=(WORLD_SIZE,), nprocs=WORLD_SIZE, join=True)
     main()
