@@ -226,7 +226,7 @@ void runWorker(SPRL::WorkerOptions workerOptions,
                 break;
             }
         } else {
-            if (std::filesystem::exists("data/models/" + runName + "/traced_" + runName + "_iteration_" + std::to_string(workerOptions.numIters) + ".pt")){
+            if (std::filesystem::exists("data/models/" + runName + "/traced_" + runName + "_iteration_" + std::to_string(workerOptions.numIters - 1) + ".pt")){
                 break;
             }
         }

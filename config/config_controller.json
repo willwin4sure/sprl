@@ -4,7 +4,7 @@
     "modelNumChannels": 64,
     "resetNetwork": false,
     "linearWeighting": true,
-    "numPastItersToTrain": 2400,
+    "numPastItersToTrain": 16384,
     "maxGroups": 10,
     "epochsPerGroup": 10,
     "batchSize": 1024,

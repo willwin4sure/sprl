@@ -22,6 +22,10 @@ from tqdm import tqdm
 from src.interface.tracer import trace_model
 from src.networks.grid_networks import BasicGridNetwork
 
+print("Alive.")
+
+startup_time -= time.time()
+
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
 
 
@@ -399,6 +403,8 @@ def main():
 
     live_workers = set(range(NUM_WORKER_TASKS))
 
+    print(f"Startup time = {time.time() - startup_time:.2f}s")
+
     for iteration in range(NUM_ITERS):
         collation_time -= time.time()
         print(f"Starting iteration {iteration}...")
@@ -484,7 +490,8 @@ def main():
             all_distribution_tensors, dim=0).to(device)
         train_outcome_tensor = torch.cat(all_outcome_tensors, dim=0).to(device)
         train_timestamp_tensor = torch.cat(
-            all_timestamp_tensors, dim=0).to(device)  # - max(0, iteration + 1 - NUM_PAST_ITERS_TO_TRAIN)
+            # - max(0, iteration + 1 - NUM_PAST_ITERS_TO_TRAIN)
+            all_timestamp_tensors, dim=0).to(device)
 
         # assert that all tensors are on cpu.
 
