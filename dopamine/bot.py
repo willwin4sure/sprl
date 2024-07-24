@@ -68,6 +68,12 @@ async def parse_all_running():
     return progress
 
 
+# async def get_all_tournaments():
+#     """
+#     Check the robin folder and look for all
+#     """
+
+
 def progress_to_embed(progress: Dict[str, Tuple[int, Optional[int]]], color=discord.Color.blue()):
     """
     Convert the progress to a discord embed.
@@ -189,9 +195,8 @@ async def watch_file():
         await asyncio.sleep(3600)
 
 
-# bot.run(os.getenv("DISCORD_TOKEN"))
 # read discord token from a json file
-with open("dopamine/config.json") as f:
+with open(f"{SPRL_PATH}/dopamine/config.json") as f:
     data = json.load(f)
     DISCORD_TOKEN = data["DISCORD_TOKEN"]
 bot.run(DISCORD_TOKEN)

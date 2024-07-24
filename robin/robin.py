@@ -55,6 +55,8 @@ def nickName(teamName, iteration):
     return nick
 
 
+# TODO: incorporate B/W into the ELO computation.
+
 class Elo(nn.Module):
     def __init__(self, num_players, freeze_first=True, freeze_gamma=False):
         """
@@ -350,9 +352,9 @@ def handle_master(num_games, num_workers, group_size, robin_config_path,
 
 
 if __name__ == "__main__":
-    NUM_GAMES = 192
+    NUM_GAMES = 384
     GROUP_SIZE = 48
-    NUM_TASKS = 192
+    NUM_TASKS = 384
 
     ROBIN_CONFIG_PATH = "/home/gridsan/rzhong/sprl/robin/robin_config.txt"
     handle_master(NUM_GAMES, NUM_TASKS,
