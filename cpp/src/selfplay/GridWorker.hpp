@@ -150,7 +150,16 @@ void runWorker(SPRL::WorkerOptions workerOptions,
             }
         }
 
-        NeuralNetwork neuralNetwork { modelPath };
+        NeuralNetwork neuralNetwork;
+        while (true){
+            neuralNetwork = NeuralNetwork(modelPath);
+            if neuralNetwork.isAlive() {
+                break;
+            }else{
+                std::cout << "Failed to load model, retrying in 30 seconds..." << std::endl;
+                std::this_thread::sleep_for(std::chrono::seconds(MODEL_PATH_WAIT_INTERVAL));
+            }
+        }
 
         if (modelPath == "random") {
             std::cout << "Using initial network..." << std::endl;

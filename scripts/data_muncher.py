@@ -7,7 +7,7 @@ import os
 import sys
 import tempfile
 import time
-from typing import List, Set, Tuple, Dict
+from typing import Dict, List, Set, Tuple
 
 import numpy as np
 import torch
@@ -76,8 +76,7 @@ class DataMuncher():
             for task_id in self.live_workers:
                 group = task_id // (self.num_worker_tasks // self.num_groups)
 
-                thread_save_path = f"data/games/{
-                    self.run_name}/{group}/{task_id}"
+                thread_save_path = f"data/games/{self.run_name}/{group}/{task_id}"
 
                 # Check if the worker is unfinished and has saved its data.
                 if (not task_id in finished_workers and
@@ -146,8 +145,7 @@ class DataMuncher():
                     group = task_id // (self.num_worker_tasks //
                                         self.num_groups)
 
-                    thread_save_path = f"data/games/{
-                        self.run_name}/{group}/{task_id}"
+                    thread_save_path = f"data/games/{self.run_name}/{group}/{task_id}"
 
                     if not (os.path.exists(f"{thread_save_path}/{self.run_name}_iteration_{self.worker_seen[task_id]}_states.npy") and
                             os.path.exists(f"{thread_save_path}/{self.run_name}_iteration_{self.worker_seen[task_id]}_distributions.npy") and
@@ -249,7 +247,8 @@ class DataMuncher():
         train_timestamp_tensor = train_timestamp_tensor - \
             max(0, self.iteration + 1 - self.num_past_iters_to_train)
 
-        show_memory()
+        show_memory(self.rank)
+        self.iteration += 1
         return {
             "state_tensor": train_state_tensor,
             "distribution_tensor": train_distribution_tensor,

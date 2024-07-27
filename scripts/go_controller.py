@@ -83,17 +83,43 @@ epochify_time = 0
 save_time = 0
 trace_time = 0
 
+model_kwargs = {
+    "num_rows": NUM_ROWS,
+    "num_cols": NUM_COLS,
+    "action_size": ACTION_SIZE,
+    "history_size": HISTORY_SIZE,
+    "num_blocks": MODEL_NUM_BLOCKS,
+    "num_channels": MODEL_NUM_CHANNELS
+}
+
 
 def train_network(rank: int, world_size: int,
-                  network: BasicGridNetwork, learning_rate: float, iteration: int,
+                  network: DDP, learning_rate: float, iteration: int,
                   state_tensor: torch.Tensor, distribution_tensor: torch.Tensor,
                   outcome_tensor: torch.Tensor, timestamp_tensor: torch.Tensor):
     global epochify_time, save_time, trace_time
+
+    # Split data into training and validation sets
+    num_samples = torch.tensor(state_tensor.shape[0], device=rank)
+    print(f"Rank {rank} has {num_samples.cpu().item()} samples.")
+
+    # All-reduce the number of batches across all processes; only use the smallest number of batches
+    torch.distributed.barrier()
+    torch.distributed.all_reduce(num_samples, op=dist.ReduceOp.MIN)
+    torch.distributed.barrier()
+
+    num_samples = num_samples.cpu().item()
+
+    print(f"Rank {rank} has {num_samples} samples after all-reduce.")
+
+    state_tensor = state_tensor[-num_samples:]  # the most recent samples
+    distribution_tensor = distribution_tensor[-num_samples:]
+    outcome_tensor = outcome_tensor[-num_samples:]
+    timestamp_tensor = timestamp_tensor[-num_samples:]
+
     dataset = TensorDataset(
         state_tensor, distribution_tensor, outcome_tensor, timestamp_tensor)
 
-    # Split data into training and validation sets
-    num_samples = len(dataset)
     train_size = int(0.9 * num_samples)
     val_size = num_samples - train_size
 
@@ -110,67 +136,55 @@ def train_network(rank: int, world_size: int,
     best_val_loss = float("inf")
     best_epoch = 0
 
-    train_init_policy_loss, train_init_value_loss = epochify(
-        network, train_dataloader, train=False)
+    train_init_policy_loss, train_init_value_loss = epochify(rank, world_size, iteration, None, None,
+                                                             network, train_dataloader, train=False)
 
-    val_init_policy_loss, val_init_value_loss = epochify(
-        network, val_dataloader, train=False)
+    val_init_policy_loss, val_init_value_loss = epochify(rank, world_size, iteration, None, None,
+                                                         network, val_dataloader, train=False)
 
     for group in range(MAX_GROUPS):
-        with tqdm(range(EPOCHS_PER_GROUP)) as pbar:
-            for epoch in pbar:
-                epochify_time -= time.time()
-                train_average_policy_loss, train_average_value_loss = epochify(
-                    network, train_dataloader, optimizer, train=True)
+        # with tqdm(range(EPOCHS_PER_GROUP)) as pbar:
+        # for epoch in pbar:
+        for epoch in range(EPOCHS_PER_GROUP):
+            epochify_time -= time.time()
+            train_average_policy_loss, train_average_value_loss = epochify(rank, world_size, iteration, group, epoch,
+                                                                           network, train_dataloader, optimizer, train=True)
 
-                val_average_policy_loss, val_average_value_loss = epochify(
-                    network, val_dataloader, train=False)
-                epochify_time += time.time()
-                save_time -= time.time()
+            val_average_policy_loss, val_average_value_loss = epochify(rank, world_size, iteration, group, epoch,
+                                                                       network, val_dataloader, train=False)
+            epochify_time += time.time()
+            save_time -= time.time()
 
-                # Use distributed all reduce to average the losses across all processes.
-                torch.distributed.barrier()
-                torch.distributed.all_reduce(train_average_policy_loss,
-                                             op=dist.ReduceOp.SUM)
-                torch.distributed.all_reduce(train_average_value_loss,
-                                             op=dist.ReduceOp.SUM)
-                torch.distributed.all_reduce(val_average_policy_loss,
-                                             op=dist.ReduceOp.SUM)
-                torch.distributed.all_reduce(val_average_value_loss,
-                                             op=dist.ReduceOp.SUM)
-                torch.distributed.barrier()
+            val_loss = val_average_policy_loss + val_average_value_loss
 
-                train_average_policy_loss /= world_size
-                train_average_value_loss /= world_size
-                val_average_policy_loss /= world_size
-                val_average_value_loss /= world_size
+            if val_loss < best_val_loss:
+                # If it is the best validation loss we've seen so far, save the model
+                best_val_loss = val_loss
+                best_epoch = epoch + group * EPOCHS_PER_GROUP
+                if rank == 0:
+                    state_dict = network.module.state_dict()
+                    torch.save(
+                        state_dict, f"./data/models/{RUN_NAME}/{RUN_NAME}_iteration_{iteration}.pt")
+            dist.barrier()
+            print(
+                f"{iteration}.{group}.{epoch} Rank {rank} best_val_loss: {best_val_loss}",
+                f"Tr Pol: {train_init_policy_loss:.4f} -> {train_average_policy_loss:.4f}, Tr Val: {train_init_value_loss:.4f} -> {train_average_value_loss:.4f}, Val Pol: {val_init_policy_loss:.4f} -> {val_average_policy_loss:.4f}, Val Val: {val_init_value_loss:.4f} -> {val_average_value_loss:.4f}"
+            )
 
-                val_loss = val_average_policy_loss + val_average_value_loss
-
-                if val_loss < best_val_loss:
-                    # If it is the best validation loss we've seen so far, save the model
-                    best_val_loss = val_loss
-                    best_epoch = epoch + group * EPOCHS_PER_GROUP
-                    if rank == 0:
-                        network.to("cpu")
-                        torch.save(
-                            network, f"./data/models/{RUN_NAME}/{RUN_NAME}_iteration_{iteration}.pt")
-                        network.to(rank)
-
-                pbar.set_description(
-                    f"Tr Pol: {train_init_policy_loss:.4f} -> {train_average_policy_loss:.4f}, Tr Val: {train_init_value_loss:.4f} -> {train_average_value_loss:.4f}, Val Pol: {val_init_policy_loss:.4f} -> {val_average_policy_loss:.4f}, Val Val: {val_init_value_loss:.4f} -> {val_average_value_loss:.4f}")
-                save_time += time.time()
-            # If the best epoch is among the last EPOCHS_PER_GROUP // 2 epochs, don't break, might get more from training
-            if best_epoch < (group + 1) * EPOCHS_PER_GROUP - EPOCHS_PER_GROUP // 2:
-                break
+            # pbar.set_description(
+            #     f"Tr Pol: {train_init_policy_loss:.4f} -> {train_average_policy_loss:.4f}, Tr Val: {train_init_value_loss:.4f} -> {train_average_value_loss:.4f}, Val Pol: {val_init_policy_loss:.4f} -> {val_average_policy_loss:.4f}, Val Val: {val_init_value_loss:.4f} -> {val_average_value_loss:.4f}")
+            save_time += time.time()
+        # If the best epoch is among the last EPOCHS_PER_GROUP // 2 epochs, don't break, might get more from training
+        if best_epoch < (group + 1) * EPOCHS_PER_GROUP - EPOCHS_PER_GROUP // 2:
+            break
 
     trace_time -= time.time()
     print(f"The best model was at epoch {best_epoch}.")
 
     trace_model(f"./data/models/{RUN_NAME}/{RUN_NAME}_iteration_{iteration}.pt",
                 torch.randn(1, 2 * HISTORY_SIZE + 1, NUM_ROWS, NUM_COLS),
-                f"./data/models/{RUN_NAME}/traced_{RUN_NAME}_iteration_{iteration}.pt")
-    network.to("cpu")
+                f"./data/models/{RUN_NAME}/traced_{RUN_NAME}_iteration_{iteration}.pt",
+                BasicGridNetwork, model_kwargs)
 
     trace_time += time.time()
 
@@ -178,23 +192,18 @@ def train_network(rank: int, world_size: int,
         f"Epochify: {epochify_time:.2f}s, Save: {save_time:.2f}s, Trace: {trace_time:.2f}s")
 
 
-def epochify(rank: int, world_size: int,
+def epochify(rank: int, world_size: int, iteration: int, group: int, epoch: int,
              network: BasicGridNetwork, train_dataloader: DataLoader,
              optimizer: optim.Optimizer = None, train: bool = True, EPS: float = 1e-8) -> Tuple[float, float]:
+    # print(f"Rank {rank}:{world_size} entering epochify train={train}")
     if train:
         network.train()
     else:
         network.eval()
 
-    total_policy_loss = 0.0
+    total_policy_loss = 0.0  # These are turned into Tensors on epoch 0.
     total_value_loss = 0.0
     num_batches = 0
-
-    # All-reduce the number of batches across all processes; only use the smallest number of batches
-    num_batches = len(train_dataloader)
-    torch.distributed.barrier()
-    torch.distributed.all_reduce(num_batches, op=dist.ReduceOp.MIN)
-    torch.distributed.barrier()
 
     for batch_state, batch_policy, batch_value, batch_timestamp in train_dataloader:
         policy_pred, value_pred = network(batch_state)
@@ -217,13 +226,31 @@ def epochify(rank: int, world_size: int,
             loss.backward()
             optimizer.step()
 
-        total_policy_loss += policy_loss.item()
-        total_value_loss += value_loss.item()
+        total_policy_loss += policy_loss.detach()
+        total_value_loss += value_loss.detach()
+        # print(
+        #     f"{iteration}.{group}.{epoch}.{num_batches}/{len(train_dataloader)} Rank {rank}"
+        # )
         num_batches += 1
 
     average_policy_loss = total_policy_loss / num_batches
     average_value_loss = total_value_loss / num_batches
 
+    # print(f"Rank {rank} average_policy_loss: {average_policy_loss}")
+    # print(f"Rank {rank} average_value_loss: {average_value_loss}")
+
+    # Use distributed all reduce to average the losses across all processes.
+    torch.distributed.barrier()
+    torch.distributed.all_reduce(average_policy_loss,
+                                 op=dist.ReduceOp.SUM)
+    torch.distributed.all_reduce(average_value_loss,
+                                 op=dist.ReduceOp.SUM)
+    torch.distributed.barrier()
+
+    average_value_loss /= world_size
+    average_policy_loss /= world_size
+
+    # print(f"Rank {rank} exiting epochify train={train}")
     return average_policy_loss, average_value_loss
 
 
@@ -248,8 +275,7 @@ def main(rank, world_size):
 
     print(f"Saved configs for {RUN_NAME}.")
 
-    network = BasicGridNetwork(
-        NUM_ROWS, NUM_COLS, ACTION_SIZE, HISTORY_SIZE, MODEL_NUM_BLOCKS, MODEL_NUM_CHANNELS).to(rank)
+    network = BasicGridNetwork(**model_kwargs).to(rank)
 
     network = DDP(network, device_ids=[rank])
     print(f"Rank {rank} network is on device {network.device}")
