@@ -64,15 +64,16 @@ with open("./config/config_controller.json", "r") as f:
 RUN_NAME = f"{MODEL_NAME}_{MODEL_VARIANT}"
 
 
-def setup(rank: int, world_size: int):
+def setup():
     # This needs to be changed if we are using multiple machines.
     os.environ['MASTER_ADDR'] = 'localhost'
     # This can be any number.
     os.environ['MASTER_PORT'] = '12355'
 
     # initialize the process group
-    dist.init_process_group("gloo", rank=rank, world_size=world_size)
-    print(f"Rank {rank} world_size {world_size} initialized.")
+    dist.init_process_group(backend="nccl")
+    torch.cuda.set_device(int(os.environ["LOCAL_RANK"]))
+    print("Local Rank", os.environ["LOCAL_RANK"], "World Size", WORLD_SIZE)
 
 
 def cleanup():
@@ -136,10 +137,10 @@ def train_network(rank: int, world_size: int,
     best_val_loss = float("inf")
     best_epoch = 0
 
-    train_init_policy_loss, train_init_value_loss = epochify(rank, world_size, iteration, None, None,
+    train_init_policy_loss, train_init_value_loss = epochify(iteration, None, None,
                                                              network, train_dataloader, train=False)
 
-    val_init_policy_loss, val_init_value_loss = epochify(rank, world_size, iteration, None, None,
+    val_init_policy_loss, val_init_value_loss = epochify(iteration, None, None,
                                                          network, val_dataloader, train=False)
 
     for group in range(MAX_GROUPS):
@@ -147,10 +148,10 @@ def train_network(rank: int, world_size: int,
         # for epoch in pbar:
         for epoch in range(EPOCHS_PER_GROUP):
             epochify_time -= time.time()
-            train_average_policy_loss, train_average_value_loss = epochify(rank, world_size, iteration, group, epoch,
+            train_average_policy_loss, train_average_value_loss = epochify(iteration, group, epoch,
                                                                            network, train_dataloader, optimizer, train=True)
 
-            val_average_policy_loss, val_average_value_loss = epochify(rank, world_size, iteration, group, epoch,
+            val_average_policy_loss, val_average_value_loss = epochify(iteration, group, epoch,
                                                                        network, val_dataloader, train=False)
             epochify_time += time.time()
             save_time -= time.time()
@@ -254,8 +255,8 @@ def epochify(rank: int, world_size: int, iteration: int, group: int, epoch: int,
     return average_policy_loss, average_value_loss
 
 
-def main(rank, world_size):
-    setup(rank, world_size)
+def main():
+    setup()
     # Create the necessary directories
     os.makedirs(f"data/games/{RUN_NAME}", exist_ok=True)
     os.makedirs(f"data/models/{RUN_NAME}", exist_ok=True)
@@ -277,6 +278,18 @@ def main(rank, world_size):
 
     network = BasicGridNetwork(**model_kwargs).to(rank)
 
+    # load the previous model if it exists
+    start_iteration = 0
+    for i in range(NUM_ITERS):
+        if os.path.exists(f"./data/models/{RUN_NAME}/{RUN_NAME}_iteration_{i}.pt"):
+            start_iteration = i + 1
+
+    if start_iteration > 0:
+        state_dict = torch.load(
+            f"./data/models/{RUN_NAME}/{RUN_NAME}_iteration_{start_iteration - 1}.pt")
+        network.load_state_dict(state_dict)
+        print(f"Loaded model from iteration {start_iteration - 1}.")
+
     network = DDP(network, device_ids=[rank])
     print(f"Rank {rank} network is on device {network.device}")
     learning_rate = LR_INIT
@@ -285,12 +298,17 @@ def main(rank, world_size):
     # Remember this. From now on, startup_time is used for remembering when models finished training.
 
     timing_filepath = f"data/timings/{RUN_NAME}_timing.txt"
-    timestamps = []
+    if os.path.exists(timing_filepath):
+        with open(timing_filepath, "r") as f:
+            timestamps = [float(line.strip()) for line in f]
+    else:
+        timestamps = []
 
-    muncher = data_muncher.DataMuncher(rank, world_size, NUM_WORKER_TASKS, NUM_GROUPS,
+    muncher = data_muncher.DataMuncher(, NUM_WORKER_TASKS, NUM_GROUPS,
                                        RUN_NAME, LINEAR_WEIGHTING, WORKER_TIME_TO_KILL, SYNC, NUM_PAST_ITERS_TO_TRAIN)
 
-    for iteration in range(NUM_ITERS):
+    for iteration in range(start_iteration, NUM_ITERS):
+        start_time = time.time()
         print(f"Starting iteration {iteration}...")
 
         if iteration in LR_MILESTONE_ITERS:
@@ -303,10 +321,10 @@ def main(rank, world_size):
                 NUM_ROWS, NUM_COLS, ACTION_SIZE, HISTORY_SIZE, MODEL_NUM_BLOCKS, MODEL_NUM_CHANNELS)
 
         train_dataset = muncher.get()
-        train_network(rank, world_size,
+        train_network(,
                       network, learning_rate, iteration, **train_dataset)
 
-        timestamps.append(time.time() - startup_time)
+        timestamps.append(time.time() - start_time)
         if rank == 0:
             with open(timing_filepath, "w") as f:
                 f.write("\n".join(str(t) for t in timestamps))

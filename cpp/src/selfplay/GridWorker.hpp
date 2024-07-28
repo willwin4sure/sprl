@@ -25,61 +25,94 @@ namespace SPRL {
 
 constexpr int MODEL_PATH_WAIT_INTERVAL = 30;  // Seconds to wait between checking for the model file.
 
+
+std::string getTracedModelPath(const std::string& runName, int iteration) {
+    if (iteration == -1) {
+        return "random";
+    }
+    return "data/models/" + runName + "/traced_" + runName + "_iteration_" + std::to_string(iteration) + ".pt";
+}
+
+std::string getStatesPath(const std::string& saveDir, const std::string& runName, int iteration) {
+    return saveDir + "/" + runName + "_iteration_" + std::to_string(iteration) + "_states.npy";
+}
+std::string getDistsPath(const std::string& saveDir, const std::string& runName, int iteration) {
+    return saveDir + "/" + runName + "_iteration_" + std::to_string(iteration) + "_distributions.npy";
+}
+std::string getOutcomesPath(const std::string& saveDir, const std::string& runName, int iteration) {
+    return saveDir + "/" + runName + "_iteration_" + std::to_string(iteration) + "_outcomes.npy";
+}
+
 /**
+ * If sync is true:
+ * iteration MUST be -1 (default). Finds the most recent model file that exists, and returns the path to it.
+ * 
+ * If sync is false:
  * Blocks the current thread until the model file for the given iteration exists,
  * and then returns the path to the model file.
  * 
- * @param iteration The iteration to get the model file for.
- *                  If `-1`, returns `"random"` immediately.
  * @param runName The name of the run, defining the model file path.
+ * @param sync Whether to wait for the model file to exist.
+ * @param iteration The iteration to get the model file for, if sync is false.
  * 
- * @returns The path to the model file for the given iteration.
+ * @returns The current iteration (useful if sync is true).
 */
-std::string waitModelPath(int iteration, const std::string& runName, bool sync) {
+int waitModelPath(const std::string& runName, bool sync, int iteration = -1) {
     if (sync) {
         if (iteration == -1) {
-            return "random";
+            return -1;
         }
 
         std::string modelPath;
-        // std::cout << "Spinning on traced model from iteration " << iteration << "..." << std::endl;
         Timer t {};
         t.reset();
-        do {
-            modelPath = "data/models/" + runName + "/traced_" + runName + "_iteration_" + std::to_string(iteration) + ".pt";
-
-            if (!std::filesystem::exists(modelPath)) {
-                std::this_thread::sleep_for(std::chrono::seconds(MODEL_PATH_WAIT_INTERVAL));
-            }
-            
-        } while (!std::filesystem::exists(modelPath));
+        modelPath = getTracedModelPath(runName, iteration);
+        while (!std::filesystem::exists(modelPath)) {
+            std::this_thread::sleep_for(std::chrono::seconds(MODEL_PATH_WAIT_INTERVAL));
+        }
         double elapsed = t.elapsed();
         std::cout << "Found traced model in " << elapsed << " seconds." << std::endl;
 
-        // std::this_thread::sleep_for(std::chrono::seconds(5));
-
-        return modelPath;
+        return iteration;
     } else {
-        // Otherwise, follow a different algorithm.
-        // Check if model 0 exists. If it doesn't, return random.
-        // Else, iteratively, find the last model which exists, and return that model.
-        
-        int last_exists = -1;
+        int iteration = -1;
         while (true) {
-            std::string modelPath = "data/models/" + runName + "/traced_" + runName + "_iteration_" + std::to_string(last_exists + 1) + ".pt";
+            std::string modelPath = getTracedModelPath(runName, iteration + 1);
             if (!std::filesystem::exists(modelPath)) {
                 break;
             }
-            last_exists++;
+            iteration++;
         }
 
-        if (last_exists == -1) {
+        if (iteration == -1) {
             std::cout << "No models found, using random network..." << std::endl;
-            return "random";
+            return -1;
         }
-        std::cout << "Using traced model from iteration " << last_exists << "..." << std::endl;
-        return "data/models/" + runName + "/traced_" + runName + "_iteration_" + std::to_string(last_exists) + ".pt";
+        std::cout << "Using traced model from iteration " << iteration << "..." << std::endl;
+        return iteration;
     }
+}
+
+/**
+ * Determine which iteration it is, when the GoWorker is initialized for the first time.
+ * Look for the last iteration which has states.npy, distributions.npy, and outcomes.npy files.
+ * E.g., returns 0 iff not all of 0_states, 0_distributions, and 0_outcomes exist.
+ */
+int determineIteration(std::string& saveDir, std::string& runName) {
+    int iteration = 0;
+    while (true) {
+        if (
+            !std::filesystem::exists(getStatesPath(saveDir, runName, iteration))
+            ||
+            !std::filesystem::exists(getDistsPath(saveDir, runName, iteration))
+            ||
+            !std::filesystem::exists(getOutcomesPath(saveDir, runName, iteration))
+            ) {
+            break;
+        }
+        iteration++;
+    }
+    return iteration;
 }
 
 /**
@@ -127,16 +160,34 @@ void runWorker(SPRL::WorkerOptions workerOptions,
     }
 
     INetwork<State, ACTION_SIZE>* network;  // Holds the current network.
-    int iter = 0;
+
+    // Check which iteration it is.
+    int iter = determineIteration(saveDir, runName);
+    std::cout << "I now believe it is iteration " << iter << "." << std::endl;
+
+
     while(true){
-    // for (int iter = 0; iter < workerOptions.numIters; ++iter) {        
+        if(workerOptions.sync && iter >= workerOptions.numIters){
+            break;
+        }
+        // else {
+        //     if (std::filesystem::exists("data/models/" + runName + "/traced_" + runName + "_iteration_" + std::to_string(workerOptions.numIters - 1) + ".pt")){
+        //         break;
+        //     }
+        // }
         Timer t {};
         t.reset();
 
         std::cout << "Starting iteration " << iter << "..." << std::endl;
 
         // Block until the model file for the previous iteration exists.
-        std::string modelPath = waitModelPath(iter - 1, runName, workerOptions.sync);
+        int modelIter = waitModelPath(iter - 1, runName, workerOptions.sync);
+
+        if(!workerOptions.sync && modelIter >= workerOptions.numIters - 1){
+            break;
+        }
+
+        std::string modelPath = getTracedModelPath(runName, modelIter);
         std::string savePath = saveDir + "/" + runName + "_iteration_" + std::to_string(iter);
 
         IterationOptions iterationOptions = workerOptions.iterationOptions;
@@ -230,15 +281,6 @@ void runWorker(SPRL::WorkerOptions workerOptions,
         std::cout << "Games collected in " << t.elapsed() << " seconds." << std::endl;
     
         iter++;
-        if(workerOptions.sync){
-            if (iter >= workerOptions.numIters){
-                break;
-            }
-        } else {
-            if (std::filesystem::exists("data/models/" + runName + "/traced_" + runName + "_iteration_" + std::to_string(workerOptions.numIters - 1) + ".pt")){
-                break;
-            }
-        }
     }
 
     std::cout << "Worker process completed in " << total_t.elapsed() << " seconds." << std::endl;
