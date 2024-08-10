@@ -3,6 +3,7 @@ go_controller.py
 """
 
 import json
+import logging
 import os
 import sys
 import tempfile
@@ -22,13 +23,15 @@ from tqdm import tqdm
 from src.interface.tracer import trace_model
 from src.networks.grid_networks import BasicGridNetwork
 
+logger = logging.getLogger()
+
 
 def show_memory(rank):
     t = torch.cuda.get_device_properties(rank).total_memory
     r = torch.cuda.memory_reserved(rank)
     a = torch.cuda.memory_allocated(rank)
     f = r-a  # free inside reserved
-    print(
+    logger.info(
         f"rank {rank} Total (MiB): {t / (2 ** 20)}, Reserved: {r / (2 ** 20)}, Allocated: {a / (2 ** 20)}, Free: {f / (2 ** 20)}")
 
 
@@ -105,7 +108,7 @@ class DataMuncher():
 
             if start_time is None and len(self.live_workers) > len(finished_workers) > len(self.live_workers) // 2:
                 # Over half of the workers have finished, start a timer after which we will kill the rest
-                print(
+                logger.info(
                     f"Over half of the workers have finished. Starting timer to kill the rest.")
                 start_time = time.time()
 
@@ -114,7 +117,7 @@ class DataMuncher():
                 for task_id in self.live_workers - finished_workers:
                     self.live_workers.remove(task_id)
 
-                print(
+                logger.info(
                     f"Killing unfinished workers: {len(self.live_workers)} left.")
                 break
 
@@ -122,11 +125,11 @@ class DataMuncher():
                 # All workers have finished
                 break
 
-            print(
+            logger.info(
                 f"Spinning on workers to finish... {len(finished_workers)} / {len(self.live_workers)} are complete.")
             time.sleep(30)
 
-        print(
+        logger.info(
             f"Total samples for iteration {self.iteration}: {sum([s.shape[0] for s in new_states])}")
 
         return new_states, new_distributions, new_outcomes, new_timestamps
@@ -137,7 +140,7 @@ class DataMuncher():
         """
         # in the case where iteration is 0, only, wait until every single worker has completed at least one game.
         if self.iteration == 0:
-            print("Waiting for all workers to have data...")
+            logger.info("Waiting for all workers to have data...")
             while True:
                 all_workers_have_data = True
                 # Not just my_workers; I want all workers under all masters to have finished at least one game.
@@ -195,11 +198,11 @@ class DataMuncher():
                 else:
                     break
 
-        print(
+        logger.info(
             f"Total samples for iteration {self.iteration}: {sum([s.shape[0] for s in new_states])}")
 
-        print(f"Total scooped samples from each worker:")
-        print(" ".join(str(i) for i in self.worker_seen))
+        logger.info(f"Total scooped samples from each worker:")
+        logger.info(" ".join(str(i) for i in self.worker_seen))
 
         return new_states, new_distributions, new_outcomes, new_timestamps
 

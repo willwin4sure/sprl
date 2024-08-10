@@ -1,6 +1,6 @@
 {
     "modelName": "DDP_test",
-    "modelVariant": "alpha",
+    "modelVariant": "beta",
     "numGroups": 2,
     "numWorkerTasks": 96,
     "numIters": 10,
