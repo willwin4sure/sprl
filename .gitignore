@@ -166,3 +166,4 @@ cython_debug/
 dopamine/config.json
 princeton_ddp/*
 *.err
+*.out
