@@ -2,12 +2,14 @@
 go_controller.py
 """
 
+import argparse
 import json
 import logging
 import os
 import sys
 import tempfile
 import time
+from socket import gethostname
 from typing import List, Set, Tuple
 
 import data_muncher
@@ -65,9 +67,10 @@ with open("./config/config_controller.json", "r") as f:
     LR_MILESTONE_ITERS = config_controller["lrMilestoneIters"]
 
 
-RUN_NAME = f'{MODEL_NAME}_{MODEL_VARIANT}_{os.environ["RANK"]}'
+RUN_NAME = f'{MODEL_NAME}_{MODEL_VARIANT}'
 
 rank = int(os.environ["SLURM_PROCID"])
+local_rank = int(os.environ["LOCAL_RANK"])
 world_size = int(os.environ["WORLD_SIZE"])
 gpus_per_node = int(os.environ["SLURM_GPUS_ON_NODE"])
 assert gpus_per_node == torch.cuda.device_count()
@@ -121,10 +124,10 @@ model_kwargs = {
 }
 
 
-def train_network(local_rank: int, world_size: int,
-                  network: DDP, learning_rate: float, iteration: int,
-                  state_tensor: torch.Tensor, distribution_tensor: torch.Tensor,
-                  outcome_tensor: torch.Tensor, timestamp_tensor: torch.Tensor):
+def train_network(
+        network: DDP, learning_rate: float, iteration: int,
+        state_tensor: torch.Tensor, distribution_tensor: torch.Tensor,
+        outcome_tensor: torch.Tensor, timestamp_tensor: torch.Tensor):
     global epochify_time, save_time, trace_time
 
     # Split data into training and validation sets
@@ -221,7 +224,7 @@ def train_network(local_rank: int, world_size: int,
         f"Epochify: {epochify_time:.2f}s, Save: {save_time:.2f}s, Trace: {trace_time:.2f}s")
 
 
-def epochify(local_rank: int, world_size: int, iteration: int, group: int, epoch: int,
+def epochify(iteration: int, group: int, epoch: int,
              network: BasicGridNetwork, train_dataloader: DataLoader,
              optimizer: optim.Optimizer = None, train: bool = True, EPS: float = 1e-8) -> Tuple[float, float]:
     # logger.info(f"Rank {local_rank}:{world_size} entering epochify train={train}")
@@ -285,7 +288,6 @@ def epochify(local_rank: int, world_size: int, iteration: int, group: int, epoch
 
 def main():
     setup_DDP()
-    local_rank = int(os.environ["LOCAL_RANK"])
     # Create the necessary directories
     os.makedirs(f"data/games/{RUN_NAME}", exist_ok=True)
     os.makedirs(f"data/models/{RUN_NAME}", exist_ok=True)
@@ -331,7 +333,8 @@ def main():
     else:
         timestamps = []
 
-    muncher = data_muncher.DataMuncher(NUM_WORKER_TASKS, NUM_GROUPS,
+    muncher = data_muncher.DataMuncher(local_rank, rank, world_size,
+                                       NUM_WORKER_TASKS, NUM_GROUPS,
                                        RUN_NAME, LINEAR_WEIGHTING, WORKER_TIME_TO_KILL, SYNC, NUM_PAST_ITERS_TO_TRAIN)
 
     for iteration in range(start_iteration, NUM_ITERS):

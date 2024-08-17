@@ -10,6 +10,11 @@
     "batchSize": 1024,
     "lrInit": 0.001,
     "lrDecayFactor": 0.2,
-    "lrMilestoneIters": [50, 100, 200, 300],
+    "lrMilestoneIters": [
+        50,
+        100,
+        200,
+        300
+    ],
     "worldSize": 8
 }

@@ -26,20 +26,21 @@ from src.networks.grid_networks import BasicGridNetwork
 logger = logging.getLogger()
 
 
-def show_memory(rank):
-    t = torch.cuda.get_device_properties(rank).total_memory
-    r = torch.cuda.memory_reserved(rank)
-    a = torch.cuda.memory_allocated(rank)
+def show_memory(local_rank):
+    t = torch.cuda.get_device_properties(local_rank).total_memory
+    r = torch.cuda.memory_reserved(local_rank)
+    a = torch.cuda.memory_allocated(local_rank)
     f = r-a  # free inside reserved
     logger.info(
-        f"rank {rank} Total (MiB): {t / (2 ** 20)}, Reserved: {r / (2 ** 20)}, Allocated: {a / (2 ** 20)}, Free: {f / (2 ** 20)}")
+        f"local_rank {local_rank} Total (MiB): {t / (2 ** 20)}, Reserved: {r / (2 ** 20)}, Allocated: {a / (2 ** 20)}, Free: {f / (2 ** 20)}")
 
 
 class DataMuncher():
     def __init__(self,
-                 rank,
+                 local_rank, rank,
                  world_size, num_worker_tasks, num_groups, run_name, linear_weighting, worker_time_to_kill, sync, num_past_iters_to_train):
 
+        self.local_rank = local_rank
         self.rank = rank
         self.world_size = world_size
         self.num_worker_tasks = num_worker_tasks
@@ -239,18 +240,18 @@ class DataMuncher():
             del self.all_timestamp_tensors[0]
 
         train_state_tensor = torch.cat(
-            self.all_state_tensors, dim=0).to(self.rank)
+            self.all_state_tensors, dim=0).to(self.local_rank)
         train_distribution_tensor = torch.cat(
-            self.all_distribution_tensors, dim=0).to(self.rank)
+            self.all_distribution_tensors, dim=0).to(self.local_rank)
         train_outcome_tensor = torch.cat(
-            self.all_outcome_tensors, dim=0).to(self.rank)
+            self.all_outcome_tensors, dim=0).to(self.local_rank)
         train_timestamp_tensor = torch.cat(
-            self.all_timestamp_tensors, dim=0).to(self.rank)
+            self.all_timestamp_tensors, dim=0).to(self.local_rank)
 
         train_timestamp_tensor = train_timestamp_tensor - \
             max(0, self.iteration + 1 - self.num_past_iters_to_train)
 
-        show_memory(self.rank)
+        show_memory(self.local_rank)
         self.iteration += 1
         return {
             "state_tensor": train_state_tensor,
