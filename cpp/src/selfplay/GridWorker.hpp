@@ -191,14 +191,8 @@ void runWorker(SPRL::WorkerOptions workerOptions,
         std::string savePath = saveDir + "/" + runName + "_iteration_" + std::to_string(iter);
 
         IterationOptions iterationOptions = workerOptions.iterationOptions;
-        if (workerOptions.sync) {
-            if (modelPath == "random") {
-                iterationOptions = workerOptions.initIterationOptions;
-            }
-        }else{
-            if (iter == 0){
-                iterationOptions = workerOptions.initIterationOptions;
-            }
+        if (modelPath == "random") {
+            iterationOptions = workerOptions.initIterationOptions;
         }
 
         NeuralNetwork neuralNetwork = NeuralNetwork(modelPath);
