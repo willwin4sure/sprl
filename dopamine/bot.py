@@ -15,8 +15,10 @@ from discord.ext import commands
 bot = commands.Bot(command_prefix="/",
                    intents=discord.Intents.all())
 
-SPRL_PATH = "/home/gridsan/rzhong/sprl"
+SPRL_PATH = os.path.dirname(os.path.realpath(__file__))
+SPRL_PATH = os.path.dirname(SPRL_PATH)
 
+print(SPRL_PATH)
 global_progress = {}
 
 

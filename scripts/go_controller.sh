@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=go_controller # This is just a name, doesn't matter.
-#SBATCH --nodes=4 # This is supposed to be the total number of nodes.
-#SBATCH --gres=gpu:volta:2 # Total number of gpus per node.
-#SBATCH --ntasks-per-node=1 # I want one TASK per node; the task we're running *is* torchrun.
-#SBATCH --cpus-per-task=20 # CPU Cores per task.
-#SBATCH --distribution=cyclic:cyclic # This is the default, but it gets over-ridden by supercloud. So we have to set it here.
-#SBATCH --output=/home/gridsan/rzhong/sprl/logs/%x-%j.out
-#SBATCH --error=/home/gridsan/rzhong/sprl/logs/%x-%j.err
+#SBATCH --job-name=go_controller        # This is just a name, doesn't matter.
+#SBATCH --nodes=4                       # This is supposed to be the total number of nodes.
+#SBATCH --gres=gpu:volta:2              # Total number of gpus per node. This should be equal to nproc_per_node below.
+#SBATCH --ntasks-per-node=1             # I want one TASK per node; the task we're running *is* torchrun.
+#SBATCH --cpus-per-task=20              # CPU Cores per task.
+#SBATCH --distribution=cyclic:cyclic    # This is the default, but it gets over-ridden by supercloud. So we have to set it here.
+#SBATCH --output=./logs/%x-%j.out       # This should be run from the root of the project.
+#SBATCH --error=./logs/%x-%j.err        # 
 
 
 # zoom zoom 

@@ -162,7 +162,6 @@ void runWorker(SPRL::WorkerOptions workerOptions,
     INetwork<State, ACTION_SIZE>* network;  // Holds the current network.
 
     // Check which iteration it is.
-    // /home/gridsan/rzhong/sprl/cpp/src/selfplay/GridWorker.hpp:165:35: error: binding reference of type 'std::string&' {aka 'std::basic_string<char>&'} to 'const string' {aka 'const std::basic_string<char>'} discards qualifiers
     int iter = determineIteration(saveDir, runName);
     std::cout << "I now believe it is iteration " << iter << "." << std::endl;
 

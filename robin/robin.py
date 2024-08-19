@@ -355,7 +355,8 @@ if __name__ == "__main__":
     NUM_GAMES = 384
     GROUP_SIZE = 48
     NUM_TASKS = 384
+    ROBIN_CONFIG_PATH = os.path.join(
+        os.path.dirname(os.path.realpath(__file__)), "robin_config.txt")
 
-    ROBIN_CONFIG_PATH = "/home/gridsan/rzhong/sprl/robin/robin_config.txt"
     handle_master(NUM_GAMES, NUM_TASKS,
                   GROUP_SIZE, ROBIN_CONFIG_PATH)
