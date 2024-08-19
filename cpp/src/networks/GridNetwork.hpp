@@ -41,16 +41,16 @@ public:
             m_alive = true;
             return;
         }
-
-        try {
-            auto model = std::make_shared<torch::jit::Module>(torch::jit::load(path));
-            model->to(m_device);
-            m_model = model;
-        } catch (const c10::Error& e) {
-            std::cerr << "Error loading the model: " << e.what() << std::endl;
-        } else {
-            // Successfully loaded the model.
-            m_alive = true;
+        
+        while (!m_alive){
+            try {
+                auto model = std::make_shared<torch::jit::Module>(torch::jit::load(path));
+                model->to(m_device);
+                m_model = model;
+                m_alive = true;
+            } catch (const c10::Error& e) {
+                std::cerr << "Error loading the model: " << e.what() << std::endl;
+            }
         }
     }
 

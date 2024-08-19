@@ -1,13 +1,13 @@
 {
-    "modelName": "quail",
-    "modelVariant": "alpha_default",
+    "modelName": "DDP_test",
+    "modelVariant": "beta",
     "numGroups": 2,
     "numWorkerTasks": 96,
-    "numIters": 400,
+    "numIters": 10,
     "sync": true,
     "initIterationOptions": {
         "numGamesPerWorker": 1,
-        "uctTraversals": 32768,
+        "uctTraversals": 64,
         "maxBatchSize": 1,
         "maxQueueSize": 1,
         "symmetrizeData": true,
@@ -20,8 +20,8 @@
         "restGameExp": 10.0
     },
     "iterationOptions": {
-        "numGamesPerWorker": 5,
-        "uctTraversals": 1024,
+        "numGamesPerWorker": 1,
+        "uctTraversals": 64,
         "maxBatchSize": 8,
         "maxQueueSize": 4,
         "symmetrizeData": true,

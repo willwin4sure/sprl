@@ -41,6 +41,7 @@ constexpr int HISTORY_SIZE = SPRL::GO_HISTORY_SIZE;
 int main(int argc, char* argv[]) {
     if (argc != 7) {
         std::cerr << "Usage: ./Challenge.exe <modelPath> <optionsPath> <player> <numTraversals> <maxBatchSize> <maxQueueSize>" << std::endl;
+        // example: ./Challenge /home/gridsan/rzhong/sprl/data/models/panda_gamma_slower/traced_panda_gamma_slower_iteration_189.pt /home/gridsan/rzhong/sprl/data/configs/panda_gamma_slower_config_uct.json 0 2048 8 16
         return 1;
     }
 

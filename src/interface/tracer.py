@@ -5,6 +5,9 @@ Provides functionality for tracing a PyTorch model to TorchScript,
 for use in C++ LibTorch code.
 """
 
+import os
+import time
+
 import torch
 
 
@@ -26,5 +29,11 @@ def trace_model(
     model = model_class(**model_kwargs)
     model.load_state_dict(state_dict)
 
-    traced_model = torch.jit.trace(model, example)
-    traced_model.save(save_path)
+    traced_model: torch.ScriptModule = torch.jit.trace(model, example)
+    traced_model.save(save_path + '.tmp')
+    while not os.path.exists(save_path + '.tmp'):
+        print('Waiting for trace file to be written...')
+        time.sleep(0.1)
+    print("Traced model saved to", save_path + '.tmp')
+    os.rename(save_path + '.tmp', save_path)
+    print("Traced model saved to", save_path)

@@ -98,7 +98,7 @@ int waitModelPath(const std::string& runName, bool sync, int iteration = -1) {
  * Look for the last iteration which has states.npy, distributions.npy, and outcomes.npy files.
  * E.g., returns 0 iff not all of 0_states, 0_distributions, and 0_outcomes exist.
  */
-int determineIteration(std::string& saveDir, std::string& runName) {
+int determineIteration(const std::string& saveDir, std::string& runName) {
     int iteration = 0;
     while (true) {
         if (
@@ -162,6 +162,7 @@ void runWorker(SPRL::WorkerOptions workerOptions,
     INetwork<State, ACTION_SIZE>* network;  // Holds the current network.
 
     // Check which iteration it is.
+    // /home/gridsan/rzhong/sprl/cpp/src/selfplay/GridWorker.hpp:165:35: error: binding reference of type 'std::string&' {aka 'std::basic_string<char>&'} to 'const string' {aka 'const std::basic_string<char>'} discards qualifiers
     int iter = determineIteration(saveDir, runName);
     std::cout << "I now believe it is iteration " << iter << "." << std::endl;
 
@@ -181,7 +182,7 @@ void runWorker(SPRL::WorkerOptions workerOptions,
         std::cout << "Starting iteration " << iter << "..." << std::endl;
 
         // Block until the model file for the previous iteration exists.
-        int modelIter = waitModelPath(iter - 1, runName, workerOptions.sync);
+        int modelIter = waitModelPath(runName, workerOptions.sync, iter - 1);
 
         if(!workerOptions.sync && modelIter >= workerOptions.numIters - 1){
             break;
@@ -201,16 +202,7 @@ void runWorker(SPRL::WorkerOptions workerOptions,
             }
         }
 
-        NeuralNetwork neuralNetwork;
-        while (true){
-            neuralNetwork = NeuralNetwork(modelPath);
-            if neuralNetwork.isAlive() {
-                break;
-            }else{
-                std::cout << "Failed to load model, retrying in 30 seconds..." << std::endl;
-                std::this_thread::sleep_for(std::chrono::seconds(MODEL_PATH_WAIT_INTERVAL));
-            }
-        }
+        NeuralNetwork neuralNetwork = NeuralNetwork(modelPath);
 
         if (modelPath == "random") {
             std::cout << "Using initial network..." << std::endl;

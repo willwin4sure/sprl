@@ -25,6 +25,8 @@ public:
     virtual std::vector<std::pair<ActionDist, Value>> evaluate(
         const std::vector<State>& states,
         const std::vector<ActionDist>& masks) = 0;
+    
+    virtual bool isAlive() = 0;
 
     /**
      * @returns The number of evaluations made by the network, summed over batches.

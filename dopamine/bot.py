@@ -25,47 +25,35 @@ async def parse_all_running():
     Parse all running jobs in the SPRL_PATH.
     """
 
-    dirs = next(os.walk(SPRL_PATH))[1]
-    progress = {}
-    for d in dirs:
-        if not d.startswith("LLSUB"):
+    # iterate over all files in the logs directory
+    # if they are of the form "name_<index>.log", then parse them.
+    new_progress = {}
+
+    for file in os.listdir(os.path.join(SPRL_PATH, 'logs')):
+        if not file.endswith(".log"):
             continue
-        inner_dirs = next(os.walk(f"{SPRL_PATH}/{d}"))[1]
-        for inner_d in inner_dirs:
-            try:
-                with open(f"{SPRL_PATH}/{d}/{inner_d}/go_controller.sh.log.0") as f:
-                    lines = f.readlines()
-            except FileNotFoundError:
-                continue
-            name = None
-            iteration = 0
-            for line in lines:
-                if "Starting iteration" in line:
-                    iteration = int(line.split()[2][:-3])
-                if "Done." in line:
-                    # A sort of hacky way to do this.
-                    iteration += 1
-                if "Saved configs for" in line:
-                    name = line.split()[3][:-1]
-            if name is None:
-                continue
-            #     progress[name] = [iteration, None]
+        name = file.rsplit(".", 1)[0]
+        name = name.rsplit("_", 1)[0]
 
-            # Next, for each running job, go to data/configs
-            # and find a file /data/configs/{name}_config_selfplay.json
-            # This is a json file; you should parse it.
-            # In this json file, there is a field called num_iters.
-            # That is the total iteration count, and should be added to the progress.
-            try:
-                with open(f"{SPRL_PATH}/data/configs/{name}_config_selfplay.json") as f:
-                    config = json.load(f)
-                    total_iters = config["numIters"]
-                    progress[name] = [iteration, total_iters]
+        with open(os.path.join(SPRL_PATH, 'logs', file)) as f:
+            lines = f.readlines()
+        iteration = 0
+        for line in lines:
+            if "Starting iteration" in line:
+                iteration = int(line.split()[-1][:-3])  # remove the ellipsis
 
-            except FileNotFoundError:
-                progress[name] = [iteration, None]
+            if "finished training." in line:
+                # A sort of hacky way to do this.
+                iteration += 1
+        try:
+            with open(f"{SPRL_PATH}/data/configs/{name}_config_selfplay.json") as f:
+                config = json.load(f)
+                total_iters = config["numIters"]
+                new_progress[name] = [iteration, total_iters]
+        except FileNotFoundError:
+            new_progress[name] = [iteration, None]
 
-    return progress
+    return new_progress
 
 
 # async def get_all_tournaments():
@@ -191,8 +179,8 @@ async def watch_file():
         if changed:
             await channel.send(embed=progress_to_embed(progress))
 
-        # Sleep for 1 hour
-        await asyncio.sleep(3600)
+        # Sleep for 5 minutes (usually, changed is False)
+        await asyncio.sleep(300)
 
 
 # read discord token from a json file

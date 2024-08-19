@@ -34,7 +34,7 @@ or make the whole thing a class.
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
 
-NUM_ROWS = NUM_COLS = 6
+NUM_ROWS = NUM_COLS = 7
 ACTION_SIZE = NUM_ROWS * NUM_COLS + 1
 HISTORY_SIZE = 8
 
@@ -69,7 +69,8 @@ with open("./config/config_controller.json", "r") as f:
 
 RUN_NAME = f'{MODEL_NAME}_{MODEL_VARIANT}'
 
-rank = int(os.environ["SLURM_PROCID"])
+# rank = int(os.environ["SLURM_PROCID"])
+rank = int(os.environ["RANK"])
 local_rank = int(os.environ["LOCAL_RANK"])
 world_size = int(os.environ["WORLD_SIZE"])
 gpus_per_node = int(os.environ["SLURM_GPUS_ON_NODE"])
@@ -193,7 +194,7 @@ def train_network(
                 # If it is the best validation loss we've seen so far, save the model
                 best_val_loss = val_loss
                 best_epoch = epoch + group * EPOCHS_PER_GROUP
-                if local_rank == 0:
+                if rank == 0:  # Not local_rank; we want exactly one saved copy.
                     state_dict = network.module.state_dict()
                     torch.save(
                         state_dict, f"./data/models/{RUN_NAME}/{RUN_NAME}_iteration_{iteration}.pt")
@@ -209,14 +210,16 @@ def train_network(
         # If the best epoch is among the last EPOCHS_PER_GROUP // 2 epochs, don't break, might get more from training
         if best_epoch < (group + 1) * EPOCHS_PER_GROUP - EPOCHS_PER_GROUP // 2:
             break
+        # TODO: we break immediately for testing purposes.
+        # break
 
     trace_time -= time.time()
     logger.info(f"The best model was at epoch {best_epoch}.")
-
-    trace_model(f"./data/models/{RUN_NAME}/{RUN_NAME}_iteration_{iteration}.pt",
-                torch.randn(1, 2 * HISTORY_SIZE + 1, NUM_ROWS, NUM_COLS),
-                f"./data/models/{RUN_NAME}/traced_{RUN_NAME}_iteration_{iteration}.pt",
-                BasicGridNetwork, model_kwargs)
+    if rank == 0:
+        trace_model(f"./data/models/{RUN_NAME}/{RUN_NAME}_iteration_{iteration}.pt",
+                    torch.randn(1, 2 * HISTORY_SIZE + 1, NUM_ROWS, NUM_COLS),
+                    f"./data/models/{RUN_NAME}/traced_{RUN_NAME}_iteration_{iteration}.pt",
+                    BasicGridNetwork, model_kwargs)
 
     trace_time += time.time()
 
