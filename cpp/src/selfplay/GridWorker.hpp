@@ -142,6 +142,18 @@ void runWorker(SPRL::WorkerOptions workerOptions,
     using State = GridState<NUM_ROWS * NUM_COLS, HISTORY_SIZE>;
     using ActionDist = GameActionDist<ACTION_SIZE>;
 
+    // if workeroptions sync is set to false, make sure that iterationOptions.numGamesPerWorker == 1.
+    if (!workerOptions.sync){
+        if (workerOptions.iterationOptions.numGamesPerWorker != 1){
+            std::cerr << "Error: iterationOptions.numGamesPerWorker must be 1 when sync is false." << std::endl;
+            return;
+        }
+        if (workerOptions.initIterationOptions.numGamesPerWorker != 1){
+            std::cerr << "Error: initIterationOptions.numGamesPerWorker must be 1 when sync is false." << std::endl;
+            return;
+        }
+    }
+
     Timer total_t {};
     total_t.reset();
     std::string runName = workerOptions.modelName + "_" + workerOptions.modelVariant;

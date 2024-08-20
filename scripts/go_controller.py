@@ -330,6 +330,7 @@ def main():
     learning_rate = LR_INIT
 
     timing_filepath = f"data/timings/{RUN_NAME}_timing.txt"
+    os.makedirs(os.path.dirname(timing_filepath), exist_ok=True)
     if os.path.exists(timing_filepath):
         with open(timing_filepath, "r") as f:
             timestamps = [float(line.strip()) for line in f]
