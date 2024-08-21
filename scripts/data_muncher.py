@@ -38,7 +38,12 @@ def show_memory(local_rank):
 class DataMuncher():
     def __init__(self,
                  local_rank, rank,
-                 world_size, num_worker_tasks, num_groups, run_name, linear_weighting, worker_time_to_kill, sync, num_past_iters_to_train):
+                 world_size, iteration, 
+                 num_worker_tasks, num_groups, run_name,
+                 linear_weighting, worker_time_to_kill, sync,
+                 num_train_samples,
+                 num_save_samples,
+                 ):
 
         self.local_rank = local_rank
         self.rank = rank
@@ -63,8 +68,9 @@ class DataMuncher():
         self.all_timestamp_tensors = []
 
         self.sync = sync
-        self.iteration = 0
-        self.num_past_iters_to_train = num_past_iters_to_train
+        self.iteration = iteration
+        self.num_train_samples = num_train_samples
+        self.num_save_samples = num_save_samples
 
     def sync_collate(self) -> Tuple[List[torch.Tensor], List[torch.Tensor], List[torch.Tensor], List[torch.Tensor]]:
         new_states = []

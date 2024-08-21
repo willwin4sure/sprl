@@ -58,13 +58,13 @@ with open("./config/config_controller.json", "r") as f:
     MODEL_NUM_CHANNELS = config_controller["modelNumChannels"]
     RESET_NETWORK = config_controller["resetNetwork"]
     LINEAR_WEIGHTING = config_controller["linearWeighting"]
-    NUM_PAST_ITERS_TO_TRAIN = config_controller["numPastItersToTrain"]
-    MAX_GROUPS = config_controller["maxGroups"]
-    EPOCHS_PER_GROUP = config_controller["epochsPerGroup"]
+    NUM_TRAIN_SAMPLES = config_controller["numTrainSamples"]
+    NUM_SAVE_SAMPLES = config_controller["numSaveSamples"]
+    # MAX_GROUPS = config_controller["maxGroups"]
+    # EPOCHS_PER_GROUP = config_controller["epochsPerGroup"]
     BATCH_SIZE = config_controller["batchSize"]
     LR_INIT = config_controller["lrInit"]
-    LR_DECAY_FACTOR = config_controller["lrDecayFactor"]
-    LR_MILESTONE_ITERS = config_controller["lrMilestoneIters"]
+    config_scheduler = config_controller["scheduler"]
 
 
 RUN_NAME = f'{MODEL_NAME}_{MODEL_VARIANT}'
@@ -111,6 +111,40 @@ def cleanup():
     dist.destroy_process_group()
 
 
+def json_to_scheduler(config_scheduler: dict, optimizer: optim.Optimizer
+                      ) -> optim.lr_scheduler._LRScheduler:
+    """
+    Examples:
+    {
+        "name": "MultiStepLR",
+        "kwargs": {
+            "milestones": [30, 80],
+            "gamma": 0.1
+        }
+    }
+    {
+        "name": "ReduceLROnPlateau",
+        "kwargs": {
+            "mode": "min",
+            "factor": 0.1,
+            "patience": 10,
+            "threshold": 0.0001,
+            "threshold_mode": "rel",
+            "cooldown": 0,
+            "min_lr": 0,
+            "eps": 1e-08,
+            "verbose": True
+        }
+    }
+    """
+    which = {
+        "MultiStepLR": optim.lr_scheduler.MultiStepLR,
+        "ReduceLROnPlateau": optim.lr_scheduler.ReduceLROnPlateau,
+    }
+    return which[config_scheduler["name"]](optimizer,
+                                           **config_scheduler["kwargs"])
+
+
 epochify_time = 0
 save_time = 0
 trace_time = 0
@@ -124,9 +158,21 @@ model_kwargs = {
     "num_channels": MODEL_NUM_CHANNELS
 }
 
+data_muncher_kwargs = {
+    "num_worker_tasks": NUM_WORKER_TASKS,
+    "num_groups": NUM_GROUPS,
+    "run_name": RUN_NAME,
+    "linear_weighting": LINEAR_WEIGHTING,
+    "worker_time_to_kill": WORKER_TIME_TO_KILL,
+    "sync": SYNC,
+    "num_train_samples": NUM_TRAIN_SAMPLES,
+    "num_save_samples": NUM_SAVE_SAMPLES
+}
+
 
 def train_network(
-        network: DDP, learning_rate: float, iteration: int,
+        network: DDP, optimizer: torch.optim.Optimizer, scheduler: torch.optim.LRScheduler,
+        iteration: int,
         state_tensor: torch.Tensor, distribution_tensor: torch.Tensor,
         outcome_tensor: torch.Tensor, timestamp_tensor: torch.Tensor):
     global epochify_time, save_time, trace_time
@@ -163,8 +209,6 @@ def train_network(
         train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     val_dataloader = DataLoader(
         val_dataset, batch_size=BATCH_SIZE, shuffle=True)
-
-    optimizer = torch.optim.AdamW(network.parameters(), lr=learning_rate)
 
     best_val_loss = float("inf")
     best_epoch = 0
@@ -204,7 +248,8 @@ def train_network(
                 f"Tr Pol: {train_init_policy_loss:.4f} -> {train_average_policy_loss:.4f}, " +
                 f"Tr Val: {train_init_value_loss:.4f} -> {train_average_value_loss:.4f}, " +
                 f"Val Pol: {val_init_policy_loss:.4f} -> {val_average_policy_loss:.4f}, " +
-                f"Val Val: {val_init_value_loss:.4f} -> {val_average_value_loss:.4f}"
+                f"Val Val: {
+                    val_init_value_loss:.4f} -> {val_average_value_loss:.4f}"
             )
             save_time += time.time()
         # If the best epoch is among the last EPOCHS_PER_GROUP // 2 epochs, don't break, might get more from training
@@ -218,7 +263,8 @@ def train_network(
     if rank == 0:
         trace_model(f"./data/models/{RUN_NAME}/{RUN_NAME}_iteration_{iteration}.pt",
                     torch.randn(1, 2 * HISTORY_SIZE + 1, NUM_ROWS, NUM_COLS),
-                    f"./data/models/{RUN_NAME}/traced_{RUN_NAME}_iteration_{iteration}.pt",
+                    f"./data/models/{RUN_NAME}/traced_{
+                        RUN_NAME}_iteration_{iteration}.pt",
                     BasicGridNetwork, model_kwargs)
 
     trace_time += time.time()
@@ -325,6 +371,8 @@ def main():
         logger.info(f"Loaded model from iteration {start_iteration - 1}.")
 
     network = DDP(network, device_ids=[local_rank], output_device=local_rank)
+    optimizer = optim.Adam(network.parameters(), lr=LR_INIT)
+    scheduler = json_to_scheduler(config_scheduler, optimizer)
     logger.info(
         f"Local rank {local_rank} network is on device {network.device}")
     learning_rate = LR_INIT
@@ -338,25 +386,24 @@ def main():
         timestamps = []
 
     muncher = data_muncher.DataMuncher(local_rank, rank, world_size,
-                                       NUM_WORKER_TASKS, NUM_GROUPS,
-                                       RUN_NAME, LINEAR_WEIGHTING, WORKER_TIME_TO_KILL, SYNC, NUM_PAST_ITERS_TO_TRAIN)
+                                       start_iteration,
+                                       **data_muncher_kwargs)
 
     for iteration in range(start_iteration, NUM_ITERS):
         start_time = time.time()
         logger.info(f"Starting iteration {iteration}...")
 
-        if iteration in LR_MILESTONE_ITERS:
-            logger.info(
-                f"LR {learning_rate} -> {learning_rate * LR_DECAY_FACTOR}")
-            learning_rate *= LR_DECAY_FACTOR
-
         if RESET_NETWORK:
             logger.info(f"Resetting network.")
-            network = BasicGridNetwork(
-                NUM_ROWS, NUM_COLS, ACTION_SIZE, HISTORY_SIZE, MODEL_NUM_BLOCKS, MODEL_NUM_CHANNELS)
+            network = BasicGridNetwork(**model_kwargs).to(local_rank)
+            network = DDP(network, device_ids=[
+                          local_rank], output_device=local_rank)
+            optimizer = optim.Adam(network.parameters(), lr=LR_INIT)
+            scheduler = json_to_scheduler(config_scheduler, optimizer)
 
         train_dataset = muncher.get()
-        train_network(network, learning_rate, iteration, **train_dataset)
+        train_network(network, optimizer, scheduler,
+                      iteration, **train_dataset)
 
         timestamps.append(time.time() - start_time)
         if local_rank == 0:

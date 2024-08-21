@@ -182,11 +182,6 @@ void runWorker(SPRL::WorkerOptions workerOptions,
         if(workerOptions.sync && iter >= workerOptions.numIters){
             break;
         }
-        // else {
-        //     if (std::filesystem::exists("data/models/" + runName + "/traced_" + runName + "_iteration_" + std::to_string(workerOptions.numIters - 1) + ".pt")){
-        //         break;
-        //     }
-        // }
         Timer t {};
         t.reset();
 

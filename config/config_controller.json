@@ -4,12 +4,17 @@
     "modelNumChannels": 64,
     "resetNetwork": false,
     "linearWeighting": true,
-    "numPastItersToTrain": 100,
-    "maxGroups": 10,
-    "epochsPerGroup": 10,
+    "numTrainSamples": 4194304,
+    "numSaveSamples": 16777216,
     "batchSize": 1024,
     "lrInit": 0.001,
-    "lrDecayFactor": 0.2,
-    "lrMilestoneIters": [50, 100, 200, 300],
+    "scheduler": {
+        "type": "ReduceLROnPlateau",
+        "kwargs": {
+            "factor": 0.5,
+            "patience": 10,
+            "min_lr": 1e-05
+        }
+    },
     "worldSize": 8
 }

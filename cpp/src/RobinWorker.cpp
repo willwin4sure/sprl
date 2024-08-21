@@ -170,50 +170,49 @@ int main(int argc, char* argv[]) {
     SPRL::D4GridSymmetrizer<SPRL::GO_BOARD_WIDTH, HISTORY_SIZE> symmetrizer {};
 
     // Play two games between each pair of players.
-    for (int k = 0; k < numPlayers; ++k) {
-        for (int j = 0; j < numPlayers; ++j) {
-            int i = (k + ((myTaskId * numPlayers) / numTasks)) % numPlayers;
-            if (i == j) continue;
+    for (int k = 0; k < numPlayers * numPlayers; ++k) {
+        int my_k = k + ((myTaskId * numPlayers * numPlayers) / numTasks);
+        int i = my_k / numPlayers;
+        int j = my_k % numPlayers;
+        if (i == j) continue;
+        SPRL::UCTTree<ImplNode, State, ACTION_SIZE> tree0 { treeOptions[i], &symmetrizer };
+        SPRL::UCTTree<ImplNode, State, ACTION_SIZE> tree1 { treeOptions[j], &symmetrizer };
 
-            SPRL::UCTTree<ImplNode, State, ACTION_SIZE> tree0 { treeOptions[i], &symmetrizer };
-            SPRL::UCTTree<ImplNode, State, ACTION_SIZE> tree1 { treeOptions[j], &symmetrizer };
+        SPRL::UCTNetworkAgent<ImplNode, State, ACTION_SIZE> networkAgent0 {
+            networks[i].get(),
+            &tree0,
+            128,
+            16,
+            8
+        };
 
-            SPRL::UCTNetworkAgent<ImplNode, State, ACTION_SIZE> networkAgent0 {
-                networks[i].get(),
-                &tree0,
-                128,
-                16,
-                8
-            };
+        SPRL::UCTNetworkAgent<ImplNode, State, ACTION_SIZE> networkAgent1 {
+            networks[j].get(),
+            &tree1,
+            128,
+            16,
+            8
+        };
 
-            SPRL::UCTNetworkAgent<ImplNode, State, ACTION_SIZE> networkAgent1 {
-                networks[j].get(),
-                &tree1,
-                128,
-                16,
-                8
-            };
+        std::array<SPRL::IAgent<ImplNode, State, ACTION_SIZE>*, 2> agents { &networkAgent0, &networkAgent1 };
 
-            std::array<SPRL::IAgent<ImplNode, State, ACTION_SIZE>*, 2> agents { &networkAgent0, &networkAgent1 };
+        ImplNode rootNode {};
+        SPRL::Player winner = SPRL::playGame(&rootNode, agents, false);
 
-            ImplNode rootNode {};
-            SPRL::Player winner = SPRL::playGame(&rootNode, agents, false);
+        logFile << i << " " << j << " " << static_cast<int>(winner) << std::endl;
 
-            logFile << i << " " << j << " " << static_cast<int>(winner) << std::endl;
+        if (winner == SPRL::Player::ZERO) {
+            // Player i wins
+            points[i][j] += 2;
 
-            if (winner == SPRL::Player::ZERO) {
-                // Player i wins
-                points[i][j] += 2;
+        } else if (winner == SPRL::Player::ONE) {
+            // Player j wins
+            points[j][i] += 2;
 
-            } else if (winner == SPRL::Player::ONE) {
-                // Player j wins
-                points[j][i] += 2;
-
-            } else {
-                // Draw
-                points[i][j] += 1;
-                points[j][i] += 1;
-            }
+        } else {
+            // Draw
+            points[i][j] += 1;
+            points[j][i] += 1;
         }
     }
 

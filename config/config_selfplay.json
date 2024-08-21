@@ -1,6 +1,6 @@
 {
     "modelName": "quail",
-    "modelVariant": "ddp_async",
+    "modelVariant": "alpha",
     "numGroups": 8,
     "numWorkerTasks": 384,
     "numIters": 400,
