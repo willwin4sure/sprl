@@ -1,6 +1,6 @@
 {
     "modelName": "quail",
-    "modelVariant": "delta",
+    "modelVariant": "gamma",
     "numGroups": 8,
     "numWorkerTasks": 384,
     "numIters": 4000,
@@ -25,8 +25,8 @@
         "maxBatchSize": 8,
         "maxQueueSize": 4,
         "symmetrizeData": true,
-        "fastPlayoutProb": 0.8,
-        "fastPlayoutFactor": 0.25,
+        "fastPlayoutProb": 0.0,
+        "fastPlayoutFactor": 1.0,
         "policyTargetPruning": false,
         "forcedPlayouts": false,
         "earlyGameCutoff": 15,
