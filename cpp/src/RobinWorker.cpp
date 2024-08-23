@@ -160,7 +160,7 @@ int main(int argc, char* argv[]) {
 
     // Write game results to a log.
     std::string logPath = saveDir + "/log.txt";
-    std::ofstream logFile(logPath);
+    std::ofstream logFile(logPath, std::ios::app);
 
     if (!logFile.is_open()) {
         std::cerr << "Error opening file: " << logPath << std::endl;

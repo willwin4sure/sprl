@@ -7,7 +7,7 @@
 #SBATCH --distribution=cyclic:cyclic    # This is the default, but it gets over-ridden by supercloud. So we have to set it here.
 #SBATCH --output=./logs/%x-%j.out       # This should be run from the root of the project.
 #SBATCH --error=./logs/%x-%j.err        # 
-
+#SBATCH --time=4-4:00:00                # 100 hours is the maximum limit.
 
 # zoom zoom 
 export NCCL_NSOCKS_PERTHREAD=4

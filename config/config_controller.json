@@ -1,19 +1,18 @@
 {
     "workerTimeToKill": 1200,
-    "modelNumBlocks": 8,
+    "modelNumBlocks": 6,
     "modelNumChannels": 64,
     "resetNetwork": false,
     "linearWeighting": true,
-    "numTrainSamples": 4194304,
-    "numSaveSamples": 16777216,
+    "numTrainSamples": 2097152,
+    "numSaveSamples": 8388608,
     "batchSize": 1024,
     "lrInit": 0.001,
     "scheduler": {
-        "type": "ReduceLROnPlateau",
+        "name": "MultiStepLR",
         "kwargs": {
-            "factor": 0.5,
-            "patience": 10,
-            "min_lr": 1e-05
+            "milestones": [20, 40, 60, 80, 100, 200, 300, 400],
+            "gamma": 0.5
         }
     },
     "worldSize": 8

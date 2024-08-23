@@ -38,7 +38,7 @@ def show_memory(local_rank):
 class DataMuncher():
     def __init__(self,
                  local_rank, rank,
-                 world_size, iteration, 
+                 world_size, iteration,
                  num_worker_tasks, num_groups, run_name,
                  linear_weighting, worker_time_to_kill, sync,
                  num_train_samples,
@@ -86,7 +86,8 @@ class DataMuncher():
             for task_id in self.live_workers:
                 group = task_id // (self.num_worker_tasks // self.num_groups)
 
-                thread_save_path = f"data/games/{self.run_name}/{group}/{task_id}"
+                thread_save_path = f"data/games/" + \
+                    f"{self.run_name}/{group}/{task_id}"
 
                 # Check if the worker is unfinished and has saved its data.
                 if (not task_id in finished_workers and
@@ -147,7 +148,6 @@ class DataMuncher():
         """
         # in the case where iteration is 0, only, wait until every single worker has completed at least one game.
         if self.iteration == 0:
-            logger.info("Waiting for all workers to have data...")
             while True:
                 all_workers_have_data = True
                 # Not just my_workers; I want all workers under all masters to have finished at least one game.
@@ -155,12 +155,16 @@ class DataMuncher():
                     group = task_id // (self.num_worker_tasks //
                                         self.num_groups)
 
-                    thread_save_path = f"data/games/{self.run_name}/{group}/{task_id}"
+                    thread_save_path = f"data/games/" + \
+                        f"{self.run_name}/{group}/{task_id}"
 
                     if not (os.path.exists(f"{thread_save_path}/{self.run_name}_iteration_{self.worker_seen[task_id]}_states.npy") and
                             os.path.exists(f"{thread_save_path}/{self.run_name}_iteration_{self.worker_seen[task_id]}_distributions.npy") and
                             os.path.exists(f"{thread_save_path}/{self.run_name}_iteration_{self.worker_seen[task_id]}_outcomes.npy")):
                         all_workers_have_data = False
+                        logger.info(
+                            f"Waiting for all workers to have data (missing {task_id})")
+
                         break
 
                 if all_workers_have_data:
@@ -206,7 +210,7 @@ class DataMuncher():
                     break
 
         logger.info(
-            f"Total samples for iteration {self.iteration}: {sum([s.shape[0] for s in new_states])}")
+            f"Total new samples for iteration {self.iteration}: {sum([s.shape[0] for s in new_states])}")
 
         logger.info(f"Total scooped samples from each worker:")
         logger.info(" ".join(str(i) for i in self.worker_seen))
@@ -220,45 +224,65 @@ class DataMuncher():
             new_states, new_distributions, new_outcomes, new_timestamps = self.async_collate()
 
         # Do not push anybody to GPU yet, before we clear out the old data from vram.
-        new_state_tensor = torch.cat(new_states, dim=0)
-        new_distribution_tensor = torch.cat(
-            new_distributions, dim=0)
-        new_outcome_tensor = torch.cat(
-            new_outcomes, dim=0).unsqueeze(1)
-        new_timestamp_tensor = torch.cat(
-            new_timestamps, dim=0).unsqueeze(1)
+        new_outcomes = [o.unsqueeze(1) for o in new_outcomes]
+        new_timestamps = [t.unsqueeze(1) for t in new_timestamps]
 
-        assert new_state_tensor.shape[0] == new_distribution_tensor.shape[0] \
-            == new_outcome_tensor.shape[0] == new_timestamp_tensor.shape[0]
+        self.all_state_tensors.extend(new_states)
+        self.all_distribution_tensors.extend(new_distributions)
+        self.all_outcome_tensors.extend(new_outcomes)
+        self.all_timestamp_tensors.extend(new_timestamps)
 
-        self.all_state_tensors.append(new_state_tensor)
-        self.all_distribution_tensors.append(new_distribution_tensor)
-        self.all_outcome_tensors.append(new_outcome_tensor)
-        self.all_timestamp_tensors.append(new_timestamp_tensor)
+        logger.info(f"Before truncating, the total number of states is:" +
+                    f"{len(self.all_state_tensors)}")
+        logger.info(f"Before truncating, the total number of samples is:" +
+                    f"{sum([s.shape[0] for s in self.all_state_tensors])}")
 
         assert (len(self.all_state_tensors) == len(self.all_distribution_tensors)
                 == len(self.all_outcome_tensors) == len(self.all_timestamp_tensors))
 
-        while len(self.all_state_tensors) > self.num_past_iters_to_train:
+        num_samples = sum([s.shape[0] for s in self.all_state_tensors])
+
+        while num_samples > self.num_save_samples:
+            num_samples -= self.all_state_tensors[0].shape[0]
             del self.all_state_tensors[0]
             del self.all_distribution_tensors[0]
             del self.all_outcome_tensors[0]
             del self.all_timestamp_tensors[0]
 
+        logger.info(f"After truncating, the total number of states is:" +
+                    f"{len(self.all_state_tensors)}")
+        logger.info(f"After truncating, the total number of samples is:" +
+                    f"{sum([s.shape[0] for s in self.all_state_tensors])}")
+
+        # Our objective here is to get a subset of the data that contains exactly num_train_samples samples.
+        # We first over-shoot, then we truncate.
+        index_permutation = np.random.permutation(len(self.all_state_tensors))
+        train_cutoff = 0
+        train_samples = 0
+        while train_samples < self.num_train_samples and train_cutoff < len(index_permutation):
+            train_samples += self.all_state_tensors[index_permutation[train_cutoff]].shape[0]
+            train_cutoff += 1
+
+        logger.info(f"Total number of games used for training: {train_cutoff}")
+        logger.info(f"Total number of samples used for training: " +
+                    f"{train_samples}")
+
+        index_subset = index_permutation[:train_cutoff]
         train_state_tensor = torch.cat(
-            self.all_state_tensors, dim=0).to(self.local_rank)
+            [self.all_state_tensors[i] for i in index_subset], dim=0).to(self.local_rank)
         train_distribution_tensor = torch.cat(
-            self.all_distribution_tensors, dim=0).to(self.local_rank)
+            [self.all_distribution_tensors[i] for i in index_subset], dim=0).to(self.local_rank)
         train_outcome_tensor = torch.cat(
-            self.all_outcome_tensors, dim=0).to(self.local_rank)
+            [self.all_outcome_tensors[i] for i in index_subset], dim=0).to(self.local_rank)
         train_timestamp_tensor = torch.cat(
-            self.all_timestamp_tensors, dim=0).to(self.local_rank)
+            [self.all_timestamp_tensors[i] for i in index_subset], dim=0).to(self.local_rank)
 
         train_timestamp_tensor = train_timestamp_tensor - \
-            max(0, self.iteration + 1 - self.num_past_iters_to_train)
+            torch.min(train_timestamp_tensor) + 1
 
         show_memory(self.local_rank)
         self.iteration += 1
+        logger.info("Pushed data to GPU.")
         return {
             "state_tensor": train_state_tensor,
             "distribution_tensor": train_distribution_tensor,

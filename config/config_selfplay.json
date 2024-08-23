@@ -1,13 +1,13 @@
 {
     "modelName": "quail",
-    "modelVariant": "alpha",
+    "modelVariant": "gamma",
     "numGroups": 8,
     "numWorkerTasks": 384,
-    "numIters": 400,
+    "numIters": 4000,
     "sync": false,
     "initIterationOptions": {
         "numGamesPerWorker": 1,
-        "uctTraversals": 131072,
+        "uctTraversals": 4096,
         "maxBatchSize": 1,
         "maxQueueSize": 1,
         "symmetrizeData": true,

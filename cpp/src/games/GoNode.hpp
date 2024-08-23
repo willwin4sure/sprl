@@ -15,10 +15,10 @@ namespace SPRL {
 
 // constexpr int GO_BOARD_WIDTH = 6; 
 // constexpr float GO_KOMI = 4.0f; // According to https://senseis.xmp.net/?6x6 
-constexpr int GO_BOARD_WIDTH = 7; 
-constexpr float GO_KOMI = 9.0f;
-// constexpr int GO_BOARD_WIDTH = 9; 
-// constexpr float GO_KOMI = 7.5f;
+// constexpr int GO_BOARD_WIDTH = 7; 
+// constexpr float GO_KOMI = 9.0f;
+constexpr int GO_BOARD_WIDTH = 9; 
+constexpr float GO_KOMI = 7.5f;
 
 constexpr int GO_BOARD_SIZE = GO_BOARD_WIDTH * GO_BOARD_WIDTH;
 constexpr int GO_ACTION_SIZE = GO_BOARD_SIZE + 1;  // Last index represents pass.

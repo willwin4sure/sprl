@@ -34,7 +34,7 @@ or make the whole thing a class.
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
 
-NUM_ROWS = NUM_COLS = 7
+NUM_ROWS = NUM_COLS = 9
 ACTION_SIZE = NUM_ROWS * NUM_COLS + 1
 HISTORY_SIZE = 8
 
@@ -171,13 +171,12 @@ data_muncher_kwargs = {
 
 
 def train_network(
-        network: DDP, optimizer: torch.optim.Optimizer, scheduler: torch.optim.LRScheduler,
+        network: DDP, optimizer: optim.Optimizer, scheduler: optim.lr_scheduler._LRScheduler,
         iteration: int,
         state_tensor: torch.Tensor, distribution_tensor: torch.Tensor,
         outcome_tensor: torch.Tensor, timestamp_tensor: torch.Tensor):
     global epochify_time, save_time, trace_time
 
-    # Split data into training and validation sets
     num_samples = torch.tensor(state_tensor.shape[0], device=local_rank)
     logger.info(f"Rank {local_rank} has {num_samples.cpu().item()} samples.")
 
@@ -186,12 +185,12 @@ def train_network(
     torch.distributed.all_reduce(num_samples, op=dist.ReduceOp.MIN)
     torch.distributed.barrier()
 
-    num_samples = num_samples.cpu().item()
+    num_samples = min(NUM_TRAIN_SAMPLES, num_samples.cpu().item())
 
     logger.info(
         f"Rank {local_rank} has {num_samples} samples after all-reduce.")
 
-    state_tensor = state_tensor[-num_samples:]  # the most recent samples
+    state_tensor = state_tensor[-num_samples:]
     distribution_tensor = distribution_tensor[-num_samples:]
     outcome_tensor = outcome_tensor[-num_samples:]
     timestamp_tensor = timestamp_tensor[-num_samples:]
@@ -199,73 +198,33 @@ def train_network(
     dataset = TensorDataset(
         state_tensor, distribution_tensor, outcome_tensor, timestamp_tensor)
 
-    train_size = int(0.9 * num_samples)
-    val_size = num_samples - train_size
+    dataloader = DataLoader(
+        dataset, batch_size=BATCH_SIZE, shuffle=True)
 
-    train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
+    for epoch in range(5):
+        epochify_time -= time.time()
+        train_average_policy_loss, train_average_value_loss = epochify(iteration, 0, epoch,
+                                                                       network, dataloader, optimizer, train=True)
+        epochify_time += time.time()
 
-    # Create data loaders for training and testing sets
-    train_dataloader = DataLoader(
-        train_dataset, batch_size=BATCH_SIZE, shuffle=True)
-    val_dataloader = DataLoader(
-        val_dataset, batch_size=BATCH_SIZE, shuffle=True)
-
-    best_val_loss = float("inf")
-    best_epoch = 0
-
-    train_init_policy_loss, train_init_value_loss = epochify(iteration, None, None,
-                                                             network, train_dataloader, train=False)
-
-    val_init_policy_loss, val_init_value_loss = epochify(iteration, None, None,
-                                                         network, val_dataloader, train=False)
-
-    for group in range(MAX_GROUPS):
-        # with tqdm(range(EPOCHS_PER_GROUP)) as pbar:
-        # for epoch in pbar:
-        for epoch in range(EPOCHS_PER_GROUP):
-            epochify_time -= time.time()
-            train_average_policy_loss, train_average_value_loss = epochify(iteration, group, epoch,
-                                                                           network, train_dataloader, optimizer, train=True)
-
-            val_average_policy_loss, val_average_value_loss = epochify(iteration, group, epoch,
-                                                                       network, val_dataloader, train=False)
-            epochify_time += time.time()
-            save_time -= time.time()
-
-            val_loss = val_average_policy_loss + val_average_value_loss
-
-            if val_loss < best_val_loss:
-                # If it is the best validation loss we've seen so far, save the model
-                best_val_loss = val_loss
-                best_epoch = epoch + group * EPOCHS_PER_GROUP
-                if rank == 0:  # Not local_rank; we want exactly one saved copy.
-                    state_dict = network.module.state_dict()
-                    torch.save(
-                        state_dict, f"./data/models/{RUN_NAME}/{RUN_NAME}_iteration_{iteration}.pt")
-            dist.barrier()
-            logger.info(
-                f"{iteration}.{group}.{epoch} Rank {local_rank} best_val_loss: {best_val_loss} " +
-                f"Tr Pol: {train_init_policy_loss:.4f} -> {train_average_policy_loss:.4f}, " +
-                f"Tr Val: {train_init_value_loss:.4f} -> {train_average_value_loss:.4f}, " +
-                f"Val Pol: {val_init_policy_loss:.4f} -> {val_average_policy_loss:.4f}, " +
-                f"Val Val: {
-                    val_init_value_loss:.4f} -> {val_average_value_loss:.4f}"
-            )
-            save_time += time.time()
-        # If the best epoch is among the last EPOCHS_PER_GROUP // 2 epochs, don't break, might get more from training
-        if best_epoch < (group + 1) * EPOCHS_PER_GROUP - EPOCHS_PER_GROUP // 2:
-            break
-        # TODO: we break immediately for testing purposes.
-        # break
+        dist.barrier()
+        logger.info(
+            f"{iteration}.0.0 Rank {local_rank} " +
+            f"Tr Pol: {train_average_policy_loss:.4f}, " +
+            f"Tr Val: {train_average_value_loss:.4f}, "
+        )
 
     trace_time -= time.time()
-    logger.info(f"The best model was at epoch {best_epoch}.")
+
     if rank == 0:
-        trace_model(f"./data/models/{RUN_NAME}/{RUN_NAME}_iteration_{iteration}.pt",
-                    torch.randn(1, 2 * HISTORY_SIZE + 1, NUM_ROWS, NUM_COLS),
-                    f"./data/models/{RUN_NAME}/traced_{
-                        RUN_NAME}_iteration_{iteration}.pt",
-                    BasicGridNetwork, model_kwargs)
+        state_dict = network.module.state_dict()
+        filepath = f"./data/models/{RUN_NAME}/" + \
+            f"{RUN_NAME}_iteration_{iteration}.pt"
+        trace_filepath = f"./data/models/{RUN_NAME}/" + \
+            f"traced_{RUN_NAME}_iteration_{iteration}.pt"
+        torch.save(state_dict, filepath)
+        trace_model(filepath, torch.randn(1, 2 * HISTORY_SIZE + 1, NUM_ROWS, NUM_COLS),
+                    trace_filepath, BasicGridNetwork, model_kwargs)
 
     trace_time += time.time()
 
@@ -309,16 +268,10 @@ def epochify(iteration: int, group: int, epoch: int,
 
         total_policy_loss += policy_loss.detach()
         total_value_loss += value_loss.detach()
-        # logger.info(
-        #     f"{iteration}.{group}.{epoch}.{num_batches}/{len(train_dataloader)} Rank {local_rank}"
-        # )
         num_batches += 1
 
     average_policy_loss = total_policy_loss / num_batches
     average_value_loss = total_value_loss / num_batches
-
-    # logger.info(f"Rank {local_rank} average_policy_loss: {average_policy_loss}")
-    # logger.info(f"Rank {local_rank} average_value_loss: {average_value_loss}")
 
     # Use distributed all reduce to average the losses across all processes.
     torch.distributed.barrier()
@@ -331,7 +284,6 @@ def epochify(iteration: int, group: int, epoch: int,
     average_value_loss /= world_size
     average_policy_loss /= world_size
 
-    # logger.info(f"Rank {local_rank} exiting epochify train={train}")
     return average_policy_loss, average_value_loss
 
 
@@ -375,7 +327,6 @@ def main():
     scheduler = json_to_scheduler(config_scheduler, optimizer)
     logger.info(
         f"Local rank {local_rank} network is on device {network.device}")
-    learning_rate = LR_INIT
 
     timing_filepath = f"data/timings/{RUN_NAME}_timing.txt"
     os.makedirs(os.path.dirname(timing_filepath), exist_ok=True)
