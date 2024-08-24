@@ -93,7 +93,7 @@ async def on_ready():
     print(f"Logged in as {bot.user}.")
 
     # Only sync the tree if commands have changed.
-    # await tree.sync(guild=discord.Object(id=GUILD_ID))
+    await tree.sync(guild=discord.Object(id=GUILD_ID))
 
     # Start watching the progress file.
     bot.loop.create_task(watch_file())
@@ -107,10 +107,31 @@ async def on_ready():
 async def progress(interaction: discord.Interaction):
     """Immediately send the progress of all running jobs."""
 
+    await interaction.response.defer()
+
     # Send the progress in an embed.
     progress = await parse_all_running()
     embed = progress_to_embed(progress)
-    await interaction.response.send_message(embed=embed)
+
+    await interaction.followup.send(embed=embed)
+
+
+async def get_job_name_autocomplete(interaction: discord.Interaction, current: str):
+    """Get the job names for the autocomplete."""
+
+    job_names = []
+    for file in os.listdir(os.path.join(SPRL_PATH, "data", "configs")):
+        if not file.endswith(".json"):
+            continue
+
+        name = file.rsplit("_config_", 1)[0]
+        if current in name and name not in job_names:
+            job_names.append(name)
+
+    return [
+        app_commands.Choice(name=name, value=name)
+        for name in job_names
+    ]
 
 
 @tree.command(
@@ -118,7 +139,13 @@ async def progress(interaction: discord.Interaction):
     description="Dumps the config files of a job.",
     guild=discord.Object(id=GUILD_ID),
 )
-async def info(interaction: discord.Interaction, name: str):
+@app_commands.describe(
+    job_name="The name of the job to get the config files of."
+)
+@app_commands.autocomplete(
+    job_name=get_job_name_autocomplete
+)
+async def info(interaction: discord.Interaction, job_name: str):
     """Dumps the config files of a job.
 
     For each running job, goes to `data/configs` and dumps:
@@ -127,21 +154,24 @@ async def info(interaction: discord.Interaction, name: str):
         /data/configs/{name}_config_uct.json
     """
 
+    await interaction.response.defer()
+
     # Check if the name is valid.
     invalid = False
-    for c in name:
+    for c in job_name:
         if not c.isalnum() and c != "_":
             invalid = True
             break
+
     if invalid:
-        await interaction.response.send_message("Invalid name. Please use only alphanumeric characters and underscores.")
+        await interaction.followup.send("Invalid name. Please use only alphanumeric characters and underscores.")
         return
     
     config_path = os.path.join(SPRL_PATH, "data", "configs")
 
-    selfplay_filepath = os.path.join(config_path, f"{name}_config_selfplay.json")
-    controller_filepath = os.path.join(config_path, f"{name}_config_controller.json")
-    uct_filepath = os.path.join(config_path, f"{name}_config_uct.json")
+    selfplay_filepath = os.path.join(config_path, f"{job_name}_config_selfplay.json")
+    controller_filepath = os.path.join(config_path, f"{job_name}_config_controller.json")
+    uct_filepath = os.path.join(config_path, f"{job_name}_config_uct.json")
 
     try:
         with open(selfplay_filepath) as f:
@@ -154,23 +184,23 @@ async def info(interaction: discord.Interaction, name: str):
             uct: Dict = json.load(f)
 
     except FileNotFoundError:
-        await interaction.response.send_message("Config files not all found.")
+        await interaction.followup.send("Config files not all found.")
         return
 
     # Send 3 separate embeds
-    selfplay_embed = discord.Embed(title=f"{name}_config_selfplay.json")
+    selfplay_embed = discord.Embed(title=f"{job_name}_config_selfplay.json")
     for key in selfplay.keys():
         selfplay_embed.add_field(name=key, value=selfplay[key])
 
-    controller_embed = discord.Embed(title=f"{name}_config_controller.json")
+    controller_embed = discord.Embed(title=f"{job_name}_config_controller.json")
     for key in controller.keys():
         controller_embed.add_field(name=key, value=controller[key])
 
-    uct_embed = discord.Embed(title=f"{name}_config_uct.json")
+    uct_embed = discord.Embed(title=f"{job_name}_config_uct.json")
     for key in uct.keys():
         uct_embed.add_field(name=key, value=uct[key])
 
-    await interaction.response.send_message(embeds=[selfplay_embed, controller_embed, uct_embed])
+    await interaction.followup.send(embeds=[selfplay_embed, controller_embed, uct_embed])
 
 
 async def watch_file():
