@@ -5,8 +5,10 @@ discord channel.
 """
 
 import asyncio
+from functools import lru_cache
 import json
 import os
+import time
 from typing import Dict, Optional, Tuple
 
 import discord
@@ -116,9 +118,8 @@ async def progress(interaction: discord.Interaction):
     await interaction.followup.send(embed=embed)
 
 
-async def get_job_name_autocomplete(interaction: discord.Interaction, current: str):
-    """Get the job names for the autocomplete."""
-
+@lru_cache
+def get_job_names(current: str, ttl_hash=None):
     job_names = []
     for file in os.listdir(os.path.join(SPRL_PATH, "data", "configs")):
         if not file.endswith(".json"):
@@ -128,9 +129,19 @@ async def get_job_name_autocomplete(interaction: discord.Interaction, current: s
         if current in name and name not in job_names:
             job_names.append(name)
 
+    return job_names
+
+
+def get_ttl_hash(seconds=60):
+    """Supports caching for up to 1 minute."""
+    return round(time.time() / seconds)
+
+
+async def get_job_name_autocomplete(interaction: discord.Interaction, current: str):
+    """Get the job names for the autocomplete."""
     return [
         app_commands.Choice(name=name, value=name)
-        for name in job_names
+        for name in get_job_names(current, ttl_hash=get_ttl_hash())
     ]
 
 
@@ -209,7 +220,6 @@ async def watch_file():
     global global_progress
     channel = bot.get_channel(CHANNEL_ID)
     while True:
-        print("Checking progress.")
         # Check the progress. If it is different from before, send it to the channel.
         # Edge case: if a process existed before but does not anymore, we do not send anything!
         progress = await parse_all_running()
