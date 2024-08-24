@@ -90,19 +90,7 @@ def progress_to_embed(progress: Dict[str, Tuple[int, Optional[int]]], color=disc
     return embed
 
 
-@bot.event
-async def on_ready():
-    print(f"Logged in as {bot.user}.")
-
-    # Only sync the tree if commands have changed.
-    await tree.sync(guild=discord.Object(id=GUILD_ID))
-
-    # Start watching the progress file.
-    bot.loop.create_task(watch_file())
-
-
 @tree.command(
-    name="progress",
     description="Immediately send the progress of all running jobs.",
     guild=discord.Object(id=GUILD_ID),
 )
@@ -146,7 +134,6 @@ async def get_job_name_autocomplete(interaction: discord.Interaction, current: s
 
 
 @tree.command(
-    name="info",
     description="Dumps the config files of a job.",
     guild=discord.Object(id=GUILD_ID),
 )
@@ -237,6 +224,18 @@ async def watch_file():
 
         # Sleep for 5 minutes (usually, changed is False).
         await asyncio.sleep(300)
+
+
+@bot.event
+async def on_ready():
+    print(f"Logged in as {bot.user}.")
+
+    # Only sync the tree if commands have changed.
+    tree.copy_global_to(guild=discord.Object(id=GUILD_ID))
+    await tree.sync(guild=discord.Object(id=GUILD_ID))
+
+    # Start watching the progress file.
+    bot.loop.create_task(watch_file())
 
 
 bot.run(DISCORD_TOKEN)

@@ -167,3 +167,4 @@ dopamine/config.json
 princeton_ddp/*
 *.err
 *.out
+discord_nohup_pid.txt
