@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""
-interactive_test.py
-
-This is a script that allows you to play any game interactively
-against yourself, in order to test it.
-"""
+"""robin.py"""
 
 import os
 import sys

@@ -59,7 +59,7 @@ async def parse_all_running():
                 iteration += 1  # If the bot finished training.
 
         try:
-            with open(f"{SPRL_PATH}/data/configs/{name}_config_selfplay.json") as f:
+            with open(os.path.join(SPRL_PATH, "data", "configs", f"{name}_config_selfplay.json")) as f:
                 config = json.load(f)
                 total_iters = config["numIters"]
                 progress[name] = [iteration, total_iters]
