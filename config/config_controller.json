@@ -1,0 +1,19 @@
+{
+    "workerTimeToKill": 1200,
+    "modelNumBlocks": 6,
+    "modelNumChannels": 64,
+    "resetNetwork": false,
+    "linearWeighting": true,
+    "numTrainSamples": 2097152,
+    "numSaveSamples": 8388608,
+    "batchSize": 1024,
+    "lrInit": 0.001,
+    "scheduler": {
+        "name": "MultiStepLR",
+        "kwargs": {
+            "milestones": [20, 40, 60, 80, 100, 200, 300, 400],
+            "gamma": 0.5
+        }
+    },
+    "worldSize": 8
+}

@@ -20,6 +20,7 @@
 #include "symmetry/D4GridSymmetrizer.hpp"
 
 #include "uct/UCTNode.hpp"
+#include "uct/UCTOptions.hpp"
 #include "uct/UCTTree.hpp"
 
 #include <torch/torch.h>
@@ -30,31 +31,33 @@
 #include <iostream>
 #include <memory>
 
-constexpr int NUM_ROWS = SPRL::OTH_BOARD_WIDTH;
-constexpr int NUM_COLS = SPRL::OTH_BOARD_WIDTH;
+constexpr int NUM_ROWS = SPRL::GO_BOARD_WIDTH;
+constexpr int NUM_COLS = SPRL::GO_BOARD_WIDTH;
 constexpr int BOARD_SIZE = NUM_ROWS * NUM_COLS;
 
-constexpr int ACTION_SIZE = SPRL::OTH_ACTION_SIZE;
-constexpr int HISTORY_SIZE = SPRL::OTH_HISTORY_SIZE;
+constexpr int ACTION_SIZE = SPRL::GO_ACTION_SIZE;
+constexpr int HISTORY_SIZE = SPRL::GO_HISTORY_SIZE;
 
 int main(int argc, char* argv[]) {
-    if (argc != 6) {
-        std::cerr << "Usage: ./Challenge.exe <modelPath> <player> <numTraversals> <maxBatchSize> <maxQueueSize>" << std::endl;
+    if (argc != 7) {
+        std::cerr << "Usage: ./Challenge.exe <modelPath> <optionsPath> <player> <numTraversals> <maxBatchSize> <maxQueueSize>" << std::endl;
+        // example: ./Challenge ~/sprl/data/models/panda_gamma_slower/traced_panda_gamma_slower_iteration_189.pt ~/sprl/data/configs/panda_gamma_slower_config_uct.json 0 2048 8 16
         return 1;
     }
 
     using State = SPRL::GridState<BOARD_SIZE, HISTORY_SIZE>;
-    using ImplNode = SPRL::OthelloNode;
+    using ImplNode = SPRL::GoNode;
 
     std::string modelPath = argv[1];
-    int player = std::stoi(argv[2]);
-    int numTraversals = std::stoi(argv[3]);
-    int maxBatchSize = std::stoi(argv[4]);
-    int maxQueueSize = std::stoi(argv[5]);
+    std::string optionsPath = argv[2];
+    int player = std::stoi(argv[3]);
+    int numTraversals = std::stoi(argv[4]);
+    int maxBatchSize = std::stoi(argv[5]);
+    int maxQueueSize = std::stoi(argv[6]);
 
     SPRL::INetwork<State, ACTION_SIZE>* network;
 
-    SPRL::OthelloHeuristic randomNetwork {};
+    SPRL::RandomNetwork<State, ACTION_SIZE> randomNetwork {};
     SPRL::GridNetwork<NUM_ROWS, NUM_COLS, HISTORY_SIZE, ACTION_SIZE> neuralNetwork { modelPath };
 
     if (modelPath == "random") {
@@ -65,17 +68,17 @@ int main(int argc, char* argv[]) {
         network = &neuralNetwork;
     }
 
-    // SPRL::ConnectFourSymmetrizer symmetrizer {};
-    SPRL::D4GridSymmetrizer<SPRL::OTH_BOARD_WIDTH, HISTORY_SIZE> symmetrizer {};
+    SPRL::UCTOptionsParser uctParser {};
     
-    SPRL::UCTTree<ImplNode, State, ACTION_SIZE> tree {
-        std::make_unique<ImplNode>(),
-        0.25,
-        0.1,
-        SPRL::InitQ::PARENT,
-        &symmetrizer,
-        true
-    };
+    SPRL::TreeOptions treeOptions;
+    uctParser.parse(optionsPath, treeOptions);
+
+    std::cout << "Using UCT options:" << std::endl;
+    std::cout << uctParser.toString(treeOptions) << std::endl;
+
+    SPRL::D4GridSymmetrizer<SPRL::GO_BOARD_WIDTH, HISTORY_SIZE> symmetrizer {};
+    
+    SPRL::UCTTree<ImplNode, State, ACTION_SIZE> tree { treeOptions, &symmetrizer };
 
     SPRL::UCTNetworkAgent<ImplNode, State, ACTION_SIZE> networkAgent {
         network,
@@ -85,7 +88,6 @@ int main(int argc, char* argv[]) {
         maxQueueSize
     };
 
-    // SPRL::HumanAgent<ImplNode, State, ACTION_SIZE> humanAgent {};
     SPRL::HumanGridAgent<ImplNode, NUM_ROWS, NUM_COLS, HISTORY_SIZE> humanAgent {};
 
     std::array<SPRL::IAgent<ImplNode, State, ACTION_SIZE>*, 2> agents;

@@ -48,6 +48,10 @@ public:
         return results;
     }
 
+    bool isAlive() override {
+        return true;
+    }
+
     int getNumEvals() override {
         return m_numEvals;
     }

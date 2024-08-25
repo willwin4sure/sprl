@@ -2,7 +2,7 @@
 #define SPRL_UCT_NODE_HPP
 
 #include "../games/GameNode.hpp"
-
+#include "../uct/UCTOptions.hpp"
 #include "../utils/random.hpp"
 
 #include "../constants.hpp"
@@ -17,15 +17,6 @@ namespace SPRL {
 // Forward declaration of the UCT tree class.
 template<typename ImplNode, typename State, int ACTION_SIZE>
 class UCTTree;
-
-/**
- * Supported methods of initializing the Q values of the nodes.
-*/
-enum class InitQ {
-    ZERO,    // Always initialize to zero.
-    PARENT,  // Initialize to the network output of the parent, if available.
-    DROP_PARENT     // Todo: write description.
-};
 
 /**
  * Class representing a node in the tree for the UCT algorithm.
@@ -43,9 +34,9 @@ public:
      * Holds statistics for the edges coming out of this node in the UCT tree.
     */
     struct EdgeStatistics {
-
-        ActionDist m_childPriors {};  // Prior from network, used to compute U.
-        ActionDist m_totalValues {};  // Total Q value accumulated on each edge.
+        
+        ActionDist m_childPriors {};  // Prior from network, *after* Dirichlet noise, for `U` value.
+        ActionDist m_totalValues {};  // Total `Q` value accumulated on each edge.
         ActionDist m_numVisits {};    // Number of times each edge has been traversed.
 
         EdgeStatistics() {
@@ -53,26 +44,26 @@ public:
         }
 
         void reset() {
-            m_childPriors.fill(0.0);
-            m_totalValues.fill(0.0);
-            m_numVisits.fill(0.0);
+            m_childPriors.fill(0.0f);
+            m_totalValues.fill(0.0f);
+            m_numVisits.fill(0.0f);
         }
+
     };
 
     /**
      * Constructor for root UCT node.
      * 
+     * @param nodeOptions The options for the UCT node.
      * @param edgeStats Pointer to the edge statistics of the virtual "parent" node, held by `UCTTree`.
-     * @param gameNode The root game node, also held by `UCTTree`.
-     * @param dirEps The epsilon parameter for Dirichlet noise.
-     * @param dirAlpha The alpha parameter for Dirichlet noise.
-     * @param initQMethod The method to use for initializing the Q values of the nodes.
+     * @param gameNode The game node corresponding to this UCT node.
     */
-    UCTNode(EdgeStatistics* edgeStats, GameNode<ImplNode, State, ACTION_SIZE>* gameNode,
-            float dirEps = 0.25f, float dirAlpha = 0.1f, InitQ initQMethod = InitQ::PARENT)
-        : m_gameNode { gameNode }, m_parentEdgeStatistics { edgeStats },
-          m_dirEps { dirEps }, m_dirAlpha { dirAlpha }, m_initQMethod { initQMethod },
+    UCTNode(NodeOptions nodeOptions,
+            EdgeStatistics* edgeStats,
+            GameNode<ImplNode, State, ACTION_SIZE>* gameNode)
+        : m_gameNode { gameNode }, m_parentEdgeStatistics { edgeStats }, m_nodeOptions { nodeOptions },
           m_isTerminal { m_gameNode->isTerminal() }, m_actionMask { m_gameNode->getActionMask() } {
+            
     }
 
     /**
@@ -81,14 +72,9 @@ public:
      * @param parent Pointer to the parent UCT node.
      * @param action The action taken to reach this node.
      * @param gameNode The game node corresponding to this UCT node.
-     * @param dirEps The epsilon parameter for Dirichlet noise.
-     * @param dirAlpha The alpha parameter for Dirichlet noise.
-     * @param initQMethod The method to use for initializing the Q values of the nodes.
     */
-    UCTNode(UCTNode* parent, ActionIdx action, GameNode<ImplNode, State, ACTION_SIZE>* gameNode,
-            float dirEps = 0.25f, float dirAlpha = 0.1f, InitQ initQMethod = InitQ::PARENT)
-        : m_parent { parent }, m_action { action }, m_gameNode { gameNode },
-          m_dirEps { dirEps }, m_dirAlpha { dirAlpha }, m_initQMethod { initQMethod },
+    UCTNode(UCTNode* parent, ActionIdx action, GameNode<ImplNode, State, ACTION_SIZE>* gameNode)
+        : m_parent { parent }, m_action { action }, m_gameNode { gameNode }, m_nodeOptions { parent->m_nodeOptions },
           m_isTerminal { m_gameNode->isTerminal() }, m_actionMask { m_gameNode->getActionMask() },
           m_parentEdgeStatistics { &parent->m_edgeStatistics } {
 
@@ -139,27 +125,29 @@ public:
     /**
      * @returns A reference to the current number of visits to this node.
     */
-    float& N() { return m_parentEdgeStatistics->m_numVisits[m_action]; }
+    float& N() const { return m_parentEdgeStatistics->m_numVisits[m_action]; }
 
     /**
      * @returns A reference to the current total value of this node.
     */
-    float& W() { return m_parentEdgeStatistics->m_totalValues[m_action]; }
+    float& W() const { return m_parentEdgeStatistics->m_totalValues[m_action]; }
 
     /**
      * @returns The current average action value of this node, as described in UCT.
     */
-    float Q() {
-        if (m_initQMethod == InitQ::DROP_PARENT) {
-            if (N() == 0) {
-                // Return the parent Q value!
+    float Q() const {
+        if (N() == 0.0f) {
+            if (m_nodeOptions.initQMethod == InitQ::PARENT_LIVE_Q) {
+                // Return the parent `Q` value!
+                if (m_parent == nullptr) return 0.0f;
                 return m_parent->Q();
-            }else{
-                return W() / N();
             }
-        }else{
-            return W() / (1 + N());
-        }   
+            return W();  // The standard behavior: `W / (N + 1) = W`.
+            
+        } else {
+            if (m_nodeOptions.takeTrueQAvg) return W() / N();
+            return W() / (N() + 1);
+        }
     }
 
     /**
@@ -188,16 +176,19 @@ public:
      * 
      * @returns The average action value of a particular child, as described in UCT.
     */
-    float child_Q(ActionIdx action) {
-        if (m_initQMethod == InitQ::DROP_PARENT) {
-            if (child_N(action) == 0) {
-                // Return your own Q value!
+    float child_Q(ActionIdx action) const {
+        if (child_N(action) == 0.0f) {
+            if (m_nodeOptions.initQMethod == InitQ::PARENT_LIVE_Q) {
+                // Return this node's `Q` value!
                 return Q();
-            }else{
+            }
+            return child_W(action);  // The standard behavior: `W / (N + 1) = W`.
+
+        } else {
+            if (m_nodeOptions.takeTrueQAvg) {
                 return child_W(action) / child_N(action);
             }
-        }else{
-            return child_W(action) / (1 + child_N(action)); 
+            return child_W(action) / (child_N(action) + 1);
         }
     }
 
@@ -206,19 +197,103 @@ public:
      * 
      * @returns The uncertainty value of a particular child, as described in the UCT algorithm.
     */
-    float child_U(ActionIdx action) {
+    float child_U(ActionIdx action) const {
         return child_P(action) * std::sqrt(N()) / (1 + child_N(action));  // Adding 1 avoids division by zero.
     }
 
     /**
-     * @param uWeight The weighting of the U value compared to the Q value.
-     * 
+     * @param action The action index of the child to query.
+     *
+     * @returns The number of visits to a particular child that are forced.
+    */
+    float child_N_forced(ActionIdx action) {
+        return std::sqrt(2 * child_P(action) * (N() - 1));
+    }
+
+    /**
+     * @returns The policy target for the UCT algorithm.
+     */
+    ActionDist getPrunedPolicyTarget() const {
+        // Subtract 1 because I'm talking about the number of child playouts.
+        float total_N = N() - 1;
+
+        ActionDist all_Q {}; // All 0s.
+
+        float v_max = 0;
+        float v_min = 0;
+        for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
+            if (m_actionMask[action] == 0.0f) {
+                // Illegal action, skip.
+                continue;
+            }
+
+            all_Q[action] = child_Q(action);
+            float value = child_Q(action) + m_nodeOptions.uWeight * child_U(action);
+
+            if (value > v_max) {
+                v_max = value;
+            }
+            if (value < v_min) {
+                v_min = value;
+            }
+        }
+        
+        v_max *= 2;
+        v_min *= 2;
+
+        // binary search between v_min and v_max
+        float v = (v_max + v_min) / 2;
+        float epsilon = 0.0001;
+
+        // Avoid bugs in rare cases where v_max and v_min are too close.
+        if (v_max - v_min < epsilon) {
+            v_max += epsilon;
+            v_min -= epsilon;
+        }
+        epsilon = std::min(epsilon, (v_max - v_min) / 100.0f);
+        // In case epsilon is too large.
+        // TODO: figure out what magnitudes are appropriate.
+
+        ActionDist inverse_N = {};
+        while (v_max - v_min > epsilon) {
+            float sum = 0.0f;
+            for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
+                if (m_actionMask[action] == 0.0f) {
+                    // Illegal action, skip.
+                    continue;
+                }
+                if (v < child_Q(action)) {
+                    inverse_N[action] = 0.0f;
+                } else {
+                    inverse_N[action] = std::max(0.0f, m_nodeOptions.uWeight * m_networkPolicy[action] * sqrtf(total_N) / (v - child_Q(action)) - 1);
+                }
+                sum += inverse_N[action];
+            }
+
+            if (sum > total_N) {
+                // If sum is too big, we should *increase* v.
+                // This causes the inverse_N to go *down*.
+                v_min = v;
+            } else {
+                v_max = v;
+            }
+
+            v = (v_max + v_min) / 2;
+        }
+
+        return inverse_N;
+    }
+
+
+    /**
      * @returns The action index of the best move according to the UCT algorithm.
+     * 
+     * @param forced Whether to force the selection of a move that has not been explored enough.
      * 
      * @note Can only be applied on active nodes, i.e.
      * non-terminals that are evaluated and expanded.
     */
-    ActionIdx bestAction(float uWeight) {
+    ActionIdx bestAction(bool forced) {
         assert(!m_isTerminal);
 
         assert(m_isExpanded);
@@ -227,13 +302,30 @@ public:
         std::vector<ActionIdx> bestActions;
         float bestValue = -std::numeric_limits<float>::infinity();
 
+        if (forced) {
+            for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
+                if (m_actionMask[action] == 0.0f) {
+                    // Illegal action, skip.
+                    continue;
+                }
+
+                if (child_N(action) < child_N_forced(action)) {
+                    bestActions.push_back(action);
+                }
+            }
+
+            if (bestActions.size() > 0) {
+                return bestActions[GetRandom().UniformInt(0, bestActions.size() - 1)];
+            }
+        }
+        
         for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
             if (m_actionMask[action] == 0.0f) {
                 // Illegal action, skip.
                 continue;
             }
 
-            const float value = child_Q(action) + uWeight * child_U(action);
+            const float value = child_Q(action) + m_nodeOptions.uWeight * child_U(action);
 
             if (value > bestValue) {
                 bestValue = value;
@@ -261,17 +353,17 @@ public:
         if (m_children[action] == nullptr) {
             // Child doesn't exist, so we create it.
             m_children[action] = std::make_unique<UCTNode>(
-                this, action, m_gameNode->getAddChild(action), m_dirEps, m_dirAlpha, m_initQMethod);
+                this, action, m_gameNode->getAddChild(action));
 
             // Handle Q-initialization based on the method.
-            switch (m_initQMethod) {
+            switch (m_nodeOptions.initQMethod) {
             case InitQ::ZERO:
                 m_edgeStatistics.m_totalValues[action] = 0.0f;
                 break;
-            case InitQ::PARENT:
+            case InitQ::PARENT_NN_EVAL:
                 m_edgeStatistics.m_totalValues[action] = m_isNetworkEvaluated ? m_networkValue : 0.0f;
                 break;
-            case InitQ::DROP_PARENT:
+            case InitQ::PARENT_LIVE_Q:
                 // This value is never used! Set to 0, so that
                 // after the child is expanded and its network eval is computed,
                 // it increments to that correct value.
@@ -324,12 +416,13 @@ public:
             }
 
             m_edgeStatistics.m_childPriors[action] = m_networkPolicy[action];
+
             ++numLegal;
         }
 
         if (addNoise) {
-            std::vector<float> noise (numLegal);
-            GetRandom().Dirichlet(m_dirAlpha, noise);
+            std::vector<float> noise(numLegal);
+            GetRandom().Dirichlet(m_nodeOptions.dirAlpha, noise);
 
             int readIdx = 0;
             for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
@@ -339,8 +432,8 @@ public:
                 }
 
                 m_edgeStatistics.m_childPriors[action]
-                    = (1.0 - m_dirEps) * m_edgeStatistics.m_childPriors[action]
-                            + m_dirEps * noise[readIdx];
+                    = (1.0 - m_nodeOptions.dirEps) * m_edgeStatistics.m_childPriors[action]
+                          + (m_nodeOptions.dirEps) * noise[readIdx];
                                                         
                 ++readIdx;
             }
@@ -383,9 +476,7 @@ private:
     EdgeStatistics m_edgeStatistics {};         // Edge stats out of this node.
     EdgeStatistics* m_parentEdgeStatistics {};  // Pointer to edge stats out of parent.
 
-    float m_dirEps {};                      // Dirichlet noise epsilon.
-    float m_dirAlpha {};                    // Dirichlet noise alpha.
-    InitQ m_initQMethod { InitQ::PARENT };  // Method to use for initializing Q values.
+    NodeOptions m_nodeOptions;  // Options for the UCT node.
 
     friend class UCTTree<ImplNode, State, ACTION_SIZE>;
 };

@@ -1,10 +1,6 @@
-#!/bin/sh
-
-module load anaconda/2023a-pytorch
+#!/bin/bash
 
 # Initialize and Load Modules
-cd ~/running_sims/sprl
-
 echo "I am a worker process."
 echo "My task ID: " $LLSUB_RANK
 echo "Number of Tasks: " $LLSUB_SIZE

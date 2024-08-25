@@ -35,20 +35,32 @@ public:
      * @param path The path to the model file, or "random" to do nothing.
      */
     GridNetwork(std::string path) {
+        m_alive = false;
         if (path == "random") {
             // Requested random network instead, not going to load anything.
+            m_alive = true;
             return;
         }
-
-        try {
-            auto model = std::make_shared<torch::jit::Module>(torch::jit::load(path));
-            model->to(m_device);
-            m_model = model;
-
-        } catch (const c10::Error& e) {
-            std::cerr << "Error loading the model: " << e.what() << std::endl;
+        
+        while (!m_alive) {
+            try {
+                auto model = std::make_shared<torch::jit::Module>(torch::jit::load(path));
+                model->to(m_device);
+                m_model = model;
+                m_alive = true;
+            } catch (const c10::Error& e) {
+                std::cerr << "Error loading the model: " << e.what() << std::endl;
+            }
         }
     }
+
+    /**
+     * @returns Whether the network is alive and can be used.
+     */
+    bool isAlive() override {
+        return m_alive;
+    }
+    
 
     /**
      * Implementation of evaluate for Go, including
@@ -152,6 +164,7 @@ public:
     }
 
 private:
+    bool m_alive { false };
     int m_numEvals { 0 };
 
     torch::Device m_device { torch::kCPU };

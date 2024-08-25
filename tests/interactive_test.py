@@ -29,7 +29,7 @@ if __name__ == "__main__":
     network1 = torch.load("data/models/flamingo/flamingo_iteration_9.pt")
     network_policy1 = NetworkPolicy(network1, symmetrize=True)
     uct_policy1 = UCTPolicy(
-        network_policy1, num_iters=10000, c=1.0, train=False) # , init_type="zero")
+        network_policy1, num_iters=10000, c=1.0, train=False)  # , init_type="zero")
     policy_agent1 = PolicyAgent(uct_policy1, 0.5)
 
     # network2 = torch.load(

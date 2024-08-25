@@ -47,16 +47,16 @@ public:
         // split the remaining contents by `;`
         std::vector<std::string> moves;
         size_t pos = 0;
-        while(consume(";")){
-            if(consume("B")){
+        while (consume(";")) {
+            if (consume("B")) {
                 consumeUntil("[");
                 std::string move = consumeUntil("]");
                 moves.push_back(move);
-            }else if(consume("W")){
+            } else if (consume("W")) {
                 consumeUntil("[");
                 std::string move = consumeUntil("]");
                 moves.push_back(move);
-            }else{
+            } else {
                 ptr++;
             }
 

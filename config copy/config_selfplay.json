@@ -1,0 +1,36 @@
+{
+    "modelName": "quail",
+    "modelVariant": "ddp",
+    "numGroups": 8,
+    "numWorkerTasks": 384,
+    "numIters": 400,
+    "sync": true,
+    "initIterationOptions": {
+        "numGamesPerWorker": 1,
+        "uctTraversals": 32768,
+        "maxBatchSize": 1,
+        "maxQueueSize": 1,
+        "symmetrizeData": true,
+        "fastPlayoutProb": 0.0,
+        "fastPlayoutFactor": 1.0,
+        "policyTargetPruning": false,
+        "forcedPlayouts": false,
+        "earlyGameCutoff": 15,
+        "earlyGameExp": 0.98,
+        "restGameExp": 10.0
+    },
+    "iterationOptions": {
+        "numGamesPerWorker": 10,
+        "uctTraversals": 1024,
+        "maxBatchSize": 8,
+        "maxQueueSize": 4,
+        "symmetrizeData": true,
+        "fastPlayoutProb": 0.0,
+        "fastPlayoutFactor": 1.0,
+        "policyTargetPruning": false,
+        "forcedPlayouts": false,
+        "earlyGameCutoff": 15,
+        "earlyGameExp": 0.98,
+        "restGameExp": 10.0
+    }
+}

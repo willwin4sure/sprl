@@ -5,7 +5,7 @@
 #include "../games/GameNode.hpp"
 
 #include "../symmetry/D4GridSymmetrizer.hpp"
-#include "../utils/Timer.hpp"
+#include "../utils/timer.hpp"
 
 namespace SPRL {
 

@@ -1,14 +1,14 @@
 # sprl
 
 `sprl` is a scalable self-play reinforcement learning framework,
-built as a final project for the MIT graduate class
+which began as a final project for the MIT graduate class
 6.8200 Computational Sensorimotor Learning in Spring 2024.
 
 The project aims to replicate the techniques of
 [AlphaGo Zero](https://www.nature.com/articles/nature24270)
 in order to solve two-player zero-sum abstract strategy games,
 especially ones involving the placement of stones on a board,
-such as Connect Four, Pentago, Othello (Reversi), Gomoku, Hex, and Go. 
+such as Connect Four, Pentago, Othello (Reversi), Gomoku, Hex, and Go.
 
 The code can run on single machines or distribute across a compute
 cluster such as [MIT SuperCloud](https://supercloud.mit.edu/).
@@ -24,7 +24,7 @@ C++ code is available inside the `/cpp` directory, which is further subdivided.
 In the current form of the code, the self-play data collection steps
 are performed in C++. The game logic and Upper-Confidence Tree search
 algorithm must be implemented in C++, as well as interface code to
-save the data in a format parseable by `numpy`. Details such as
+save the data in a format parsable by `numpy`. Details such as
 sub-tree reuse, virtual losses, data/inference symmetrization,
 Dirichlet noise mixing, and parent Q-initialization are handled here.
 
@@ -103,29 +103,34 @@ ctest -C Release
 
 ## Starting Training Runs
 
-Right now, there are two entrypoints into the code for the training loop.
-You need to compile an executable such as `/cpp/build/OTHWorker.exe`
-from `/cpp/OTHWorker.cpp`. These are run on the worker machines,
-and the executable expects two command line arguments: its task id and the
-total number of tasks.
-
-Meanwhile, the controller is the Python script `/scripts/othello_controller.py`
-The various constants can be changed for the run, but these **must** be sync-ed
-with the constants in `cpp/constants.hpp` for correct behavior.
-Further, the `RUN_NAME` constant **must** be sync-ed with the constant
-string `runName` in `/cpp/OTHWorker.cpp`, otherwise the data will not be
-transferred correctly.
+1. First, you need to compile an executable such as
+   `/cpp/build/GoWorker.exe` from `/cpp/src/GoWorker.cpp`.
+2. Then, set the configuration json files in `/config`. A copy
+   of these files is saved in `/data` when the experiment begins.
+3. When working on MIT SuperCloud, the top-level executable
+   `/go_main.sh` spawns all of the required processes
+   for you. Edit the contents of `/go_main.sh` to adjust resource
+   allocation.
+4. Under the hood, `/go_main.sh` simply runs many instances of `/go_worker.sh`
+   and `/go_controller.sh` in parallel. In non-SuperCloud contexts,
+   edit the contents of those files to suit your environment.
 
 **Remember to recompile the C++ code if you change the constant values!**
 
-There are two shell scripts `/scripts/othello_worker.sh` and
-`/scripts/othello_controller.sh` that run these two components.
-There is also a top-level `othello_main.sh` that automatically
-submits the job to MIT SuperCloud in triples mode. Right now,
-the code is designed to train the neural network on one GPU
-controller machine and collect data across 384 worker CPU cores.
-The machines operate in lock step, though it is written to be
-fault-tolerant to any individual worker machine dying.
+Right now, the code is designed to train the neural network via DDP
+on four "controller" machines with 2 V100 GPUs each, and collect data
+across 8 "worker" machines with 48 CPU cores each.
 
-A current work in progress is distributed data parallel training
-to train across multiple GPUs. This is not yet implemented.
+There are two main operational modes, set by the `sync` flag in
+`/config/config_selfplay.json`.
+
+1. When `sync = True`, the processes operate in lock step, where the workers will
+   wait for the latest controller model to save before beginning their tree search,
+   and vice-versa.
+2. When `sync = False`, the workers and controller operate asynchronously and
+   continuously. Workers run tree searches with the latest models saved,
+   and controllers train models off the latest datasets saved.
+
+In both modes, the system is robust against workers failing.
+Newly spawned workers and controllers first check for existing
+progress in `/data`, re-starting from the latest save-points automatically.

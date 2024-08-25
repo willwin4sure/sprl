@@ -1,5 +1,6 @@
-#!/bin/sh
+#!/bin/bash
 
-# See scripts/go_controller.py for setting parameters
-LLsub ./scripts/go_controller.sh [1,1,40] -g volta:2
-LLsub ./scripts/go_worker.sh [8,48,1]
+module load anaconda/2023a-pytorch
+
+sbatch ./scripts/go_controller.sh
+LLsub ./scripts/go_worker.sh [8,48,1] --name=GoWorker --time=4-4:00:00

@@ -1,172 +1,240 @@
-// #include <torch/torch.h>
-// #include <torch/script.h>
+#include <torch/torch.h>
+#include <torch/script.h>
 
-// #include <cassert>
-// #include <chrono>
-// #include <iostream>
-// #include <string>
-// #include <memory>
-// #include <thread>
-// #include <filesystem>
-// #include <fstream>
+#include <cassert>
+#include <chrono>
+#include <iostream>
+#include <string>
+#include <memory>
+#include <thread>
+#include <filesystem>
+#include <fstream>
 
-// #include "agents/Agent.hpp"
-// #include "agents/UCTNetworkAgent.hpp"
+#include "agents/IAgent.hpp"
+#include "agents/UCTNetworkAgent.hpp"
 
-// #include "evaluate/play.hpp"
+#include "evaluate/play.hpp"
 
-// #include "games/GameState.hpp"
-// #include "games/Game.hpp"
-// #include "games/Othello.hpp"
+#include "games/GameNode.hpp"
+#include "games/GoNode.hpp"
 
-// #include "interface/npy.hpp"
+#include "networks/INetwork.hpp"
+#include "networks/RandomNetwork.hpp"
+#include "networks/GridNetwork.hpp"
 
-// #include "networks/INetwork.hpp"
-// #include "networks/RandomNetwork.hpp"
-// #include "networks/OthelloNetwork.hpp"
-
-// #include "uct/UCTNode.hpp"
-// #include "uct/UCTTree.hpp"
+#include "uct/UCTNode.hpp"
+#include "uct/UCTTree.hpp"
 
 
-// struct Player {
-//     std::string modelPath;
-//     bool useSymmetrize;
-//     bool useParentQ;
-// };
+constexpr int NUM_ROWS = SPRL::GO_BOARD_WIDTH;
+constexpr int NUM_COLS = SPRL::GO_BOARD_WIDTH;
+constexpr int BOARD_SIZE = NUM_ROWS * NUM_COLS;
+
+constexpr int ACTION_SIZE = SPRL::GO_ACTION_SIZE;
+constexpr int HISTORY_SIZE = SPRL::GO_HISTORY_SIZE;
 
 
-// int main(int argc, char* argv[]) {
-//     if (argc < 7) {
-//         std::cerr << "Usage: ./RobinWorker.exe <task_id> <num_tasks> <num_players> (<modelPath> <useSymmetrize> <useParentQ>)+";
-//         return 1;
-//     }
+/**
+ * E.g. the iteration of panda_delta_replicate_slow_new_prime iteration 20 should be pdrsnp20.
+ * Split the teamName by underscores, take the first letter of each word, and append the iteration number.
+ */
+std::string nickName(std::string teamName, int iteration) {
+    std::string nick = "";
+    int idx = 0;
+    while (idx < teamName.size()) {
+        nick += teamName[idx];
+        while (idx < teamName.size() && teamName[idx] != '_') {
+            idx++;
+        }
+        while (idx < teamName.size() && teamName[idx] == '_') {
+            idx++;
+        }
+    }
 
-//     int myTaskId = std::stoi(argv[1]);
-//     int numTasks = std::stoi(argv[2]);
-//     int numPlayers = std::stoi(argv[3]);
+    nick += std::to_string(iteration);
+    return nick;
+}
 
-//     // Check if the right number of players.
-//     if (argc != 4 + 3 * numPlayers) {
-//         std::cerr << "Usage: ./RobinWorker.exe <task_id> <num_tasks> <num_players> (<modelPath> <useSymmetrize> <useParentQ>)+";
-//         return 1;
-//     }
+int main(int argc, char* argv[]) {
 
-//     int myGroup = myTaskId / (numTasks / 4);
-//     std::cout << "I am task " << myTaskId << " of " << numTasks << " in group " << myGroup << std::endl;
+    if (argc < 4) {
+        std::cerr << "Usage: ./RobinWorker.exe <task_id> <num_tasks> <tournament name> <num_teams> (<team_name> <num_players> (<iteration>)+)+";
+        return 1;
+    }
 
-//     std::string runName = "manatee";
-//     std::string saveDir = "data/robin2/" + runName + "/" + std::to_string(myGroup) + "/" + std::to_string(myTaskId);
+    int myTaskId = std::stoi(argv[1]);
+    int numTasks = std::stoi(argv[2]);
+    std::string runName = argv[3];
+    int numTeams = std::stoi(argv[4]);
 
-//     // Make the directory if it doesn't exist.
-//     try {
-//         bool result = std::filesystem::create_directories(saveDir);
-//         if (result) {
-//             std::cout << "Created directory: " << saveDir << std::endl;
-//         } else {
-//             std::cout << "Directory already exists: " << saveDir << std::endl;
-//         }
-//     } catch (std::exception& e) {
-//         std::cerr << "Error creating directory: " << e.what() << std::endl;
-//         return 1;
-//     }
+    std::vector<std::string> teamNames(numTeams);
+    std::vector<int> numPlayersPerTeam(numTeams);
+    std::vector<std::vector<int>> iterations(numTeams);
 
-//     // Setup the players.
-//     std::vector<Player> players;
+    int argIdx = 5;
+    int numPlayers = 0;
+    for (int i = 0; i < numTeams; ++i) {
+        teamNames[i] = argv[argIdx++];
+        numPlayersPerTeam[i] = std::stoi(argv[argIdx++]);
+        numPlayers += numPlayersPerTeam[i];
 
-//     for (int i = 0; i < numPlayers; ++i) {
-//         Player player {};
-//         player.modelPath = argv[4 + 3 * i];
-//         player.useSymmetrize = std::stoi(argv[5 + 3 * i]) > 0;
-//         player.useParentQ = std::stoi(argv[6 + 3 * i]) > 0;
+        iterations[i].resize(numPlayersPerTeam[i]);
+        for (int j = 0; j < numPlayersPerTeam[i]; ++j) {
+            iterations[i][j] = std::stoi(argv[argIdx++]);
+        }
+    }
 
-//         std::cout << "Player " << i << " has model path: " << player.modelPath << ", useSymmetrize: " << player.useSymmetrize << ", useParentQ: " << player.useParentQ << std::endl;
+    if (argc != argIdx) {
+        std::cerr << "Too many teams.";
+        std::cerr << "Usage: ./RobinWorker.exe <task_id> <num_tasks> <tournament name> <num_teams> (<team_name> <num_players> (<iteration>)+)+";
+        return 1;
+    }
 
-//         players.push_back(player);
-//     }
+    int myGroup = myTaskId / (numTasks / 4);
+    std::cout << "I am task " << myTaskId << " of " << numTasks << " in group " << myGroup << std::endl;
+    std::cout << "Running tournament " << runName << " with " << numTeams << " teams." << std::endl;
+    for (int i = 0; i < numTeams; ++i) {
+        // print all player iterations on one line
+        std::cout << "Team " << teamNames[i] << " has " << numPlayersPerTeam[i] << " players:";
+        for (int j = 0; j < numPlayersPerTeam[i]; ++j) {
+            std::cout << " " << iterations[i][j];
+        }
+        std::cout << std::endl;
+    }
 
-//     // A win is worth 2 points; a draw is worth 1 point.
-//     std::vector<std::vector<int>> points(numPlayers, std::vector<int>(numPlayers, 0));
+    std::string saveDir = "data/robin/" + runName + "/" + std::to_string(myGroup) + "/" + std::to_string(myTaskId);
 
-//     auto game = std::make_unique<SPRL::Othello>();
+    // Make the directory if it doesn't exist.
+    try {
+        bool result = std::filesystem::create_directories(saveDir);
+        if (result) {
+            std::cout << "Created directory: " << saveDir << std::endl;
+        } else {
+            std::cout << "Directory already exists: " << saveDir << std::endl;
+        }
+    } catch (std::exception& e) {
+        std::cerr << "Error creating directory: " << e.what() << std::endl;
+        return 1;
+    }
 
-//     // Setup the networks.
-//     std::vector<std::unique_ptr<SPRL::INetwork<64, 65>>> networks(numPlayers);
+    // Setup the players.
+    std::vector<std::string> modelPaths(numPlayers);
+    std::vector<SPRL::TreeOptions> treeOptions(numPlayers);
+    SPRL::UCTOptionsParser uctParser {};
 
-//     for (int i = 0; i < numPlayers; ++i) {
-//         if (players[i].modelPath == "random") {
-//             std::cout << "Using random network for player " << i << "..." << std::endl;
-//             networks[i] = std::make_unique<SPRL::RandomNetwork<64, 65>>();
-//         } else {
-//             std::cout << "Using traced PyTorch network for player " << i << "..." << std::endl;
-//             networks[i] = std::make_unique<SPRL::OthelloNetwork>(players[i].modelPath);
-//         }
-//     }
+    int playerIdx = 0;
+    for (int i = 0; i < numTeams; ++i) {
+        for (int j = 0; j < numPlayersPerTeam[i]; ++j) {
+            if (teamNames[i] == "random") {
+                modelPaths[playerIdx] = "random";
+            } else {
+                modelPaths[playerIdx] = "./data/models/" + teamNames[i] + "/traced_" + teamNames[i] + "_iteration_" + std::to_string(iterations[i][j]) + ".pt";
+            }
+            // Parse the UCT options from hard-coded path. The random player also has one of these.
 
-//     // Write game results to a log.
-//     std::string logPath = saveDir + "/log.txt";
-//     std::ofstream logFile(logPath);
+            uctParser.parse("./data/configs/" + teamNames[i] + "_config_uct.json", treeOptions[playerIdx]);
+            treeOptions[playerIdx].addNoise = false; // No noise for the tournament.
 
-//     if (!logFile.is_open()) {
-//         std::cerr << "Error opening file: " << logPath << std::endl;
-//         return 1;
-//     }
+            playerIdx++;
+        }
+    }
 
-//     // Play two games between each pair of players.
-//     for (int i = 0; i < numPlayers; ++i) {
-//         for (int j = 0; j < numPlayers; ++j) {
-//             if (i == j) continue;
+    // A win is worth 2 points; a draw is worth 1 point.
+    std::vector<std::vector<int>> points(numPlayers, std::vector<int>(numPlayers, 0));
 
-//             SPRL::GameState<64> state0 = game->startState();
-//             SPRL::GameState<64> state1 = game->startState();
+    using State = SPRL::GridState<BOARD_SIZE, HISTORY_SIZE>;
+    using ImplNode = SPRL::GoNode;
 
-//             SPRL::UCTTree<64, 65> tree0 { game.get(), state0, false, players[i].useSymmetrize, players[i].useParentQ };
-//             SPRL::UCTTree<64, 65> tree1 { game.get(), state1, false, players[j].useSymmetrize, players[j].useParentQ };
+    // Setup the networks.
+    std::vector<std::unique_ptr<SPRL::INetwork<State, ACTION_SIZE>>> networks(numPlayers);
 
-//             SPRL::UCTNetworkAgent<64, 65> networkAgent0 { networks[i].get(), &tree0, 100, 8, 4 };
-//             SPRL::UCTNetworkAgent<64, 65> networkAgent1 { networks[j].get(), &tree1, 100, 8, 4 };
+    for (int i = 0; i < numPlayers; ++i) {
+        if (modelPaths[i] == "random") {
+            std::cout << "Using random network for player " << i << "..." << std::endl;
+            networks[i] = std::make_unique<SPRL::RandomNetwork<State, ACTION_SIZE>>();
+        } else {
+            std::cout << "Using traced PyTorch network for player " << i << "..." << std::endl;
+            networks[i] = std::make_unique<SPRL::GridNetwork<NUM_ROWS, NUM_COLS, HISTORY_SIZE, ACTION_SIZE>>(modelPaths[i]);
+        }
+    }
 
-//             std::array<SPRL::IAgent<64, 65>*, 2> agents { &networkAgent0, &networkAgent1 };
+    // Write game results to a log.
+    std::string logPath = saveDir + "/log.txt";
+    std::ofstream logFile(logPath, std::ios::app);
 
-//             int winner = SPRL::playGame(game.get(), game->startState(), agents, false);
+    if (!logFile.is_open()) {
+        std::cerr << "Error opening file: " << logPath << std::endl;
+        return 1;
+    }
 
-//             logFile << i << " " << j << " " << winner << std::endl;
+    SPRL::D4GridSymmetrizer<SPRL::GO_BOARD_WIDTH, HISTORY_SIZE> symmetrizer {};
 
-//             if (winner == 0) {
-//                 // Player i wins
-//                 points[i][j] += 2;
+    // Play two games between each pair of players.
+    for (int k = 0; k < numPlayers * numPlayers; ++k) {
+        int my_k = k + ((myTaskId * numPlayers * numPlayers) / numTasks);
+        int i = my_k / numPlayers;
+        int j = my_k % numPlayers;
+        if (i == j) continue;
+        SPRL::UCTTree<ImplNode, State, ACTION_SIZE> tree0 { treeOptions[i], &symmetrizer };
+        SPRL::UCTTree<ImplNode, State, ACTION_SIZE> tree1 { treeOptions[j], &symmetrizer };
 
-//             } else if (winner == 1) {
-//                 // Player j wins
-//                 points[j][i] += 2;
+        SPRL::UCTNetworkAgent<ImplNode, State, ACTION_SIZE> networkAgent0 {
+            networks[i].get(),
+            &tree0,
+            128,
+            16,
+            8
+        };
 
-//             } else {
-//                 // Draw
-//                 points[i][j] += 1;
-//                 points[j][i] += 1;
-//             }
-//         }
-//     }
+        SPRL::UCTNetworkAgent<ImplNode, State, ACTION_SIZE> networkAgent1 {
+            networks[j].get(),
+            &tree1,
+            128,
+            16,
+            8
+        };
 
-//     logFile.close();
+        std::array<SPRL::IAgent<ImplNode, State, ACTION_SIZE>*, 2> agents { &networkAgent0, &networkAgent1 };
 
-//     // Write the table to a file using fstream.
-//     std::string tableSavePath = saveDir + "/points.txt";
-//     std::ofstream tableFile(tableSavePath);
+        ImplNode rootNode {};
+        SPRL::Player winner = SPRL::playGame(&rootNode, agents, false);
 
-//     if (!tableFile.is_open()) {
-//         std::cerr << "Error opening file: " << tableSavePath << std::endl;
-//         return 1;
-//     }
+        logFile << i << " " << j << " " << static_cast<int>(winner) << std::endl;
 
-//     for (int i = 0; i < numPlayers; ++i) {
-//         for (int j = 0; j < numPlayers; ++j) {
-//             tableFile << points[i][j] << " ";
-//         }
-//         tableFile << std::endl;
-//     }
+        if (winner == SPRL::Player::ZERO) {
+            // Player i wins
+            points[i][j] += 2;
 
-//     tableFile.close();
+        } else if (winner == SPRL::Player::ONE) {
+            // Player j wins
+            points[j][i] += 2;
 
-//     return 0;
-// }
+        } else {
+            // Draw
+            points[i][j] += 1;
+            points[j][i] += 1;
+        }
+    }
+
+    logFile.close();
+
+    // Write the table to a file using fstream.
+    std::string tableSavePath = saveDir + "/points.txt";
+    std::ofstream tableFile(tableSavePath);
+
+    if (!tableFile.is_open()) {
+        std::cerr << "Error opening file: " << tableSavePath << std::endl;
+        return 1;
+    }
+
+    for (int i = 0; i < numPlayers; ++i) {
+        for (int j = 0; j < numPlayers; ++j) {
+            tableFile << points[i][j] << " ";
+        }
+        tableFile << std::endl;
+    }
+
+    tableFile.close();
+
+    return 0;
+}

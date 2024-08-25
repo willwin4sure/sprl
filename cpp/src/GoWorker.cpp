@@ -3,66 +3,60 @@
 #include "networks/GridNetwork.hpp"
 
 #include "selfplay/GridWorker.hpp"
+#include "selfplay/SelfPlayOptions.hpp"
 
 #include "symmetry/D4GridSymmetrizer.hpp" 
 
-// Parameters controlling the training run.
+#include "uct/UCTOptions.hpp"
 
-constexpr int NUM_GROUPS = 4;
-constexpr int NUM_WORKER_TASKS = 384;
 
-constexpr int NUM_ITERS = 100;
-
-constexpr int INIT_NUM_GAMES_PER_WORKER = 3;
-constexpr int INIT_UCT_TRAVERSALS = 262144;
-constexpr int INIT_MAX_BATCH_SIZE = 1;
-constexpr int INIT_MAX_QUEUE_SIZE = 1;
-
-constexpr int NUM_GAMES_PER_WORKER = 3;
-constexpr int UCT_TRAVERSALS = 32768;
-constexpr int MAX_BATCH_SIZE = 16;
-constexpr int MAX_QUEUE_SIZE = 8;
-
-constexpr float DIRICHLET_EPSILON = 0.25f;
-constexpr float DIRICHLET_ALPHA = 0.2f;
+constexpr int BOARD_WIDTH = SPRL::GO_BOARD_WIDTH;
+constexpr int BOARD_SIZE = SPRL::GO_BOARD_SIZE;
+constexpr int ACTION_SIZE = SPRL::GO_ACTION_SIZE;
+constexpr int HISTORY_SIZE = SPRL::GO_HISTORY_SIZE;
 
 
 int main(int argc, char *argv[]) {
-    std::string runName = "panda_alpha";  // Change me too!
-
     if (argc != 3) {
         std::cerr << "Usage: ./GoWorker.exe <task_id> <num_tasks>" << std::endl;
         return 1;
     }
 
+    SPRL::WorkerOptions workerOptions {};
+    SPRL::SelfPlayOptionsParser selfPlayParser {};
+
+    // Parse the self-play options from hard-coded path.
+    selfPlayParser.parse("config/config_selfplay.json", workerOptions);
+
+    SPRL::TreeOptions treeOptions {};
+    SPRL::UCTOptionsParser uctParser {};
+
+    // Parse the UCT options from hard-coded path.
+    uctParser.parse("config/config_uct.json", treeOptions);
+
+    std::string runName = workerOptions.modelName + "_" + workerOptions.modelVariant;
+
     int myTaskId = std::stoi(argv[1]);
     int numTasks = std::stoi(argv[2]);
+    assert(numTasks == workerOptions.numWorkerTasks);
 
-    assert(numTasks == NUM_WORKER_TASKS);
-
-    int myGroup = myTaskId / (NUM_WORKER_TASKS / NUM_GROUPS);
+    int myGroup = myTaskId / (workerOptions.numWorkerTasks / workerOptions.numGroups);
 
     // Log who I am.
     std::cout << "Task " << myTaskId << " of " << numTasks << ", in group " << myGroup << "." << std::endl;
 
     std::string saveDir = "data/games/" + runName + "/" + std::to_string(myGroup) + "/" + std::to_string(myTaskId);
 
-    // SPRL::OthelloHeuristic heuristicNetwork {};
-    SPRL::RandomNetwork<SPRL::GridState<SPRL::GO_BOARD_SIZE, SPRL::GO_HISTORY_SIZE>, SPRL::GO_ACTION_SIZE> randomNetwork {};
-    SPRL::D4GridSymmetrizer<SPRL::GO_BOARD_WIDTH, SPRL::GO_HISTORY_SIZE> symmetrizer {};
 
-    SPRL::runWorker<SPRL::GridNetwork<SPRL::GO_BOARD_WIDTH, SPRL::GO_BOARD_WIDTH, SPRL::GO_HISTORY_SIZE, SPRL::GO_ACTION_SIZE>,
-                    SPRL::GoNode,
-                    SPRL::GO_BOARD_WIDTH,
-                    SPRL::GO_BOARD_WIDTH,
-                    SPRL::GO_HISTORY_SIZE,
-                    SPRL::GO_ACTION_SIZE>(
+    using State = SPRL::GridState<BOARD_SIZE, HISTORY_SIZE>;
+    using Node = SPRL::GoNode;
 
-        runName, saveDir, &randomNetwork, &symmetrizer,
-        NUM_ITERS,
-        INIT_NUM_GAMES_PER_WORKER, INIT_UCT_TRAVERSALS, INIT_MAX_BATCH_SIZE, INIT_MAX_QUEUE_SIZE,
-        NUM_GAMES_PER_WORKER, UCT_TRAVERSALS, MAX_BATCH_SIZE, MAX_QUEUE_SIZE,
-        DIRICHLET_EPSILON, DIRICHLET_ALPHA
+    SPRL::RandomNetwork<State, ACTION_SIZE> randomNetwork {};
+    SPRL::D4GridSymmetrizer<BOARD_WIDTH, HISTORY_SIZE> symmetrizer {};
+
+    SPRL::runWorker<SPRL::GridNetwork<BOARD_WIDTH, BOARD_WIDTH, HISTORY_SIZE, ACTION_SIZE>,
+                    Node, BOARD_WIDTH, BOARD_WIDTH, HISTORY_SIZE, ACTION_SIZE>(
+        workerOptions, treeOptions, &randomNetwork, &symmetrizer, saveDir
     );
 
     return 0;

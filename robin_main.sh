@@ -1,3 +1,7 @@
-#!/bin/sh
+#!/bin/bash
+module load anaconda/2023a-pytorch
 
-LLsub ./robin.sh [8,48,1]
+LLsub ./robin/robin.sh [8,48,1]
+
+echo "Starting robin.py"
+python ./robin/robin.py

@@ -4,6 +4,7 @@
 #include "../games/GameNode.hpp"
 #include "../networks/INetwork.hpp"
 #include "../symmetry/ISymmetrizer.hpp"
+#include "../uct/UCTOptions.hpp"
 
 #include "UCTNode.hpp"
 
@@ -28,28 +29,23 @@ public:
     /**
      * Constructs a UCT tree rooted at the initial state of the game.
      * 
-     * @param gameRoot The root node of the game tree.
-     * @param dirEps The epsilon value for the Dirichlet noise.
-     * @param dirAlpha The alpha value for the Dirichlet noise.
-     * @param initQMethod The method for initializing Q values.
+     * @param treeOptions The options for the UCT tree.
      * @param symmetrizer The symmetrizer for the game state.
-     * @param addNoise Whether to add Dirichlet noise to the decision node.
     */
-    UCTTree(std::unique_ptr<GameNode<ImplNode, State, ACTION_SIZE>> gameRoot,
-            float dirEps, float dirAlpha, InitQ initQMethod,
-            ISymmetrizer<State, ACTION_SIZE>* symmetrizer, bool addNoise = true)
+    UCTTree(TreeOptions treeOptions,
+            ISymmetrizer<State, ACTION_SIZE>* symmetrizer = nullptr)
+        : m_edgeStatistics {}, m_treeOptions { treeOptions }, m_symmetrizer { symmetrizer } {
+        
+        // Create the root of the game tree.
+        m_gameRoot = std::make_unique<ImplNode>();
+        
+        // Create the root of the UCT tree.
+        NodeOptions nodeOptions = treeOptions.nodeOptions;
+        m_uctRoot = std::make_unique<UNode>(
+            nodeOptions, &m_edgeStatistics, m_gameRoot.get());
 
-        : m_edgeStatistics {},
-          m_gameRoot { std::move(gameRoot) },
-          m_uctRoot { std::make_unique<UNode>(
-            &m_edgeStatistics, m_gameRoot.get(), dirEps, dirAlpha, initQMethod) },
-          m_decisionNode { m_uctRoot.get() },
-          m_dirEps { dirEps },
-          m_dirAlpha { dirAlpha },
-          m_initQMethod { initQMethod },
-          m_addNoise { addNoise },
-          m_symmetrizer { symmetrizer } {
-
+        // Set the decision node to the root.
+        m_decisionNode = m_uctRoot.get();
     }
 
     /**
@@ -68,21 +64,23 @@ public:
      * 
      * @param maxBatchSize The maximum number of traversals to perform.
      * @param maxQueueSize The maximum number of leaves to evaluate in a batch.
+     * @param forced Whether to force the selection of a move that has not been explored enough.
      * @param network The network to evaluate the leaves with.
-     * @param uWeight The weight of the U value in the selection compared to the Q value.
      * 
      * @returns This batch of empty leaves, as well as the number of leaf selections performed.
     */
     std::pair<std::vector<UNode*>, int> searchAndGetLeaves(
-        int maxBatchSize, int maxQueueSize, INetwork<State, ACTION_SIZE>* network, float uWeight = 1.0f) {
+        int maxBatchSize, int maxQueueSize, bool forced, INetwork<State, ACTION_SIZE>* network) {
 
+        // Collected leaves for NN evaluation.
         std::vector<UNode*> leaves;
 
         int traversals = 0;
         while (traversals < maxBatchSize) {
             ++traversals;
             
-            UNode* leaf = selectLeaf(uWeight);  // Must be terminal, empty, or gray.
+            // Selected leaf must be terminal, empty, or gray.
+            UNode* leaf = selectLeaf(forced);
 
             if (leaf->m_isTerminal) {
                 // Terminal case: compute the exact value and backpropagate immediately.
@@ -94,7 +92,7 @@ public:
 
             } else if (leaf->m_isNetworkEvaluated) {
                 // Gray case: expand the node to active and backpropagate the network value estimate.
-                leaf->expand(m_addNoise && (leaf == m_decisionNode));  // Only add noise if decision node.
+                leaf->expand(m_treeOptions.addNoise && (leaf == m_decisionNode));  // Only add noise if decision node.
 
                 backup(leaf, leaf->m_networkValue);
                 continue;
@@ -104,10 +102,8 @@ public:
                 leaves.push_back(leaf);
             }
 
-            // Once we have collected enough leaves, exit. Can also exit from hitting max traversal count.
-            if (leaves.size() >= maxQueueSize) {
-                break;
-            }
+            // Once we have collected enough leaves, exit. Can also exit from hitting max batch size.
+            if (leaves.size() >= maxQueueSize) break;
         }
 
         return { leaves, traversals };
@@ -121,9 +117,8 @@ public:
      * @param leaves The leaves to evaluate and backpropagate.
      * @param network The network to evaluate the leaves with.
     */
-    void evaluateAndBackpropLeaves(const std::vector<UNode*>& leaves, INetwork<State, ACTION_SIZE>* network) {
+    void evaluateAndBackpropLeaves(const std::vector<UNode*>& leaves, INetwork<State, ACTION_SIZE>* network, bool doFullSearch = true) {
         int numLeaves = leaves.size();
-
         assert(numLeaves > 0);
 
         // Assemble a vector of states and masks for input into the NN.
@@ -140,7 +135,7 @@ public:
 
         // Generate symmetrizations for the states, if necessary.
         std::vector<SymmetryIdx> symmetries(numLeaves, 0);
-        if (m_symmetrizer != nullptr) {
+        if (m_treeOptions.symmetrizeState && m_symmetrizer != nullptr) {
             int numSymmetries = m_symmetrizer->numSymmetries();
             for (int i = 0; i < numLeaves; ++i) {
                 symmetries[i] = static_cast<SymmetryIdx>(GetRandom().UniformInt(0, numSymmetries - 1));
@@ -159,7 +154,7 @@ public:
             Value value = output.second;
 
             // Undo the symmetrization.
-            if (m_symmetrizer != nullptr) {
+            if (m_treeOptions.symmetrizeState && m_symmetrizer != nullptr) {
                 policy = m_symmetrizer->symmetrizeActionDist(policy, { m_symmetrizer->inverseSymmetry(symmetries[i]) })[0];
             }
 
@@ -175,7 +170,7 @@ public:
 
             if (!leaf->m_isExpanded) {
                 // Expand the node, making the leaf active.
-                leaf->expand(m_addNoise && (leaf == m_decisionNode));  // Only add noise if decision node.
+                leaf->expand(m_treeOptions.addNoise && (leaf == m_decisionNode));  // Only add noise if decision node.
             }
             
             // Backpropagate the network value estimate.
@@ -217,17 +212,17 @@ private:
      * Adds virtual losses while traveling down the tree, to all nodes
      * from the root to the leaf, inclusive.
      * 
-     * @param uWeight The weight of the U value in the selection compared to the Q value.
+     * @param forced Whether to force the selection of a move that has not been explored enough.
      * 
      * @returns A pointer to a node that is terminal, empty, or gray. Must be the first
      * such node along the path down from the root.
     */
-    UNode* selectLeaf(float uWeight) {
+    UNode* selectLeaf(bool forced) {
         UNode* current = m_decisionNode;
 
         while (current->m_isExpanded && !current->m_isTerminal) {
             // Keep selecting down active nodes.
-            ActionIdx bestAction = current->bestAction(uWeight);
+            ActionIdx bestAction = current->bestAction(forced);
 
             // Record a virtual loss to discount retracing the same path again.
             current->N()++;
@@ -281,9 +276,7 @@ private:
      * @param node The node to clear the subtree of.
     */
     void clearSubtree(UNode* node) {
-        if (!node->m_isExpanded) {
-            return;
-        }
+        if (!node->m_isExpanded) return;
 
         // Reset the edge statistics and turn off the expanded bit.
         node->m_edgeStatistics.reset();
@@ -309,11 +302,8 @@ private:
     /// The current node in the tree, i.e. our decision point for the next action.
     UNode* m_decisionNode;
 
-    InitQ m_initQMethod { InitQ::PARENT };
-    float m_dirAlpha {};
-    float m_dirEps {};
-
-    bool m_addNoise { true };
+    /// The options for the UCT tree.
+    TreeOptions m_treeOptions;
 
     ISymmetrizer<State, ACTION_SIZE>* m_symmetrizer { nullptr };
 };
