@@ -1,6 +1,4 @@
-"""
-go_controller.py
-"""
+"""go_controller.py"""
 
 import argparse
 import json
@@ -181,9 +179,9 @@ def train_network(
     logger.info(f"Rank {local_rank} has {num_samples.cpu().item()} samples.")
 
     # All-reduce the number of batches across all processes; only use the smallest number of batches
-    torch.distributed.barrier()
-    torch.distributed.all_reduce(num_samples, op=dist.ReduceOp.MIN)
-    torch.distributed.barrier()
+    dist.barrier()
+    dist.all_reduce(num_samples, op=dist.ReduceOp.MIN)
+    dist.barrier()
 
     num_samples = min(NUM_TRAIN_SAMPLES, num_samples.cpu().item())
 
@@ -274,12 +272,12 @@ def epochify(iteration: int, group: int, epoch: int,
     average_value_loss = total_value_loss / num_batches
 
     # Use distributed all reduce to average the losses across all processes.
-    torch.distributed.barrier()
-    torch.distributed.all_reduce(average_policy_loss,
+    dist.barrier()
+    dist.all_reduce(average_policy_loss,
                                  op=dist.ReduceOp.SUM)
-    torch.distributed.all_reduce(average_value_loss,
+    dist.all_reduce(average_value_loss,
                                  op=dist.ReduceOp.SUM)
-    torch.distributed.barrier()
+    dist.barrier()
 
     average_value_loss /= world_size
     average_policy_loss /= world_size
@@ -361,7 +359,7 @@ def main():
             with open(timing_filepath, "w") as f:
                 f.write("\n".join(str(t) for t in timestamps))
 
-    torch.distributed.barrier()
+    dist.barrier()
     logger.info(f"Rank {local_rank} finished training.")
     cleanup()
 
