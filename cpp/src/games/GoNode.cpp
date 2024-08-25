@@ -478,7 +478,7 @@ std::string GoNode::toStringImpl() const {
     // for (int i = 0; i < GO_BOARD_WIDTH; ++i) {
     //     str += std::to_string(i) + " ";
     //     for (int j = 0; j < GO_BOARD_WIDTH; j++) {
-    //         if(m_actionMask[toCoord(i, j)] == 1.0f) {
+    //         if (m_actionMask[toCoord(i, j)] == 1.0f) {
     //             str += "1 ";
     //         } else {
     //             str += "0 ";

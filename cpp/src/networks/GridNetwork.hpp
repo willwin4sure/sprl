@@ -42,7 +42,7 @@ public:
             return;
         }
         
-        while (!m_alive){
+        while (!m_alive) {
             try {
                 auto model = std::make_shared<torch::jit::Module>(torch::jit::load(path));
                 model->to(m_device);

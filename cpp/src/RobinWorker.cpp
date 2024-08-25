@@ -38,7 +38,7 @@ constexpr int HISTORY_SIZE = SPRL::GO_HISTORY_SIZE;
  * E.g. the iteration of panda_delta_replicate_slow_new_prime iteration 20 should be pdrsnp20.
  * Split the teamName by underscores, take the first letter of each word, and append the iteration number.
  */
-std::string nickName(std::string teamName, int iteration){
+std::string nickName(std::string teamName, int iteration) {
     std::string nick = "";
     int idx = 0;
     while (idx < teamName.size()) {
@@ -125,9 +125,9 @@ int main(int argc, char* argv[]) {
     int playerIdx = 0;
     for (int i = 0; i < numTeams; ++i) {
         for (int j = 0; j < numPlayersPerTeam[i]; ++j) {
-            if(teamNames[i] == "random") {
+            if (teamNames[i] == "random") {
                 modelPaths[playerIdx] = "random";
-            }else{
+            } else {
                 modelPaths[playerIdx] = "./data/models/" + teamNames[i] + "/traced_" + teamNames[i] + "_iteration_" + std::to_string(iterations[i][j]) + ".pt";
             }
             // Parse the UCT options from hard-coded path. The random player also has one of these.

@@ -262,7 +262,7 @@ public:
                     // Illegal action, skip.
                     continue;
                 }
-                if(v < child_Q(action)) {
+                if (v < child_Q(action)) {
                     inverse_N[action] = 0.0f;
                 } else {
                     inverse_N[action] = std::max(0.0f, m_nodeOptions.uWeight * m_networkPolicy[action] * sqrtf(total_N) / (v - child_Q(action)) - 1);

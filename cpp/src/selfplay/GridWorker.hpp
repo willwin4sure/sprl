@@ -101,17 +101,15 @@ int waitModelPath(const std::string& runName, bool sync, int iteration = -1) {
 int determineIteration(const std::string& saveDir, std::string& runName) {
     int iteration = 0;
     while (true) {
-        if (
-            !std::filesystem::exists(getStatesPath(saveDir, runName, iteration))
-            ||
-            !std::filesystem::exists(getDistsPath(saveDir, runName, iteration))
-            ||
-            !std::filesystem::exists(getOutcomesPath(saveDir, runName, iteration))
-            ) {
+        if (!std::filesystem::exists(getStatesPath(saveDir, runName, iteration))
+         || !std::filesystem::exists(getDistsPath(saveDir, runName, iteration))
+         || !std::filesystem::exists(getOutcomesPath(saveDir, runName, iteration))) {
             break;
         }
+
         iteration++;
     }
+
     return iteration;
 }
 
@@ -143,12 +141,12 @@ void runWorker(SPRL::WorkerOptions workerOptions,
     using ActionDist = GameActionDist<ACTION_SIZE>;
 
     // if workeroptions sync is set to false, make sure that iterationOptions.numGamesPerWorker == 1.
-    if (!workerOptions.sync){
-        if (workerOptions.iterationOptions.numGamesPerWorker != 1){
+    if (!workerOptions.sync) {
+        if (workerOptions.iterationOptions.numGamesPerWorker != 1) {
             std::cerr << "Error: iterationOptions.numGamesPerWorker must be 1 when sync is false." << std::endl;
             return;
         }
-        if (workerOptions.initIterationOptions.numGamesPerWorker != 1){
+        if (workerOptions.initIterationOptions.numGamesPerWorker != 1) {
             std::cerr << "Error: initIterationOptions.numGamesPerWorker must be 1 when sync is false." << std::endl;
             return;
         }
@@ -177,11 +175,8 @@ void runWorker(SPRL::WorkerOptions workerOptions,
     int iter = determineIteration(saveDir, runName);
     std::cout << "I now believe it is iteration " << iter << "." << std::endl;
 
-
-    while(true){
-        if(workerOptions.sync && iter >= workerOptions.numIters){
-            break;
-        }
+    while (true) {
+        if (workerOptions.sync && iter >= workerOptions.numIters) break;
         Timer t {};
         t.reset();
 
@@ -190,9 +185,7 @@ void runWorker(SPRL::WorkerOptions workerOptions,
         // Block until the model file for the previous iteration exists.
         int modelIter = waitModelPath(runName, workerOptions.sync, iter - 1);
 
-        if(!workerOptions.sync && modelIter >= workerOptions.numIters - 1){
-            break;
-        }
+        if (!workerOptions.sync && modelIter >= workerOptions.numIters - 1) break;
 
         std::string modelPath = getTracedModelPath(runName, modelIter);
         std::string savePath = saveDir + "/" + runName + "_iteration_" + std::to_string(iter);
