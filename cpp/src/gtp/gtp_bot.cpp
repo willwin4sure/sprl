@@ -42,8 +42,9 @@ bool GTPBot::play(std::string color, std::string vertex) {
     }
 
     // Advance the decision node.
-    m_tree->advanceDecision(action);
+    m_tree->advanceDecision(action, false);  // Don't clear edge statistics.
     m_ponderTraversals = 0;  // Reset pondering limit.
+    m_lastPonderPrintout = 0;
 
     return true;
 }
@@ -76,8 +77,9 @@ std::tuple<bool, std::string> GTPBot::genmove(std::string color) {
     ActionIdx action = std::distance(visits.begin(), std::max_element(visits.begin(), visits.end()));
 
     // Advance the decision node.
-    m_tree->advanceDecision(action);
+    m_tree->advanceDecision(action, false);  // Don't clear edge statistics.
     m_ponderTraversals = 0;  // Reset pondering limit.
+    m_lastPonderPrintout = 0;
 
     // Convert the action to a vertex string.
     int row = action / GO_BOARD_WIDTH;
@@ -109,7 +111,7 @@ void GTPBot::botThreadFunc(gtp::ts_deque<gtp::Command>& commandQueue) {
     while (true) {
         // If no game is ongoing, wait for input.
         if (!m_gameRunning || m_ponderTraversals == m_maxPonderTraversals) {
-            std::cerr << "No game running or pondering limit. Waiting for commands." << std::endl;
+            std::cerr << "No game running or hit pondering limit. Waiting for commands." << std::endl;
             commandQueue.wait();
         }
 
@@ -244,7 +246,10 @@ void GTPBot::botThreadFunc(gtp::ts_deque<gtp::Command>& commandQueue) {
             } else {
                 // The game is running and no commands to process. Ponder!
                 ponder();
-                std::cerr << m_ponderTraversals << " ponder traversals." << std::endl;
+                if (m_ponderTraversals - m_lastPonderPrintout >= 1000) {
+                    std::cerr << m_ponderTraversals << " ponder traversals." << std::endl;
+                    m_lastPonderPrintout = m_ponderTraversals;
+                }
             }
         }
     }

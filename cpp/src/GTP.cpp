@@ -35,19 +35,25 @@ void inputThreadFunc(gtp::ts_deque<gtp::Command>& commandQueue) {
     }
 }
 
+constexpr int NUM_PONDER_TRAVERSALS = 128;
+
 int main(int argc, char* argv[]) {
-    if (argc != 3) {
-        std::cerr << "Usage: ./GTP.exe <modelPath> <optionsPath>" << std::endl;
+    if (argc != 7) {
+        std::cerr << "Usage: ./GTP.exe <modelPath> <optionsPath> <numTraversals> <maxPonderTraversals> <maxBatchSize> <maxQueueSize>" << std::endl;
         return 1;
     }
 
     std::string modelPath = argv[1];
     std::string optionsPath = argv[2];
+    int numTraversals = std::stoi(argv[3]);
+    int maxPonderTraversals = std::stoi(argv[4]);
+    int maxBatchSize = std::stoi(argv[5]);
+    int maxQueueSize = std::stoi(argv[6]);
 
     gtp::ts_deque<gtp::Command> commandQueue;
     std::thread inputThread { inputThreadFunc, std::ref(commandQueue) };
 
-    SPRL::GTPBot bot { modelPath, optionsPath, 8192, 1024, 65536, 16, 8 };
+    SPRL::GTPBot bot { modelPath, optionsPath, numTraversals, NUM_PONDER_TRAVERSALS, maxPonderTraversals, maxBatchSize, maxQueueSize };
     std::thread botThread { &SPRL::GTPBot::botThreadFunc, &bot, std::ref(commandQueue) };
 
     inputThread.join();

@@ -98,6 +98,7 @@ private:
     int m_maxBatchSize;
     int m_maxQueueSize;
 
+    int m_lastPonderPrintout { 0 };
     int m_ponderTraversals { 0 };
 
     std::chrono::time_point<std::chrono::steady_clock> m_lastContact;
