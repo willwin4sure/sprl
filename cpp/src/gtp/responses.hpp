@@ -7,6 +7,8 @@
  * Implements the Go Text Protocol responses.
 */
 
+#include "commands.hpp"
+
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -15,14 +17,11 @@
 
 namespace gtp {
 
-using ResponseID = uint32_t;
-constexpr ResponseID NO_RESPONSE_ID = -1;
-constexpr auto UNKNOWN_COMMAND_MSG = "unknown command";
-
 struct Response {
-    Response(ResponseID id, std::string result_or_error_msg)
-        : m_id { id }, m_result_or_error_msg { result_or_error_msg } {
-
+    Response() = default;
+    Response(CommandID id, bool is_error, std::string result_or_error_msg)
+        : m_id { id }, m_is_error { is_error }, m_result_or_error_msg { std::move(result_or_error_msg) } {
+        
     }
 
     /**
@@ -30,23 +29,11 @@ struct Response {
      * 
      * Handles both successes and failures.
      */
-    std::string getResponseString() const {
-        std::string response;
-        response += (m_is_error ? "?" : "=");
-        if (m_id != NO_RESPONSE_ID) {
-            response += std::to_string(m_id);
-            response += " ";
-        }
-        response += m_result_or_error_msg;
-        return response;
-    }
+    std::string getResponseString() const;
 
-    ResponseID m_id { NO_RESPONSE_ID };
+    CommandID m_id { NO_COMMAND_ID };
     bool m_is_error { false };
-    std::string m_result_or_error_msg;
-
-    // For quit messages, to signal the output thread to stop.
-    bool m_shutdown { false };
+    std::string m_result_or_error_msg { "" };
 };
 
 } // namespace gtp

@@ -44,11 +44,11 @@ public:
         }
 
         if (torch::cuda::is_available()) {
-            std::cout << "CUDA is available, using GPU." << std::endl;
+            std::cerr << "CUDA is available, using GPU." << std::endl;
             m_device = torch::kCUDA;
 
         } else {
-            std::cout << "CUDA is not available, using CPU." << std::endl;
+            std::cerr << "CUDA is not available, using CPU." << std::endl;
             m_device = torch::kCPU;
         }
         
