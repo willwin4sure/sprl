@@ -1,23 +1,23 @@
 {
     "modelName": "quail",
-    "modelVariant": "delta",
+    "modelVariant": "forced_playouts_test",
     "numGroups": 8,
     "numWorkerTasks": 384,
     "numIters": 4000,
     "sync": false,
     "initIterationOptions": {
-        "numGamesPerWorker": 1,
-        "uctTraversals": 4096,
-        "maxBatchSize": 1,
-        "maxQueueSize": 1,
+        "numGamesPerWorker": -1,
+        "uctTraversals": -1,
+        "maxBatchSize": -1,
+        "maxQueueSize": -1,
         "symmetrizeData": true,
         "fastPlayoutProb": 0.0,
         "fastPlayoutFactor": 1.0,
         "policyTargetPruning": false,
         "forcedPlayouts": false,
-        "earlyGameCutoff": 15,
-        "earlyGameExp": 0.98,
-        "restGameExp": 10.0
+        "earlyGameCutoff": -1,
+        "earlyGameExp": -1,
+        "restGameExp": -1
     },
     "iterationOptions": {
         "numGamesPerWorker": 1,
@@ -27,8 +27,8 @@
         "symmetrizeData": true,
         "fastPlayoutProb": 0.8,
         "fastPlayoutFactor": 0.25,
-        "policyTargetPruning": false,
-        "forcedPlayouts": false,
+        "policyTargetPruning": true,
+        "forcedPlayouts": true,
         "earlyGameCutoff": 15,
         "earlyGameExp": 0.98,
         "restGameExp": 10.0

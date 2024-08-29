@@ -162,8 +162,8 @@ data_muncher_kwargs = {
     "num_worker_tasks": NUM_WORKER_TASKS,
     "num_groups": NUM_GROUPS,
     "run_name": RUN_NAME,
-    "linear_weighting": LINEAR_WEIGHTING,
-    "worker_time_to_kill": WORKER_TIME_TO_KILL,
+    "use_linear_wgt": LINEAR_WEIGHTING,
+    "worker_ttk": WORKER_TIME_TO_KILL,
     "sync": SYNC,
     "num_train_samples": NUM_TRAIN_SAMPLES,
     "num_save_samples": NUM_SAVE_SAMPLES
@@ -355,6 +355,8 @@ def main():
         train_dataset = muncher.get()
         train_network(network, optimizer, scheduler,
                       iteration, **train_dataset)
+
+        scheduler.step()
 
         timestamps.append(time.time() - start_time)
         if local_rank == 0:
