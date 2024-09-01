@@ -76,6 +76,8 @@ class DataMuncher():
         self.num_train_samples: int = num_train_samples
         self.num_save_samples: int = num_save_samples
 
+        self.async_setup_called = False
+
     def sync_collate(self) -> Tuple[List[torch.Tensor], List[torch.Tensor], List[torch.Tensor], List[torch.Tensor]]:
         """Synchronously collate data for this iteration from all workers."""
 
@@ -149,6 +151,7 @@ class DataMuncher():
         return new_states, new_distrs, new_outcos, new_tmstps
 
     def async_setup(self):
+        self.async_setup_called = True
         # In the special case where iteration is 0,
         # we spin until every single worker has data,
         # including the workers that belong to other controllers.
@@ -202,7 +205,7 @@ class DataMuncher():
 
     def async_collate(self) -> Tuple[List[torch.Tensor], List[torch.Tensor], List[torch.Tensor], List[torch.Tensor]]:
         """For each worker, scoop up all data that has not already been scooped up."""
-        if self.iter == 0:
+        if not self.async_setup_called:
             self.async_setup()
         new_states: List[torch.Tensor] = []
         new_distrs: List[torch.Tensor] = []

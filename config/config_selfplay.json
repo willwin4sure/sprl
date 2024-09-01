@@ -1,23 +1,23 @@
 {
     "modelName": "quail",
-    "modelVariant": "forced_playouts_test",
+    "modelVariant": "zeta",
     "numGroups": 8,
     "numWorkerTasks": 384,
     "numIters": 4000,
     "sync": false,
     "initIterationOptions": {
-        "numGamesPerWorker": -1,
-        "uctTraversals": -1,
-        "maxBatchSize": -1,
-        "maxQueueSize": -1,
+        "numGamesPerWorker": 1,
+        "uctTraversals": 131072,
+        "maxBatchSize": 1,
+        "maxQueueSize": 1,
         "symmetrizeData": true,
         "fastPlayoutProb": 0.0,
         "fastPlayoutFactor": 1.0,
         "policyTargetPruning": false,
         "forcedPlayouts": false,
-        "earlyGameCutoff": -1,
-        "earlyGameExp": -1,
-        "restGameExp": -1
+        "earlyGameCutoff": 15,
+        "earlyGameExp": 0.98,
+        "restGameExp": 10.0
     },
     "iterationOptions": {
         "numGamesPerWorker": 1,
@@ -27,8 +27,8 @@
         "symmetrizeData": true,
         "fastPlayoutProb": 0.8,
         "fastPlayoutFactor": 0.25,
-        "policyTargetPruning": true,
-        "forcedPlayouts": true,
+        "policyTargetPruning": false,
+        "forcedPlayouts": false,
         "earlyGameCutoff": 15,
         "earlyGameExp": 0.98,
         "restGameExp": 10.0

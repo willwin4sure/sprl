@@ -242,7 +242,6 @@ public:
         v_min *= 2;
 
         // binary search between v_min and v_max
-        float v = (v_max + v_min) / 2;
         float epsilon = 0.0001;
 
         // Avoid bugs in rare cases where v_max and v_min are too close.
@@ -256,6 +255,7 @@ public:
 
         ActionDist inverse_N = {};
         while (v_max - v_min > epsilon) {
+            float v = (v_max + v_min) / 2;
             float sum = 0.0f;
             for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
                 if (m_actionMask[action] == 0.0f) {
@@ -277,8 +277,6 @@ public:
             } else {
                 v_max = v;
             }
-
-            v = (v_max + v_min) / 2;
         }
 
         return inverse_N;
