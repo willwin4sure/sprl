@@ -17,7 +17,7 @@ echo "Number of Tasks: " $LLSUB_SIZE
 
 
 ./cpp/build/RobinWorker $LLSUB_RANK $LLSUB_SIZE \
-    quail 3 \
+    quail 4 \
     random 1 0 \
     quail_gamma 46 \
     0 1 2 3 4 5 \
@@ -27,6 +27,10 @@ echo "Number of Tasks: " $LLSUB_SIZE
     310 320 330 340 350 360 366 367 368 369 \
     quail_delta 15 \
     0 50 100 150 200 250 300 350 400 450 500 550 600 650 700 \
+    quail_zeta 20 \
+    0 1 2 3 4 5 \
+    10 20 30 40 50 60 70 80 90 \
+    100 150 200 250 294 \
     # panda_gamma_slower 28 \
     # 0 1 2 3 4 5 6 7 8 9 10 \
     # 20 25 30 35 40 45 50 \
