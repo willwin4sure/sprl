@@ -1,6 +1,6 @@
 {
     "modelName": "quail",
-    "modelVariant": "zeta",
+    "modelVariant": "iota",
     "numGroups": 8,
     "numWorkerTasks": 384,
     "numIters": 4000,
@@ -13,8 +13,8 @@
         "symmetrizeData": true,
         "fastPlayoutProb": 0.0,
         "fastPlayoutFactor": 1.0,
-        "policyTargetPruning": false,
-        "forcedPlayouts": false,
+        "policyTargetPruning": true,
+        "forcedPlayouts": true,
         "earlyGameCutoff": 15,
         "earlyGameExp": 0.98,
         "restGameExp": 10.0
@@ -27,8 +27,8 @@
         "symmetrizeData": true,
         "fastPlayoutProb": 0.8,
         "fastPlayoutFactor": 0.25,
-        "policyTargetPruning": false,
-        "forcedPlayouts": false,
+        "policyTargetPruning": true,
+        "forcedPlayouts": true,
         "earlyGameCutoff": 15,
         "earlyGameExp": 0.98,
         "restGameExp": 10.0

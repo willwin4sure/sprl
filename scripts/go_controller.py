@@ -226,6 +226,10 @@ def train_network(
         trace_model(filepath, torch.randn(1, 2 * HISTORY_SIZE + 1, NUM_ROWS, NUM_COLS),
                     trace_filepath, BasicGridNetwork, model_kwargs)
 
+        optimizer_filepath = f"./data/models/{RUN_NAME}/" + \
+            f"{RUN_NAME}_optimizer_iteration_{iteration}.pt"
+        torch.save(optimizer.state_dict(), optimizer_filepath)
+
     trace_time += time.time()
 
     logger.info(
