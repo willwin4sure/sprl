@@ -220,129 +220,50 @@ public:
      * @returns The policy target for the UCT algorithm.
      */
     ActionDist getPrunedPolicyTarget() const {
-        // Subtract 1 because I'm talking about the number of child playouts.
-        float total_N = N() - 1;
-
-        ActionDist all_Q {}; // All 0s.
-
-        double v_max = -std::numeric_limits<double>::infinity();
-        double v_min = -std::numeric_limits<double>::infinity();
-
-        /**
-         * Initialization:
-         * v_min will become the max of all Q values, because V > Q strictly for all children.
-         * v_max will become the max of all Q + c * U values, and then we will binary lift until this is an accurate value.
-         */
-
+        float max_value = -std::numeric_limits<float>::infinity();
         for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
             if (m_actionMask[action] == 0.0f) {
                 // Illegal action, skip.
                 continue;
             }
 
-            all_Q[action] = child_Q(action); // I want to cache all of these right now so we save some computation, lol.
-            if (all_Q[action] > v_min) {
-                v_min = all_Q[action];
-            }
-            double value = all_Q[action] + m_nodeOptions.uWeight * child_U(action);
-
-            if (value > v_max) {
-                v_max = value;
+            float value = child_Q(action) + m_nodeOptions.uWeight * child_U(action);
+            if (value > max_value) {
+                max_value = value;
             }
         }
-
-        // debug
-        // std::cout << "v_max init: " << v_max << std::endl;
-        // std::cout << "v_min init: " << v_min << std::endl;
-        
-        // The v_max and v_min are currently set to values that are reasonable but might not contain the desired v.
-        // First of all, if they are equal, increase v_max by epsilon.
-        double epsilon = 1e-6;
-        if (v_max <= v_min) {
-            v_max = v_min + epsilon;
-        }
-
-        // debug
-        // std::cout << "v_max: " << v_max << std::endl;
-        // std::cout << "v_min: " << v_min << std::endl;
-
         ActionDist inverse_N {};
 
         // Next, start binary lifting while v_max makes the sum greater than total_N.
-
-        /**
-         * I specifically want to use this double precision in the division operation; the difference
-         * is hard to resolve there. Everything else is multiplicative so we're okay.
-         */
-        while (true) {
-            for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
-                if (m_actionMask[action] == 0.0f) {
-                    // Illegal action, skip.
-                    continue;
-                }
-                // observe that v_max > Q (strictly) is always true.
-                inverse_N[action] = std::max(0.0f, m_nodeOptions.uWeight * m_networkPolicy[action] * sqrtf(total_N) / ((float)(v_max - (double)all_Q[action])) - 1);
-                // inverse_N[action] = std::max(0.0f, m_nodeOptions.uWeight * child_P(action) * sqrtf(total_N) / ((float)(v_max - (double)all_Q[action])) - 1);
-
+        for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
+            if (m_actionMask[action] == 0.0f) {
+                // Illegal action, skip.
+                continue;
             }
-            // std::cout << "sum: " << inverse_N.sum() << std::endl;
+            // observe that v_max > Q (strictly) is always true.
+            inverse_N[action] = std::max(0.0f,
+            (
+                (m_nodeOptions.uWeight * child_P(action) * sqrtf(N()))/
+                (max_value - child_Q(action))
+            )
+            - 1);
 
-            if (inverse_N.sum() >= total_N) {
-                // If sum is too big, we should *increase* v.
-                v_max = 2 * v_max - v_min;
-            } else {
-                break;
-            }
-        }
-
-        // std::cout  << "v_max post-lift: " << v_max << std::endl;
-
-
-
-        for(int i = 0; i < 40; i ++) {
-            // Cap the iterations at 40, which is almost always sufficient.
-            double v = (v_max + v_min) / 2;
-            for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
-                if (m_actionMask[action] == 0.0f) {
-                    // Illegal action, skip.
-                    continue;
-                }
-                // observe that v_max > Q (strictly) is always true.
-                inverse_N[action] = std::max(0.0f, m_nodeOptions.uWeight * m_networkPolicy[action] * sqrtf(total_N) / ((float)(v - (double)all_Q[action])) - 1);
-                // inverse_N[action] = std::max(0.0f, m_nodeOptions.uWeight * child_P(action) * sqrtf(total_N) / ((float)(v - (double)child_Q(action))) - 1);
-            }
-
-            if (inverse_N.sum() > total_N) {
-                // If sum is too big, we should *increase* v.
-                // This causes the inverse_N to go *down*.
-                v_min = v;
-            } else {
-                v_max = v;
-            }
-            // debug: print the sum.
-            // std::cout << "sum: " << inverse_N.sum() << " v_max: " << v_max << " v_min: " << v_min << std::endl;
-
-            if ( std::abs(inverse_N.sum() - total_N) < 1) {
-                break;
-            }
         }
         
         /**
          * Debug:
          * Print the orignal N, the original Q, the original U, and the inverse N.
          */
-        // std::cout << "Final v_max: " << v_max << std::endl;
-        // std::cout << "Final v_min: " << v_min << std::endl;
-        // std::cout << "Original total N: " << N() << std::endl;
-        // std::cout << "Original N ";
-        // for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
-        //     if (m_actionMask[action] == 0.0f) {
-        //         // Illegal action, skip.
-        //         continue;
-        //     }
-        //     std::cout << child_N(action) << " ";
-        // }
-        // std::cout << std::endl;
+        std::cout << "Original total N: " << N() << std::endl;
+        std::cout << "Original N ";
+        for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
+            if (m_actionMask[action] == 0.0f) {
+                // Illegal action, skip.
+                continue;
+            }
+            std::cout << child_N(action) << " ";
+        }
+        std::cout << std::endl;
         // std::cout << "Original Q ";
         // for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
         //     if (m_actionMask[action] == 0.0f) {
@@ -379,15 +300,15 @@ public:
         //     std::cout << m_edgeStatistics.m_childPriors[action] << " ";
         // }
         // std::cout << std::endl;
-        // std::cout << "Inverse N ";
-        // for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
-        //     if (m_actionMask[action] == 0.0f) {
-        //         // Illegal action, skip.
-        //         continue;
-        //     }
-        //     std::cout << inverse_N[action] << " ";
-        // }
-        // std::cout << std::endl;
+        std::cout << "Inverse N ";
+        for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
+            if (m_actionMask[action] == 0.0f) {
+                // Illegal action, skip.
+                continue;
+            }
+            std::cout << inverse_N[action] << " ";
+        }
+        std::cout << std::endl;
 
         return inverse_N / inverse_N.sum();
     }
