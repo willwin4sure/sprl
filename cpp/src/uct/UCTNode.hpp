@@ -234,20 +234,16 @@ public:
         }
         ActionDist inverse_N {};
 
-        // Next, start binary lifting while v_max makes the sum greater than total_N.
         for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
             if (m_actionMask[action] == 0.0f) {
                 // Illegal action, skip.
                 continue;
             }
-            // observe that v_max > Q (strictly) is always true.
-            inverse_N[action] = std::max(0.0f,
-            (
-                (m_nodeOptions.uWeight * child_P(action) * sqrtf(N()))/
-                (max_value - child_Q(action))
-            )
-            - 1);
-
+            // we use a while loop LMAO
+            inverse_N[action] = child_N(action);
+            while (inverse_N[action] > 0 && child_Q(action) + m_nodeOptions.uWeight * (child_P(action) * std::sqrt(N()) / (1 + inverse_N[action])) < max_value) {
+                inverse_N[action]--;
+            }
         }
         
         /**
