@@ -188,8 +188,9 @@ public:
      * active nodes are turned gray.
      * 
      * @param action The action to advance the decision node using.
+     * @param clearStatistics Whether to clear the statistics of the new subtree.
     */
-    void advanceDecision(ActionIdx action) {
+    void advanceDecision(ActionIdx action, bool clearStatistics = true) {
         assert(!m_decisionNode->m_isTerminal);
         assert(m_decisionNode->m_actionMask[action] > 0.0f);
 
@@ -198,7 +199,7 @@ public:
 
         // Clear all edges statistics of the new subtree, and turn all active nodes gray.
         UNode* child = m_decisionNode->getAddChild(action);
-        clearSubtree(child);
+        if (clearStatistics) clearSubtree(child);
 
         // Set the new decision node
         m_decisionNode = m_decisionNode->m_children[action].get();

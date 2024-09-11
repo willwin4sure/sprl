@@ -116,6 +116,13 @@ public:
     }
 
     /**
+     * @returns The action mask of the underlying game node.
+    */
+    const ActionDist& getActionMask() const {
+        return m_actionMask;
+    }
+
+    /**
      * @returns A string representation of the underlying game node.
      */
     std::string getGameNodeString() const {
