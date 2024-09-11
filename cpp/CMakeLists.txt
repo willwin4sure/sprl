@@ -25,6 +25,7 @@ file(GLOB headers
 )
 
 add_executable(Challenge src/Challenge.cpp ${srcs} ${headers})
+add_executable(GTP src/GTP.cpp ${srcs} ${headers})
 # add_executable(Evaluate src/Evaluate.cpp ${srcs} ${headers})
 # add_executable(TestGame src/TestGame.cpp ${srcs} ${headers})
 # add_executable(TestSymmetries src/TestSymmetries.cpp ${srcs} ${headers})
@@ -36,6 +37,7 @@ add_executable(RobinWorker src/RobinWorker.cpp ${srcs} ${headers})
 # add_executable(Time src/Time.cpp ${srcs} ${headers})
 
 target_link_libraries(Challenge ${TORCH_LIBRARIES})
+target_link_libraries(GTP ${TORCH_LIBRARIES})
 # target_link_libraries(Evaluate ${TORCH_LIBRARIES})
 # target_link_libraries(TestGame ${TORCH_LIBRARIES})
 # target_link_libraries(TestSymmetries ${TORCH_LIBRARIES})
