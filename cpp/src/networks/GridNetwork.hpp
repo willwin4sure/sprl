@@ -5,8 +5,9 @@
 
 #include "INetwork.hpp"
 
-#include <torch/torch.h>
+#include <torch/cuda.h>
 #include <torch/script.h>
+#include <torch/torch.h>
 
 namespace SPRL {
 
@@ -40,6 +41,15 @@ public:
             // Requested random network instead, not going to load anything.
             m_alive = true;
             return;
+        }
+
+        if (torch::cuda::is_available()) {
+            std::cerr << "CUDA is available, using GPU." << std::endl;
+            m_device = torch::kCUDA;
+
+        } else {
+            std::cerr << "CUDA is not available, using CPU." << std::endl;
+            m_device = torch::kCPU;
         }
         
         while (!m_alive) {

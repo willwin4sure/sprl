@@ -168,3 +168,4 @@ princeton_ddp/*
 *.err
 *.out
 discord_nohup_pid.txt
+bot_config.json5
