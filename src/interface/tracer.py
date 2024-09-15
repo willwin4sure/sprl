@@ -29,6 +29,10 @@ def trace_model(
     model = model_class(**model_kwargs)
     model.load_state_dict(state_dict)
 
+    # Set the model to evaluation mode
+    model.eval()
+
+    # Trace the model
     traced_model: torch.ScriptModule = torch.jit.trace(model, example)
     traced_model.save(save_path + '.tmp')
     while not os.path.exists(save_path + '.tmp'):

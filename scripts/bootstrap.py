@@ -26,12 +26,6 @@ from tqdm import tqdm
 from src.interface.tracer import trace_model
 from src.networks.grid_networks import BasicGridNetwork
 
-"""
-TODO: all this passing of references is pretty unwieldly. Either make everything global vars,
-or make the whole thing a class.
-"""
-
-
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
 
 NUM_ROWS = NUM_COLS = 9
@@ -52,6 +46,8 @@ with open("./config/config_selfplay.json", "r") as f:
 
 with open("./config/config_controller.json", "r") as f:
     config_controller = json.load(f)
+    BOOTSTRAP_NAME = config_controller["bootstrap"]
+
     WORLD_SIZE = config_controller["worldSize"]
     WORKER_TIME_TO_KILL = config_controller["workerTimeToKill"]
     MODEL_NUM_BLOCKS = config_controller["modelNumBlocks"]
@@ -60,8 +56,6 @@ with open("./config/config_controller.json", "r") as f:
     LINEAR_WEIGHTING = config_controller["linearWeighting"]
     NUM_TRAIN_SAMPLES = config_controller["numTrainSamples"]
     NUM_SAVE_SAMPLES = config_controller["numSaveSamples"]
-    # MAX_GROUPS = config_controller["maxGroups"]
-    # EPOCHS_PER_GROUP = config_controller["epochsPerGroup"]
     BATCH_SIZE = config_controller["batchSize"]
     LR_INIT = config_controller["lrInit"]
     config_scheduler = config_controller["scheduler"]
@@ -101,8 +95,6 @@ def setup_DDP():
     torch.cuda.set_device(int(os.environ["LOCAL_RANK"]))
 
     assert int(os.environ["WORLD_SIZE"]) == WORLD_SIZE
-    # logger.info(
-    #     "Local Rank", os.environ["LOCAL_RANK"], "World Size", WORLD_SIZE)
     logger.info(
         f'Local Rank {os.environ["LOCAL_RANK"]} World Size {WORLD_SIZE}')
 
@@ -161,7 +153,7 @@ model_kwargs = {
 data_muncher_kwargs = {
     "num_worker_tasks": NUM_WORKER_TASKS,
     "num_groups": NUM_GROUPS,
-    "run_name": RUN_NAME,
+    "run_name": BOOTSTRAP_NAME,
     "use_linear_wgt": LINEAR_WEIGHTING,
     "worker_ttk": WORKER_TIME_TO_KILL,
     "sync": SYNC,
@@ -201,34 +193,36 @@ def train_network(
     dataloader = DataLoader(
         dataset, batch_size=BATCH_SIZE, shuffle=True)
 
-    for epoch in range(5):
+    for epoch in range(10):
         epochify_time -= time.time()
         train_average_policy_loss, train_average_value_loss = epochify(iteration, 0, epoch,
                                                                        network, dataloader, optimizer, train=True)
+        scheduler.step()
+        dist.barrier()
         epochify_time += time.time()
 
-        dist.barrier()
         logger.info(
-            f"{iteration}.0.0 Rank {local_rank} " +
+            f"{iteration}.{epoch} Rank {local_rank} " +
             f"Tr Pol: {train_average_policy_loss:.4f}, " +
             f"Tr Val: {train_average_value_loss:.4f}, "
         )
 
     trace_time -= time.time()
-
-    if rank == 0:
+    if rank == 0 and iteration % 10 == 0:
         state_dict = network.module.state_dict()
         filepath = f"./data/models/{RUN_NAME}/" + \
             f"{RUN_NAME}_iteration_{iteration}.pt"
         trace_filepath = f"./data/models/{RUN_NAME}/" + \
             f"traced_{RUN_NAME}_iteration_{iteration}.pt"
         torch.save(state_dict, filepath)
-        trace_model(filepath, torch.randn(1, 2 * HISTORY_SIZE + 1, NUM_ROWS, NUM_COLS),
-                    trace_filepath, BasicGridNetwork, model_kwargs)
 
         optimizer_filepath = f"./data/models/{RUN_NAME}/" + \
             f"{RUN_NAME}_optimizer_iteration_{iteration}.pt"
         torch.save(optimizer.state_dict(), optimizer_filepath)
+
+        trace_model(filepath, torch.randn(1, 2 * HISTORY_SIZE + 1, NUM_ROWS, NUM_COLS),
+                    trace_filepath, BasicGridNetwork, model_kwargs)
+    dist.barrier()
 
     trace_time += time.time()
 
@@ -294,84 +288,26 @@ def epochify(iteration: int, group: int, epoch: int,
 def main():
     setup_DDP()
     # Create the necessary directories
-    os.makedirs(f"data/games/{RUN_NAME}", exist_ok=True)
     os.makedirs(f"data/models/{RUN_NAME}", exist_ok=True)
-    os.makedirs(f"data/configs", exist_ok=True)
 
     logger.info(f"Created necessary directories for {RUN_NAME}.")
 
-    # Take that entire json file and write it to data/configs/...
-    with open(f"data/configs/{RUN_NAME}_config_selfplay.json", "w") as f:
-        json.dump(config_selfplay, f, indent=4)
-
-    with open(f"data/configs/{RUN_NAME}_config_uct.json", "w") as f:
-        json.dump(config_uct, f, indent=4)
-
-    with open(f"data/configs/{RUN_NAME}_config_controller.json", "w") as f:
-        json.dump(config_controller, f, indent=4)
-
-    logger.info(f"Saved configs for {RUN_NAME}.")
-
     network = BasicGridNetwork(**model_kwargs).to(local_rank)
-
-    # load the previous model if it exists
-    start_iteration = 0
-    for i in range(NUM_ITERS):
-        if os.path.exists(f"./data/models/{RUN_NAME}/{RUN_NAME}_iteration_{i}.pt"):
-            start_iteration = i + 1
-
-    if start_iteration > 0:
-        state_dict = torch.load(
-            f"./data/models/{RUN_NAME}/{RUN_NAME}_iteration_{start_iteration - 1}.pt")
-        network.load_state_dict(state_dict)
-
-        logger.info(f"Loaded model from iteration {start_iteration - 1}.")
 
     network = DDP(network, device_ids=[local_rank], output_device=local_rank)
     optimizer = optim.Adam(network.parameters(), lr=LR_INIT)
-
-    if start_iteration > 0:
-        optimizer.load_state_dict(torch.load(
-            f"./data/models/{RUN_NAME}/{RUN_NAME}_optimizer_iteration_{start_iteration - 1}.pt"))
-
     scheduler = json_to_scheduler(config_scheduler, optimizer)
     logger.info(
         f"Local rank {local_rank} network is on device {network.device}")
 
-    timing_filepath = f"data/timings/{RUN_NAME}_timing.txt"
-    os.makedirs(os.path.dirname(timing_filepath), exist_ok=True)
-    if os.path.exists(timing_filepath):
-        with open(timing_filepath, "r") as f:
-            timestamps = [float(line.strip()) for line in f]
-    else:
-        timestamps = []
-
-    muncher = data_muncher.DataMuncher(local_rank, rank, world_size,
-                                       start_iteration,
+    muncher = data_muncher.DataMuncher(local_rank=local_rank, rank=rank, world_size=world_size,
+                                       iter=0,
                                        **data_muncher_kwargs)
 
-    for iteration in range(start_iteration, NUM_ITERS):
-        start_time = time.time()
-        logger.info(f"Starting iteration {iteration}...")
-
-        if RESET_NETWORK:
-            logger.info(f"Resetting network.")
-            network = BasicGridNetwork(**model_kwargs).to(local_rank)
-            network = DDP(network, device_ids=[
-                          local_rank], output_device=local_rank)
-            optimizer = optim.Adam(network.parameters(), lr=LR_INIT)
-            scheduler = json_to_scheduler(config_scheduler, optimizer)
-
+    for iteration in range(200):
         train_dataset = muncher.get()
         train_network(network, optimizer, scheduler,
                       iteration, **train_dataset)
-
-        scheduler.step()
-
-        timestamps.append(time.time() - start_time)
-        if local_rank == 0:
-            with open(timing_filepath, "w") as f:
-                f.write("\n".join(str(t) for t in timestamps))
 
     torch.distributed.barrier()
     logger.info(f"Rank {local_rank} finished training.")

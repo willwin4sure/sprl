@@ -218,77 +218,102 @@ public:
     }
 
     /**
+     * Derivation:
+     * V = Q + c * U where U = P * sqrt(N) / (1 + n)
+     * Thus:
+     * U = (V - Q) / c
+     * 1 + n = P * sqrt(N) / ((V - Q) / c)
+     * n = c * P * sqrt(N) / (V - Q) - 1
      * @returns The policy target for the UCT algorithm.
      */
     ActionDist getPrunedPolicyTarget() const {
-        // Subtract 1 because I'm talking about the number of child playouts.
-        float total_N = N() - 1;
-
-        ActionDist all_Q {}; // All 0s.
-
-        float v_max = 0;
-        float v_min = 0;
+        float max_value = -std::numeric_limits<float>::infinity();
         for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
             if (m_actionMask[action] == 0.0f) {
                 // Illegal action, skip.
                 continue;
             }
 
-            all_Q[action] = child_Q(action);
             float value = child_Q(action) + m_nodeOptions.uWeight * child_U(action);
-
-            if (value > v_max) {
-                v_max = value;
+            if (value > max_value) {
+                max_value = value;
             }
-            if (value < v_min) {
-                v_min = value;
+        }
+        ActionDist inverse_N {};
+
+        for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
+            if (m_actionMask[action] == 0.0f) {
+                // Illegal action, skip.
+                continue;
+            }
+            // we use a while loop LMAO
+            inverse_N[action] = child_N(action);
+            while (inverse_N[action] > 0 && child_Q(action) + m_nodeOptions.uWeight * (child_P(action) * std::sqrt(N()) / (1 + inverse_N[action])) < max_value) {
+                inverse_N[action]--;
             }
         }
         
-        v_max *= 2;
-        v_min *= 2;
-
-        // binary search between v_min and v_max
-        float v = (v_max + v_min) / 2;
-        float epsilon = 0.0001;
-
-        // Avoid bugs in rare cases where v_max and v_min are too close.
-        if (v_max - v_min < epsilon) {
-            v_max += epsilon;
-            v_min -= epsilon;
-        }
-        epsilon = std::min(epsilon, (v_max - v_min) / 100.0f);
-        // In case epsilon is too large.
-        // TODO: figure out what magnitudes are appropriate.
-
-        ActionDist inverse_N = {};
-        while (v_max - v_min > epsilon) {
-            float sum = 0.0f;
-            for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
-                if (m_actionMask[action] == 0.0f) {
-                    // Illegal action, skip.
-                    continue;
-                }
-                if (v < child_Q(action)) {
-                    inverse_N[action] = 0.0f;
-                } else {
-                    inverse_N[action] = std::max(0.0f, m_nodeOptions.uWeight * m_networkPolicy[action] * sqrtf(total_N) / (v - child_Q(action)) - 1);
-                }
-                sum += inverse_N[action];
+        /**
+         * Debug:
+         * Print the orignal N, the original Q, the original U, and the inverse N.
+         */
+        std::cout << "Original total N: " << N() << std::endl;
+        std::cout << "Original N ";
+        for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
+            if (m_actionMask[action] == 0.0f) {
+                // Illegal action, skip.
+                continue;
             }
-
-            if (sum > total_N) {
-                // If sum is too big, we should *increase* v.
-                // This causes the inverse_N to go *down*.
-                v_min = v;
-            } else {
-                v_max = v;
-            }
-
-            v = (v_max + v_min) / 2;
+            std::cout << child_N(action) << " ";
         }
+        std::cout << std::endl;
+        // std::cout << "Original Q ";
+        // for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
+        //     if (m_actionMask[action] == 0.0f) {
+        //         // Illegal action, skip.
+        //         continue;
+        //     }
+        //     std::cout << child_Q(action) << " ";
+        // }
+        // std::cout << std::endl;
+        // std::cout << "Original U ";
+        // for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
+        //     if (m_actionMask[action] == 0.0f) {
+        //         // Illegal action, skip.
+        //         continue;
+        //     }
+        //     std::cout << child_U(action) << " ";
+        // }
+        // std::cout << std::endl;
+        // std::cout << "Original P ";
+        // for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
+        //     if (m_actionMask[action] == 0.0f) {
+        //         // Illegal action, skip.
+        //         continue;
+        //     }
+        //     std::cout << m_networkPolicy[action] << " ";
+        // }
+        // std::cout << std::endl;
+        // std::cout << "Dirichlet P ";
+        // for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
+        //     if (m_actionMask[action] == 0.0f) {
+        //         // Illegal action, skip.
+        //         continue;
+        //     }
+        //     std::cout << m_edgeStatistics.m_childPriors[action] << " ";
+        // }
+        // std::cout << std::endl;
+        std::cout << "Inverse N ";
+        for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
+            if (m_actionMask[action] == 0.0f) {
+                // Illegal action, skip.
+                continue;
+            }
+            std::cout << inverse_N[action] << " ";
+        }
+        std::cout << std::endl;
 
-        return inverse_N;
+        return inverse_N / inverse_N.sum();
     }
 
 

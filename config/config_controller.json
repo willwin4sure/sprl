@@ -1,9 +1,10 @@
 {
     "workerTimeToKill": 1200,
-    "modelNumBlocks": 6,
+    "modelNumBlocks": 16,
     "modelNumChannels": 64,
     "resetNetwork": false,
     "linearWeighting": true,
+    "bootstrap": "",
     "numTrainSamples": 2097152,
     "numSaveSamples": 8388608,
     "batchSize": 1024,
