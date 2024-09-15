@@ -330,9 +330,9 @@ def main():
     network = DDP(network, device_ids=[local_rank], output_device=local_rank)
     optimizer = optim.Adam(network.parameters(), lr=LR_INIT)
 
-    # if start_iteration > 0:
-    #     optimizer.load_state_dict(torch.load(
-    #         f"./data/models/{RUN_NAME}/{RUN_NAME}_optimizer_iteration_{start_iteration - 1}.pt"))
+    if start_iteration > 0:
+        optimizer.load_state_dict(torch.load(
+            f"./data/models/{RUN_NAME}/{RUN_NAME}_optimizer_iteration_{start_iteration - 1}.pt"))
 
     scheduler = json_to_scheduler(config_scheduler, optimizer)
     logger.info(
