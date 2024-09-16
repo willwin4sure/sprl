@@ -151,9 +151,6 @@ plus a `random` team.
 
 ![Heatmap](quail_inception_heatmap.png)
 
-These charts tell a bit of the story of the development process!
-- The earliest generation shown, `quail_gamma
-
 ## Running the Discord Bot
 
 We also created a discord bot to keep track of the training progress and
