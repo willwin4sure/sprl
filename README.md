@@ -134,3 +134,24 @@ There are two main operational modes, set by the `sync` flag in
 In both modes, the system is robust against workers failing.
 Newly spawned workers and controllers first check for existing
 progress in `/data`, re-starting from the latest save-points automatically.
+
+## Running Tournaments
+
+Tournaments are one of the ways we gauge the performance of the trained models.
+Traced models saved in `/data/models` can be evaluated against each other in
+a tournament, where each model will play games against each other indefinitely.
+A python program can scoop up the results and display them in win-rate heatmaps
+and elo charts.
+
+An example output is shown below. There are `6` "teams" of
+models competing against each other, including `5` generations of `quail` models
+plus a `random` team.
+
+![ELO Chart](quail_inception_elos.png)
+
+![Heatmap](quail_inception_heatmap.png)
+
+## Running the Discord Bot
+
+We also created a discord bot to keep track of the training progress and
+keep us motivated! See `dopamine/README.md`.
