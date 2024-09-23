@@ -140,6 +140,7 @@ public:
             for (int i = 0; i < numLeaves; ++i) {
                 symmetries[i] = static_cast<SymmetryIdx>(GetRandom().UniformInt(0, numSymmetries - 1));
                 states[i] = m_symmetrizer->symmetrizeState(states[i], { symmetries[i] })[0];
+                masks[i] = m_symmetrizer->symmetrizeActionDist(masks[i], { symmetries[i] })[0];
             }
         }
 
