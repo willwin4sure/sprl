@@ -73,8 +73,14 @@ selfPlay(IterationOptions iterationOptions,
         int traversals = 0;
         while (traversals < numTraversals) {
             // Returns vector of collected leaves and total number of traversals performed.
-            auto [leaves, trav] = tree.searchAndGetLeaves(
+            auto leaf = tree.searchAndGetLeaves(
                 iterationOptions.maxBatchSize, iterationOptions.maxQueueSize, iterationOptions.forcedPlayouts, network);
+
+            if (leaf == nullptr) {
+                continue;
+            }
+
+            // enqueue the leaf to a mapping of leaf, idx pairs.
 
             // If leaves were collected, evaluate and backpropagate them.
             if (leaves.size() > 0) {

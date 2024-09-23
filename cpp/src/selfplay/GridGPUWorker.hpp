@@ -132,7 +132,7 @@ int determineIteration(const std::string& saveDir, std::string& runName) {
  * @param saveDir The directory to save the self-play data to.
  */
 template <typename NeuralNetwork, typename ImplNode, int NUM_ROWS, int NUM_COLS, int HISTORY_SIZE, int ACTION_SIZE>
-void runWorker(
+void runGPUWorker(
                 int worker_idx,
                 SPRL::WorkerOptions workerOptions,
                SPRL::TreeOptions treeOptions,
@@ -159,24 +159,17 @@ void runWorker(
     total_t.reset();
     std::string runName = workerOptions.modelName + "_" + workerOptions.modelVariant;
     
-    // Make the save directory if it doesn't exist.
-    try {
-        bool result = std::filesystem::create_directories(saveDir);
-        if (result) {
-            std::cout << "Created directory: " << saveDir << std::endl;
-        } else {
-            std::cout << "Directory already exists: " << saveDir << std::endl;
-        }
-    } catch (std::exception& e) {
-        std::cerr << "Error creating directory: " << e.what() << std::endl;
-        return;
-    }
-
     INetwork<State, ACTION_SIZE>* network;  // Holds the current network.
 
     // Check which iteration it is.
     int iter = determineIteration(saveDir, runName);
     std::cout << "I now believe it is iteration " << iter << "." << std::endl;
+
+    int oldModelIter = -2; // This value is different from modelIter no matter what.
+    int modelIter; // This value doesn't matter because it is immediately set.
+
+    IterationOptions iterationOptions = workerOptions.iterationOptions;
+    NeuralNetwork neuralNetwork = NeuralNetwork("random");
 
     while (true) {
         if (workerOptions.sync && iter >= workerOptions.numIters) break;
@@ -186,92 +179,32 @@ void runWorker(
         std::cout << "Starting iteration " << iter << "..." << std::endl;
 
         // Block until the model file for the previous iteration exists.
-        int modelIter = waitModelPath(runName, workerOptions.sync, iter - 1);
+        modelIter = waitModelPath(runName, workerOptions.sync, iter - 1);
 
         if (!workerOptions.sync && modelIter >= workerOptions.numIters - 1) break;
 
-        std::string modelPath = getTracedModelPath(runName, modelIter);
-        std::string savePath = saveDir + "/" + runName + "_iteration_" + std::to_string(iter);
-
-        IterationOptions iterationOptions = workerOptions.iterationOptions;
-        if (modelPath == "random") {
-            iterationOptions = workerOptions.initIterationOptions;
-        }
-
-        NeuralNetwork neuralNetwork = NeuralNetwork(modelPath);
-
-        if (modelPath == "random") {
-            std::cout << "Using initial network..." << std::endl;
-            network = initialNetwork;
-        } else {
-            std::cout << "Using traced PyTorch network..." << std::endl;
-            network = &neuralNetwork;
-        }
-
-        auto [states, distributions, outcomes] = runIteration<ImplNode, State, ACTION_SIZE>(
-            iterationOptions,
-            treeOptions,
-            network,
-            symmetrizer
-        );
-
-        std::vector<float> embeddedStates;
-
-        for (const State& state : states) {
-            Piece ourPiece = pieceFromPlayer(state.getPlayer());
-
-            // Stone bitmasks. The iteration order is important; must match input to network.
-            for (int t = 0; t < state.size(); ++t) {
-                for (Piece piece : { ourPiece, otherPiece(ourPiece) }) {
-                    for (int row = 0; row < NUM_ROWS; ++row) {
-                        for (int col = 0; col < NUM_COLS; ++col) {
-                            if (state.getHistory()[t][row * NUM_COLS + col] == piece) {
-                                embeddedStates.push_back(1.0f);
-                            } else {
-                                embeddedStates.push_back(0.0f);
-                            }
-                        }
-                    }
-                }
+        if (modelIter != oldModelIter){
+            std::string modelPath = getTracedModelPath(runName, modelIter);
+            std::string savePath = saveDir + "/" + runName + "_iteration_" + std::to_string(iter);
+            if (modelPath == "random") {
+                iterationOptions = workerOptions.initIterationOptions;
+            } else {
+                iterationOptions = workerOptions.iterationOptions;
             }
-
-            // Pad the history using zeros.
-            embeddedStates.resize(embeddedStates.size() + 2 * NUM_ROWS * NUM_COLS * (HISTORY_SIZE - state.size()), 0.0f);
-
-            // Color channel.
-            embeddedStates.resize(embeddedStates.size() + NUM_ROWS * NUM_COLS, (state.getPlayer() == Player::ZERO) ? 1.0f : 0.0f);
-        }
-
-        npy::npy_data_ptr<float> stateData {};
-        stateData.data_ptr = embeddedStates.data();
-        stateData.shape = { static_cast<unsigned long>(states.size()), 2 * HISTORY_SIZE + 1, NUM_ROWS, NUM_COLS };
-
-        npy::write_npy(savePath + "_states.npy", stateData);
-
-        std::vector<float> embeddedDistributions;
-        for (const ActionDist& dist : distributions) {
-            for (int i = 0; i < ACTION_SIZE; ++i) {
-                embeddedDistributions.push_back(dist[i]);
+            
+            if (modelPath == "random") {
+                std::cout << "Using initial network..." << std::endl;
+                network = initialNetwork;
+            } else {
+                std::cout << "Using traced PyTorch network..." << std::endl;
+                network = &neuralNetwork;
             }
         }
 
-        npy::npy_data_ptr<float> distData {};
-        distData.data_ptr = embeddedDistributions.data();
-        distData.shape = { static_cast<unsigned long>(distributions.size()), ACTION_SIZE };
 
-        npy::write_npy(savePath + "_distributions.npy", distData);
-
-        npy::npy_data_ptr<float> outcomeData {};
-        outcomeData.data_ptr = outcomes.data();
-        outcomeData.shape = { static_cast<unsigned long>(outcomes.size()) };
-
-        npy::write_npy(savePath + "_outcomes.npy", outcomeData);        
-        std::cout << "Games collected in " << t.elapsed() << " seconds." << std::endl;
-    
-        iter++;
     }
 
-    std::cout << "Worker process completed in " << total_t.elapsed() << " seconds." << std::endl;
+    std::cout << "GPU Worker process completed in " << total_t.elapsed() << " seconds." << std::endl;
 
 }
 

@@ -217,15 +217,6 @@ public:
         return std::sqrt(2 * child_P(action) * (N() - 1));
     }
 
-    /**
-     * Derivation:
-     * V = Q + c * U where U = P * sqrt(N) / (1 + n)
-     * Thus:
-     * U = (V - Q) / c
-     * 1 + n = P * sqrt(N) / ((V - Q) / c)
-     * n = c * P * sqrt(N) / (V - Q) - 1
-     * @returns The policy target for the UCT algorithm.
-     */
     ActionDist getPrunedPolicyTarget() const {
         float max_value = -std::numeric_limits<float>::infinity();
         for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
@@ -253,66 +244,6 @@ public:
             }
         }
         
-        /**
-         * Debug:
-         * Print the orignal N, the original Q, the original U, and the inverse N.
-         */
-        std::cout << "Original total N: " << N() << std::endl;
-        std::cout << "Original N ";
-        for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
-            if (m_actionMask[action] == 0.0f) {
-                // Illegal action, skip.
-                continue;
-            }
-            std::cout << child_N(action) << " ";
-        }
-        std::cout << std::endl;
-        // std::cout << "Original Q ";
-        // for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
-        //     if (m_actionMask[action] == 0.0f) {
-        //         // Illegal action, skip.
-        //         continue;
-        //     }
-        //     std::cout << child_Q(action) << " ";
-        // }
-        // std::cout << std::endl;
-        // std::cout << "Original U ";
-        // for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
-        //     if (m_actionMask[action] == 0.0f) {
-        //         // Illegal action, skip.
-        //         continue;
-        //     }
-        //     std::cout << child_U(action) << " ";
-        // }
-        // std::cout << std::endl;
-        // std::cout << "Original P ";
-        // for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
-        //     if (m_actionMask[action] == 0.0f) {
-        //         // Illegal action, skip.
-        //         continue;
-        //     }
-        //     std::cout << m_networkPolicy[action] << " ";
-        // }
-        // std::cout << std::endl;
-        // std::cout << "Dirichlet P ";
-        // for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
-        //     if (m_actionMask[action] == 0.0f) {
-        //         // Illegal action, skip.
-        //         continue;
-        //     }
-        //     std::cout << m_edgeStatistics.m_childPriors[action] << " ";
-        // }
-        // std::cout << std::endl;
-        std::cout << "Inverse N ";
-        for (ActionIdx action = 0; action < ACTION_SIZE; ++action) {
-            if (m_actionMask[action] == 0.0f) {
-                // Illegal action, skip.
-                continue;
-            }
-            std::cout << inverse_N[action] << " ";
-        }
-        std::cout << std::endl;
-
         return inverse_N / inverse_N.sum();
     }
 

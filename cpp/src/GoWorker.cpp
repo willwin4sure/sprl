@@ -6,7 +6,9 @@
 #include "selfplay/SelfPlayOptions.hpp"
 
 #include "symmetry/D4GridSymmetrizer.hpp" 
+#include "symmetry/ISymmetrizer.hpp"
 
+#include "distributed/concurrentqueue/concurrentqueue.h"
 #include "uct/UCTOptions.hpp"
 
 
@@ -17,8 +19,11 @@ constexpr int HISTORY_SIZE = SPRL::GO_HISTORY_SIZE;
 
 
 int main(int argc, char *argv[]) {
-    if (argc != 3) {
-        std::cerr << "Usage: ./GoWorker.exe <task_id> <num_tasks>" << std::endl;
+    using State = GridState<BOARD_WIDTH * BOARD_WIDTH, HISTORY_SIZE>;
+    using ActionDist = GameActionDist<ACTION_SIZE>;
+
+    if (argc != 1) {
+        std::cerr << "Usage: ./GoWorker.exe" << std::endl;
         return 1;
     }
 
@@ -36,8 +41,19 @@ int main(int argc, char *argv[]) {
 
     std::string runName = workerOptions.modelName + "_" + workerOptions.modelVariant;
 
-    int myTaskId = std::stoi(argv[1]);
-    int numTasks = std::stoi(argv[2]);
+    // create a ConcurrentQueue for the GPU thread to receive queries from the CPU threads.
+    // Elements of this queue take the form {int worker_id, State state, ActionDist mask}.
+    moodycamel::ConcurrentQueue<std::tuple<int, State, ActionDist>> queue;
+
+    for (int i = 0; i < workerOptions.numWorkerTasks; i++) {
+        std::thread workerThread(startWorker, i, workerOptions.numWorkerTasks, runName, workerOptions, treeOptions);
+        workerThread.detach();
+    }
+}
+
+void startWorker(int myTaskId, int numTasks, const std::string& runName,
+    WorkerOptions workerOptions, TreeOptions treeOptions
+) {
     assert(numTasks == workerOptions.numWorkerTasks);
 
     int myGroup = myTaskId / (workerOptions.numWorkerTasks / workerOptions.numGroups);

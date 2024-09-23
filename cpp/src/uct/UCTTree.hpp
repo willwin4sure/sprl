@@ -69,44 +69,32 @@ public:
      * 
      * @returns This batch of empty leaves, as well as the number of leaf selections performed.
     */
-    std::pair<std::vector<UNode*>, int> searchAndGetLeaves(
-        int maxBatchSize, int maxQueueSize, bool forced, INetwork<State, ACTION_SIZE>* network) {
+    UNode* searchAndGetLeaf(
+        bool forced, INetwork<State, ACTION_SIZE>* network
+    ) {
 
-        // Collected leaves for NN evaluation.
-        std::vector<UNode*> leaves;
+        // Selected leaf must be terminal, empty, or gray.
+        UNode* leaf = selectLeaf(forced);
 
-        int traversals = 0;
-        while (traversals < maxBatchSize) {
-            ++traversals;
-            
-            // Selected leaf must be terminal, empty, or gray.
-            UNode* leaf = selectLeaf(forced);
+        if (leaf->m_isTerminal) {
+            // Terminal case: compute the exact value and backpropagate immediately.
+            std::array<Value, 2> rewards = leaf->getRewards();
+            Value value = rewards[static_cast<int>(leaf->getPlayer())];
 
-            if (leaf->m_isTerminal) {
-                // Terminal case: compute the exact value and backpropagate immediately.
-                std::array<Value, 2> rewards = leaf->getRewards();
-                Value value = rewards[static_cast<int>(leaf->getPlayer())];
+            backup(leaf, value);
+            return nullptr;
 
-                backup(leaf, value);
-                continue;
+        } else if (leaf->m_isNetworkEvaluated) {
+            // Gray case: expand the node to active and backpropagate the network value estimate.
+            leaf->expand(m_treeOptions.addNoise && (leaf == m_decisionNode));  // Only add noise if decision node.
 
-            } else if (leaf->m_isNetworkEvaluated) {
-                // Gray case: expand the node to active and backpropagate the network value estimate.
-                leaf->expand(m_treeOptions.addNoise && (leaf == m_decisionNode));  // Only add noise if decision node.
+            backup(leaf, leaf->m_networkValue);
+            return nullptr;
 
-                backup(leaf, leaf->m_networkValue);
-                continue;
-
-            } else {
-                // Empty case: append the node to the queue and do expansion and backup step after batched NN evaluation.
-                leaves.push_back(leaf);
-            }
-
-            // Once we have collected enough leaves, exit. Can also exit from hitting max batch size.
-            if (leaves.size() >= maxQueueSize) break;
+        } else {
+            // Empty case: append the node to the queue and do expansion and backup step after batched NN evaluation.
+            return leaf;
         }
-
-        return { leaves, traversals };
     }
 
     /**
@@ -140,10 +128,14 @@ public:
             for (int i = 0; i < numLeaves; ++i) {
                 symmetries[i] = static_cast<SymmetryIdx>(GetRandom().UniformInt(0, numSymmetries - 1));
                 states[i] = m_symmetrizer->symmetrizeState(states[i], { symmetries[i] })[0];
+                masks[i] = m_symmetrizer->symmetrizeActionDist(masks[i], { symmetries[i] })[0];
             }
         }
 
         // Perform batched evaluation of the states.
+        
+        // GPUTODO: LOOK HERE!
+
         std::vector<std::pair<GameActionDist<ACTION_SIZE>, Value>> outputs = network->evaluate(states, masks);
 
         for (int i = 0; i < numLeaves; ++i) {
