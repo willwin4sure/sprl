@@ -68,6 +68,8 @@ int main(int argc, char *argv[]) {
 
     // Start GPU thread.
     std::thread gpuThread(startGPUWorker, std::ref(queue), std::ref(resultQueues));
+    gpuThread.detach();
+    
     return 0;
 }
 
