@@ -1,5 +1,5 @@
-#ifndef SPRL_GRID_WORKER_HPP
-#define SPRL_GRID_WORKER_HPP
+#ifndef SPRL_GRID_GPU_WORKER_HPP
+#define SPRL_GRID_GPU_WORKER_HPP
 
 #include "../games/GridState.hpp"
 
@@ -132,13 +132,8 @@ int determineIteration(const std::string& saveDir, std::string& runName) {
  * @param saveDir The directory to save the self-play data to.
  */
 template <typename NeuralNetwork, typename ImplNode, int NUM_ROWS, int NUM_COLS, int HISTORY_SIZE, int ACTION_SIZE>
-void runGPUWorker(
-                int worker_idx,
-                SPRL::WorkerOptions workerOptions,
-               SPRL::TreeOptions treeOptions,
-               INetwork<GridState<NUM_ROWS * NUM_COLS, HISTORY_SIZE>, ACTION_SIZE>* initialNetwork,
-               ISymmetrizer<GridState<NUM_ROWS * NUM_COLS, HISTORY_SIZE>, ACTION_SIZE>* symmetrizer,
-               const std::string& saveDir) {
+void runGPUWorker(moodycamel::ConcurrentQueue<std::tuple<int, SPRL::GridState<BOARD_WIDTH * BOARD_WIDTH, HISTORY_SIZE>, SPRL::GameActionDist<ACTION_SIZE>>>& queue,
+    std::vector<moodycamel::ConcurrentQueue<std::tuple<int, SPRL::GameActionDist<ACTION_SIZE>, float>>>& resultQueues) {
     
     using State = GridState<NUM_ROWS * NUM_COLS, HISTORY_SIZE>;
     using ActionDist = GameActionDist<ACTION_SIZE>;

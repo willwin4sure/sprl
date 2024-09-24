@@ -62,15 +62,12 @@ public:
      * When leaves are terminal or gray, immediately backpropagates the result.
      * When leaves are empty, appends them to a vector for batched NN evaluation.
      * 
-     * @param maxBatchSize The maximum number of traversals to perform.
-     * @param maxQueueSize The maximum number of leaves to evaluate in a batch.
      * @param forced Whether to force the selection of a move that has not been explored enough.
-     * @param network The network to evaluate the leaves with.
      * 
      * @returns This batch of empty leaves, as well as the number of leaf selections performed.
     */
     UNode* searchAndGetLeaf(
-        bool forced, INetwork<State, ACTION_SIZE>* network
+        bool forced
     ) {
 
         // Selected leaf must be terminal, empty, or gray.
@@ -85,89 +82,145 @@ public:
             return nullptr;
 
         } else if (leaf->m_isNetworkEvaluated) {
-            // Gray case: expand the node to active and backpropagate the network value estimate.
+            // Gray case: expand the node to active and
+            // backpropagate the network value estimate.
             leaf->expand(m_treeOptions.addNoise && (leaf == m_decisionNode));  // Only add noise if decision node.
 
             backup(leaf, leaf->m_networkValue);
             return nullptr;
 
         } else {
-            // Empty case: append the node to the queue and do expansion and backup step after batched NN evaluation.
+            // Empty case: append the node to the queue
+            // and do expansion and backup step after batched NN evaluation.
             return leaf;
         }
     }
 
-    /**
-     * Takes in queued leaves and evaluates them with the network, then backpropagates the results.
-     * 
-     * Requires that leaves are all empty, as in the return value from searchAndGetLeaves.
-     * 
-     * @param leaves The leaves to evaluate and backpropagate.
-     * @param network The network to evaluate the leaves with.
-    */
-    void evaluateAndBackpropLeaves(const std::vector<UNode*>& leaves, INetwork<State, ACTION_SIZE>* network, bool doFullSearch = true) {
-        int numLeaves = leaves.size();
-        assert(numLeaves > 0);
+    // /**
+    //  * Takes in queued leaves and evaluates them with the network, then backpropagates the results.
+    //  * 
+    //  * Requires that leaves are all empty, as in the return value from searchAndGetLeaves.
+    //  * 
+    //  * @param leaves The leaves to evaluate and backpropagate.
+    //  * @param network The network to evaluate the leaves with.
+    // */
+    // void evaluateAndBackpropLeaves(const std::vector<UNode*>& leaves, INetwork<State, ACTION_SIZE>* network, bool doFullSearch = true) {
+    //     int numLeaves = leaves.size();
+    //     assert(numLeaves > 0);
 
-        // Assemble a vector of states and masks for input into the NN.
-        std::vector<State> states;
-        std::vector<GameActionDist<ACTION_SIZE>> masks;
+    //     // Assemble a vector of states and masks for input into the NN.
+    //     std::vector<State> states;
+    //     std::vector<GameActionDist<ACTION_SIZE>> masks;
 
-        states.reserve(numLeaves);
-        masks.reserve(numLeaves);
+    //     states.reserve(numLeaves);
+    //     masks.reserve(numLeaves);
 
-        for (int i = 0; i < numLeaves; ++i) {
-            states.push_back(leaves[i]->getGameState());
-            masks.push_back(leaves[i]->m_actionMask);
-        }
+    //     for (int i = 0; i < numLeaves; ++i) {
+    //         states.push_back(leaves[i]->getGameState());
+    //         masks.push_back(leaves[i]->m_actionMask);
+    //     }
 
-        // Generate symmetrizations for the states, if necessary.
-        std::vector<SymmetryIdx> symmetries(numLeaves, 0);
-        if (m_treeOptions.symmetrizeState && m_symmetrizer != nullptr) {
-            int numSymmetries = m_symmetrizer->numSymmetries();
-            for (int i = 0; i < numLeaves; ++i) {
-                symmetries[i] = static_cast<SymmetryIdx>(GetRandom().UniformInt(0, numSymmetries - 1));
-                states[i] = m_symmetrizer->symmetrizeState(states[i], { symmetries[i] })[0];
-                masks[i] = m_symmetrizer->symmetrizeActionDist(masks[i], { symmetries[i] })[0];
-            }
-        }
+    //     // Generate symmetrizations for the states, if necessary.
+    //     std::vector<SymmetryIdx> symmetries(numLeaves, 0);
+    //     if (m_treeOptions.symmetrizeState && m_symmetrizer != nullptr) {
+    //         int numSymmetries = m_symmetrizer->numSymmetries();
+    //         for (int i = 0; i < numLeaves; ++i) {
+    //             symmetries[i] = static_cast<SymmetryIdx>(GetRandom().UniformInt(0, numSymmetries - 1));
+    //             states[i] = m_symmetrizer->symmetrizeState(states[i], { symmetries[i] })[0];
+    //             masks[i] = m_symmetrizer->symmetrizeActionDist(masks[i], { symmetries[i] })[0];
+    //         }
+    //     }
 
-        // Perform batched evaluation of the states.
+    //     // Perform batched evaluation of the states.
         
-        // GPUTODO: LOOK HERE!
+    //     // GPUTODO: LOOK HERE!
 
-        std::vector<std::pair<GameActionDist<ACTION_SIZE>, Value>> outputs = network->evaluate(states, masks);
+    //     std::vector<std::pair<GameActionDist<ACTION_SIZE>, Value>> outputs = network->evaluate(states, masks);
 
-        for (int i = 0; i < numLeaves; ++i) {
-            UNode* leaf = leaves[i];
-            std::pair<GameActionDist<ACTION_SIZE>, Value> output = outputs[i];
+    //     for (int i = 0; i < numLeaves; ++i) {
+    //         UNode* leaf = leaves[i];
+    //         std::pair<GameActionDist<ACTION_SIZE>, Value> output = outputs[i];
 
-            GameActionDist policy = output.first;
-            Value value = output.second;
+    //         GameActionDist policy = output.first;
+    //         Value value = output.second;
 
-            // Undo the symmetrization.
-            if (m_treeOptions.symmetrizeState && m_symmetrizer != nullptr) {
-                policy = m_symmetrizer->symmetrizeActionDist(policy, { m_symmetrizer->inverseSymmetry(symmetries[i]) })[0];
-            }
+    //         // Undo the symmetrization.
+    //         if (m_treeOptions.symmetrizeState && m_symmetrizer != nullptr) {
+    //             policy = m_symmetrizer->symmetrizeActionDist(policy, { m_symmetrizer->inverseSymmetry(symmetries[i]) })[0];
+    //         }
 
-            // Note that the same leaf could occur multiple times in the output.
-            // We cannot easily remove duplicates since we still need to remove the virtual losses,
-            // but code could be written to optimize this by not passing them all into the 
-            // network and instead backing up directly.
+    //         // Note that the same leaf could occur multiple times in the output.
+    //         // We cannot easily remove duplicates since we still need to remove the virtual losses,
+    //         // but code could be written to optimize this by not passing them all into the 
+    //         // network and instead backing up directly.
 
-            if (!leaf->m_isNetworkEvaluated) {
-                // Update the cached network values, making the leaf gray.
-                leaf->addNetworkOutput(policy, value);
-            }
+    //         if (!leaf->m_isNetworkEvaluated) {
+    //             // Update the cached network values, making the leaf gray.
+    //             leaf->addNetworkOutput(policy, value);
+    //         }
 
-            if (!leaf->m_isExpanded) {
-                // Expand the node, making the leaf active.
-                leaf->expand(m_treeOptions.addNoise && (leaf == m_decisionNode));  // Only add noise if decision node.
-            }
+    //         if (!leaf->m_isExpanded) {
+    //             // Expand the node, making the leaf active.
+    //             leaf->expand(m_treeOptions.addNoise && (leaf == m_decisionNode));  // Only add noise if decision node.
+    //         }
             
-            // Backpropagate the network value estimate.
-            backup(leaf, leaf->m_networkValue);
+    //         // Backpropagate the network value estimate.
+    //         backup(leaf, leaf->m_networkValue);
+    //     }
+    // }
+
+    /**
+     * Take a leaf, and apply a random symmetry to it.
+     * 
+     * @param leaf The leaf to apply the symmetry to.
+     * 
+     * @returns A tuple of the rotated state, rotated mask, and the symmetry index.
+     */
+    std::tuple<State, GameActionDist<ACTION_SIZE>, SymmetryIdx> applyRandomSymmetry(UNode* leaf) {
+        if (!m_treeOptions.symmetrizeState || m_symmetrizer == nullptr) {
+            return { leaf->getGameState(), leaf->m_actionMask, 0 };
         }
+
+        // Generate a random symmetry.
+        int numSymmetries = m_symmetrizer->numSymmetries();
+        SymmetryIdx symmetry = static_cast<SymmetryIdx>(GetRandom().UniformInt(0, numSymmetries - 1));
+
+        // Apply the symmetry to the state and mask.
+        State rotatedState = m_symmetrizer->symmetrizeState(leaf->getGameState(), { symmetry })[0];
+        GameActionDist<ACTION_SIZE> rotatedMask = m_symmetrizer->symmetrizeActionDist(leaf->m_actionMask, { symmetry })[0];
+
+        return { rotatedState, rotatedMask, symmetry };
+    }
+
+    /**
+     * Take a neural network evaluation, and apply the inverse symmetry to it,
+     * then backpropagate the result.
+     * 
+     */
+    void applyInverseSymmetryAndBackpropagate(UNode* leaf, GameActionDist<ACTION_SIZE> policy, Value value, SymmetryIdx symmetry) {
+        GameActionDist<ACTION_SIZE> inversePolicy = policy;
+        if (m_treeOptions.symmetrizeState && m_symmetrizer != nullptr) {
+            // Apply the inverse symmetry to the policy.
+            inversePolicy = m_symmetrizer->symmetrizeActionDist(policy, { m_symmetrizer->inverseSymmetry(symmetry) })[0];
+        }
+
+        // Note that the same leaf could occur multiple times in the output.
+        // We cannot easily remove duplicates since we still need to remove the virtual losses,
+        // but code could be written to optimize this by not passing them all into the 
+        // network and instead backing up directly.
+
+        // Update the cached network values, making the leaf gray.
+        if (!leaf->m_isNetworkEvaluated) {
+            leaf->addNetworkOutput(inversePolicy, value);
+        }
+
+        if (!leaf->m_isExpanded) {
+            // Expand the node, making the leaf active.
+            leaf->expand(m_treeOptions.addNoise && (leaf == m_decisionNode));  // Only add noise if decision node.
+        }
+
+        // Backpropagate the network value estimate.
+        backup(leaf, leaf->m_networkValue);
     }
 
     /**

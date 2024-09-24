@@ -134,11 +134,15 @@ int determineIteration(const std::string& saveDir, std::string& runName) {
 template <typename NeuralNetwork, typename ImplNode, int NUM_ROWS, int NUM_COLS, int HISTORY_SIZE, int ACTION_SIZE>
 void runWorker(
                 int worker_idx,
+                int numWorkers,
                 SPRL::WorkerOptions workerOptions,
                SPRL::TreeOptions treeOptions,
                INetwork<GridState<NUM_ROWS * NUM_COLS, HISTORY_SIZE>, ACTION_SIZE>* initialNetwork,
                ISymmetrizer<GridState<NUM_ROWS * NUM_COLS, HISTORY_SIZE>, ACTION_SIZE>* symmetrizer,
-               const std::string& saveDir) {
+               const std::string& saveDir,
+               moodycamel::ConcurrentQueue<std::tuple<int, GridState<NUM_ROWS * NUM_COLS, HISTORY_SIZE>, SPRL::GameActionDist<ACTION_SIZE>>>& queue,
+                moodycamel::ConcurrentQueue<std::tuple<int, SPRL::GameActionDist<ACTION_SIZE>, SPRL::Value>>& resultQueue
+               ) {
     
     using State = GridState<NUM_ROWS * NUM_COLS, HISTORY_SIZE>;
     using ActionDist = GameActionDist<ACTION_SIZE>;
@@ -198,21 +202,13 @@ void runWorker(
             iterationOptions = workerOptions.initIterationOptions;
         }
 
-        NeuralNetwork neuralNetwork = NeuralNetwork(modelPath);
-
-        if (modelPath == "random") {
-            std::cout << "Using initial network..." << std::endl;
-            network = initialNetwork;
-        } else {
-            std::cout << "Using traced PyTorch network..." << std::endl;
-            network = &neuralNetwork;
-        }
-
-        auto [states, distributions, outcomes] = runIteration<ImplNode, State, ACTION_SIZE>(
+        auto [states, distributions, outcomes] = runIteration<ImplNode, State, int NUM_ROWS, int NUM_COLS, int HISTORY_SIZE, ACTION_SIZE>(
+            worker_idx,
             iterationOptions,
             treeOptions,
-            network,
-            symmetrizer
+            symmetrizer,
+            queue,
+            resultQueue
         );
 
         std::vector<float> embeddedStates;

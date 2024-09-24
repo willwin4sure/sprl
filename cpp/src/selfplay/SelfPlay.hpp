@@ -45,10 +45,12 @@ namespace SPRL {
 */
 template <typename ImplNode, typename State, int ACTION_SIZE>
 std::tuple<std::vector<State>, std::vector<GameActionDist<ACTION_SIZE>>, std::vector<Value>>
-selfPlay(IterationOptions iterationOptions,
+selfPlay(int myTaskId, IterationOptions iterationOptions,
          TreeOptions treeOptions,
-         INetwork<State, ACTION_SIZE>* network,
-         ISymmetrizer<State, ACTION_SIZE>* symmetrizer) {
+         ISymmetrizer<State, ACTION_SIZE>* symmetrizer,
+         moodycamel::ConcurrentQueue<std::tuple<int, int, State, SPRL::GameActionDist<ACTION_SIZE>>>& queue,
+        moodycamel::ConcurrentQueue<std::tuple<int, SPRL::GameActionDist<ACTION_SIZE>, SPRL::Value>>& resultQueue
+         ) {
 
     using ActionDist = GameActionDist<ACTION_SIZE>;
 
@@ -70,25 +72,58 @@ selfPlay(IterationOptions iterationOptions,
             ? iterationOptions.uctTraversals
             : iterationOptions.uctTraversals * iterationOptions.fastPlayoutFactor;
         
+        int leaf_task_idx = 0;
+        // map of idx -> (leaf, symmetry) pairs.
+        std::unordered_map<int, std::tuple<UCTNode<ImplNode, State, ACTION_SIZE>*, SymmetryIdx>> leaf_map;
         int traversals = 0;
+
+        // start timers for throughput calculation.
+        Timer timer {};
+        Timer throttle_timer {};
+
+        timer.reset();
+        float throttle_elapsed = 0.0f;
         while (traversals < numTraversals) {
             // Returns vector of collected leaves and total number of traversals performed.
-            auto leaf = tree.searchAndGetLeaves(
-                iterationOptions.maxBatchSize, iterationOptions.maxQueueSize, iterationOptions.forcedPlayouts, network);
+            auto leaf = tree.searchAndGetLeaf(
+                iterationOptions.forcedPlayouts,
+                );
 
             if (leaf == nullptr) {
                 continue;
             }
 
-            // enqueue the leaf to a mapping of leaf, idx pairs.
+            // Collect a randomly symmetrized leaf.
+            // std::vector<State, GameActionDist<ACTION_SIZE>, SymmetryIdx> neural_network_query = tree.applyRandomSymmetry(leaf);
+            auto [leaf_state, leaf_dist, leaf_symmetry] = tree.applyRandomSymmetry(leaf);
 
-            // If leaves were collected, evaluate and backpropagate them.
-            if (leaves.size() > 0) {
-                tree.evaluateAndBackpropLeaves(leaves, network, doFullSearch);
+            // enqueue the leaf and symmetry to the queue.
+            leaf_map[leaf_task_idx] = {leaf, leaf_symmetry};
+            leaf_task_idx++;
+
+            // Push the leaf to the queue.
+            queue.enqueue({myTaskId, leaf_task_idx, leaf_symmetry, leaf_state, leaf_dist});
+
+            // Check the result queue for any new results.
+            std::tuple<int, ActionDist, Value> result;
+            throttle_timer.reset();
+            while (resultQueue.try_dequeue(result) || leaf_map.size() > iterationOptions.maxQueueSize) {
+                auto [leaf_task_idx, policy, value] = result;
+                assert (leaf_map.find(leaf_task_idx) != leaf_map.end());
+                auto [leaf, symmetry] = leaf_map[leaf_task_idx];
+                leaf_map.erase(leaf_task_idx);
+
+                // Update the leaf with the result.
+                tree.applyInverseSymmetryAndBackpropagate(leaf, policy, value, symmetry);
             }
+            throttle_elapsed += throttle_timer.elapsed();
 
-            traversals += trav;
+            traversals ++;
         }
+
+        float elapsed = timer.elapsed();
+        std::cout << "Traversals: " << traversals << ", Elapsed: " << elapsed << ", Throttle: " << throttle_elapsed << std::endl;
+        std::cout << "Throughput: " << traversals / elapsed << " traversals/s, Uptime: " << (elapsed - throttle_elapsed) / elapsed << std::endl;
 
         // Generate a PDF from the visit counts.
         ActionDist visits = tree.getDecisionNode()->getEdgeStatistics()->m_numVisits;
@@ -251,10 +286,12 @@ void insertTrainingData(IterationOptions iterationOptions,
 */
 template <typename ImplNode, typename State, int ACTION_SIZE>
 std::tuple<std::vector<State>, std::vector<GameActionDist<ACTION_SIZE>>, std::vector<Value>>
-runIteration(IterationOptions iterationOptions,
+runIteration(int myTaskId, IterationOptions iterationOptions,
              TreeOptions treeOptions,
-             INetwork<State, ACTION_SIZE>* network,
-             ISymmetrizer<State, ACTION_SIZE>* symmetrizer) {
+             ISymmetrizer<State, ACTION_SIZE>* symmetrizer,
+            moodycamel::ConcurrentQueue<std::tuple<int, int, State, SPRL::GameActionDist<ACTION_SIZE>>>& queue,
+            moodycamel::ConcurrentQueue<std::tuple<int, SPRL::GameActionDist<ACTION_SIZE>, SPRL::Value>>& resultQueue
+             ) {
 
     using ActionDist = GameActionDist<ACTION_SIZE>;
 
@@ -264,10 +301,12 @@ runIteration(IterationOptions iterationOptions,
 
     for (int t = 0; t < iterationOptions.numGamesPerWorker; ++t) {
         auto [states, distributions, outcomes] = selfPlay<ImplNode, State, ACTION_SIZE>(
+            myTaskId,
             iterationOptions,
             treeOptions,
-            network,
-            symmetrizer
+            symmetrizer,
+            queue,
+            resultQueue
         );
 
         // Push on the new state, distribution, and outcome data.
