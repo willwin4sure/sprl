@@ -96,79 +96,6 @@ public:
         }
     }
 
-    // /**
-    //  * Takes in queued leaves and evaluates them with the network, then backpropagates the results.
-    //  * 
-    //  * Requires that leaves are all empty, as in the return value from searchAndGetLeaves.
-    //  * 
-    //  * @param leaves The leaves to evaluate and backpropagate.
-    //  * @param network The network to evaluate the leaves with.
-    // */
-    // void evaluateAndBackpropLeaves(const std::vector<UNode*>& leaves, INetwork<State, ACTION_SIZE>* network, bool doFullSearch = true) {
-    //     int numLeaves = leaves.size();
-    //     assert(numLeaves > 0);
-
-    //     // Assemble a vector of states and masks for input into the NN.
-    //     std::vector<State> states;
-    //     std::vector<GameActionDist<ACTION_SIZE>> masks;
-
-    //     states.reserve(numLeaves);
-    //     masks.reserve(numLeaves);
-
-    //     for (int i = 0; i < numLeaves; ++i) {
-    //         states.push_back(leaves[i]->getGameState());
-    //         masks.push_back(leaves[i]->m_actionMask);
-    //     }
-
-    //     // Generate symmetrizations for the states, if necessary.
-    //     std::vector<SymmetryIdx> symmetries(numLeaves, 0);
-    //     if (m_treeOptions.symmetrizeState && m_symmetrizer != nullptr) {
-    //         int numSymmetries = m_symmetrizer->numSymmetries();
-    //         for (int i = 0; i < numLeaves; ++i) {
-    //             symmetries[i] = static_cast<SymmetryIdx>(GetRandom().UniformInt(0, numSymmetries - 1));
-    //             states[i] = m_symmetrizer->symmetrizeState(states[i], { symmetries[i] })[0];
-    //             masks[i] = m_symmetrizer->symmetrizeActionDist(masks[i], { symmetries[i] })[0];
-    //         }
-    //     }
-
-    //     // Perform batched evaluation of the states.
-        
-    //     // GPUTODO: LOOK HERE!
-
-    //     std::vector<std::pair<GameActionDist<ACTION_SIZE>, Value>> outputs = network->evaluate(states, masks);
-
-    //     for (int i = 0; i < numLeaves; ++i) {
-    //         UNode* leaf = leaves[i];
-    //         std::pair<GameActionDist<ACTION_SIZE>, Value> output = outputs[i];
-
-    //         GameActionDist policy = output.first;
-    //         Value value = output.second;
-
-    //         // Undo the symmetrization.
-    //         if (m_treeOptions.symmetrizeState && m_symmetrizer != nullptr) {
-    //             policy = m_symmetrizer->symmetrizeActionDist(policy, { m_symmetrizer->inverseSymmetry(symmetries[i]) })[0];
-    //         }
-
-    //         // Note that the same leaf could occur multiple times in the output.
-    //         // We cannot easily remove duplicates since we still need to remove the virtual losses,
-    //         // but code could be written to optimize this by not passing them all into the 
-    //         // network and instead backing up directly.
-
-    //         if (!leaf->m_isNetworkEvaluated) {
-    //             // Update the cached network values, making the leaf gray.
-    //             leaf->addNetworkOutput(policy, value);
-    //         }
-
-    //         if (!leaf->m_isExpanded) {
-    //             // Expand the node, making the leaf active.
-    //             leaf->expand(m_treeOptions.addNoise && (leaf == m_decisionNode));  // Only add noise if decision node.
-    //         }
-            
-    //         // Backpropagate the network value estimate.
-    //         backup(leaf, leaf->m_networkValue);
-    //     }
-    // }
-
     /**
      * Take a leaf, and apply a random symmetry to it.
      * 
@@ -196,6 +123,10 @@ public:
      * Take a neural network evaluation, and apply the inverse symmetry to it,
      * then backpropagate the result.
      * 
+     * @param leaf The leaf to backpropagate from.
+     * @param policy The policy output of the network.
+     * @param value The value output of the network.
+     * @param symmetry The symmetry index to undo.
      */
     void applyInverseSymmetryAndBackpropagate(UNode* leaf, GameActionDist<ACTION_SIZE> policy, Value value, SymmetryIdx symmetry) {
         GameActionDist<ACTION_SIZE> inversePolicy = policy;

@@ -31,10 +31,13 @@ namespace SPRL {
  * @tparam State The state of the game, e.g. `GridState`.
  * @tparam ACTION_SIZE The size of the action space.
  * 
+ * @param mctsWorkerIdx The index of the MCTS worker.
  * @param iterationOptions The options for the iteration.
  * @param treeOptions The options for the UCT tree.
  * @param network The neural network to use for evaluation.
  * @param symmetrizer The symmetrizer to use for symmetrizing the network and data (or nullptr).
+ * @param queue The queue to receive queries from the CPU threads.
+ * @param resultQueue The queue to send the results back to the CPU threads.
  * 
  * @returns A tuple of:
  *     1. A vector of states, where each state is a symmetrized version of the game state over time.
@@ -45,7 +48,7 @@ namespace SPRL {
 */
 template <typename ImplNode, typename State, int ACTION_SIZE>
 std::tuple<std::vector<State>, std::vector<GameActionDist<ACTION_SIZE>>, std::vector<Value>>
-selfPlay(int myTaskId, IterationOptions iterationOptions,
+selfPlay(int mctsWorkerIdx, IterationOptions iterationOptions,
          TreeOptions treeOptions,
          ISymmetrizer<State, ACTION_SIZE>* symmetrizer,
          moodycamel::ConcurrentQueue<std::tuple<int, int, State, SPRL::GameActionDist<ACTION_SIZE>>>& queue,
@@ -102,7 +105,7 @@ selfPlay(int myTaskId, IterationOptions iterationOptions,
             leaf_task_idx++;
 
             // Push the leaf to the queue.
-            queue.enqueue({myTaskId, leaf_task_idx, leaf_state, leaf_dist});
+            queue.enqueue({mctsWorkerIdx, leaf_task_idx, leaf_state, leaf_dist});
 
             // Check the result queue for any new results.
             std::tuple<int, ActionDist, Value> result;
@@ -286,7 +289,7 @@ void insertTrainingData(IterationOptions iterationOptions,
 */
 template <typename ImplNode, typename State, int ACTION_SIZE>
 std::tuple<std::vector<State>, std::vector<GameActionDist<ACTION_SIZE>>, std::vector<Value>>
-runIteration(int myTaskId, IterationOptions iterationOptions,
+runIteration(int mctsWorkerIdx, IterationOptions iterationOptions,
              TreeOptions treeOptions,
              ISymmetrizer<State, ACTION_SIZE>* symmetrizer,
             moodycamel::ConcurrentQueue<std::tuple<int, int, State, SPRL::GameActionDist<ACTION_SIZE>>>& queue,
@@ -301,7 +304,7 @@ runIteration(int myTaskId, IterationOptions iterationOptions,
 
     for (int t = 0; t < iterationOptions.numGamesPerWorker; ++t) {
         auto [states, distributions, outcomes] = selfPlay<ImplNode, State, ACTION_SIZE>(
-            myTaskId,
+            mctsWorkerIdx,
             iterationOptions,
             treeOptions,
             symmetrizer,

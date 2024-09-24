@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
     // Start GPU thread.
     std::thread gpuThread(startGPUWorker, std::ref(queue), std::ref(resultQueues));
     gpuThread.detach();
-    
+
     return 0;
 }
 
@@ -80,19 +80,19 @@ void startGPUWorker(moodycamel::ConcurrentQueue<std::tuple<int, int, SPRL::GridS
 }
 
 
-void startWorker(int myTaskId, int numTasks, const std::string& runName,
+void startWorker(int mctsWorkerIdx, int numTasks, const std::string& runName,
     SPRL::WorkerOptions workerOptions, SPRL::TreeOptions treeOptions,
     moodycamel::ConcurrentQueue<std::tuple<int, int, SPRL::GridState<BOARD_WIDTH * BOARD_WIDTH, HISTORY_SIZE>, SPRL::GameActionDist<ACTION_SIZE>>>& queue,
     moodycamel::ConcurrentQueue<std::tuple<int, SPRL::GameActionDist<ACTION_SIZE>, SPRL::Value>>& resultQueue
 ) {
     assert(numTasks == workerOptions.numWorkerTasks);
 
-    int myGroup = myTaskId / (workerOptions.numWorkerTasks / workerOptions.numGroups);
+    int myGroup = mctsWorkerIdx / (workerOptions.numWorkerTasks / workerOptions.numGroups);
 
     // Log who I am.
-    std::cout << "Task " << myTaskId << " of " << numTasks << ", in group " << myGroup << "." << std::endl;
+    std::cout << "Task " << mctsWorkerIdx << " of " << numTasks << ", in group " << myGroup << "." << std::endl;
 
-    std::string saveDir = "data/games/" + runName + "/" + std::to_string(myGroup) + "/" + std::to_string(myTaskId);
+    std::string saveDir = "data/games/" + runName + "/" + std::to_string(myGroup) + "/" + std::to_string(mctsWorkerIdx);
 
 
     using State = SPRL::GridState<BOARD_SIZE, HISTORY_SIZE>;
@@ -103,7 +103,7 @@ void startWorker(int myTaskId, int numTasks, const std::string& runName,
 
     SPRL::runWorker<SPRL::GridNetwork<BOARD_WIDTH, BOARD_WIDTH, HISTORY_SIZE, ACTION_SIZE>,
                     Node, BOARD_WIDTH, BOARD_WIDTH, HISTORY_SIZE, ACTION_SIZE>(
-                        myTaskId, numTasks, workerOptions, treeOptions, &randomNetwork, &symmetrizer, saveDir,
+                        mctsWorkerIdx, numTasks, workerOptions, treeOptions, &randomNetwork, &symmetrizer, saveDir,
                         queue, resultQueue
     );
 }

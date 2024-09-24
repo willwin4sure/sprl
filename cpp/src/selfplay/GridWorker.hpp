@@ -29,17 +29,19 @@ namespace SPRL {
  * @tparam HISTORY_SIZE The number of previous states to include in the state.
  * @tparam ACTION_SIZE The number of actions in the action space.
  * 
- * @param worker_idx The index of the worker process.
+ * @param mctsWorkerIdx The index of the worker process.
+ * @param numWorkers The total number of worker processes.
  * @param workerOptions The options for the worker process.
  * @param treeOptions The options for the UCT tree.
  * @param initialNetwork The network to use for the first iteration.
  * @param symmetrizer The symmetrizer to use for symmetrizing the network and data.
  * @param saveDir The directory to save the self-play data to.
+ * @param queue The queue to receive queries from the CPU threads.
+ * @param resultQueue The queue to send the results back to the CPU threads.
  */
 template <typename NeuralNetwork, typename ImplNode, int NUM_ROWS, int NUM_COLS, int HISTORY_SIZE, int ACTION_SIZE>
 void runWorker(
-                int worker_idx,
-                int numWorkers,
+                int mctsWorkerIdx,
                 SPRL::WorkerOptions workerOptions,
                SPRL::TreeOptions treeOptions,
                INetwork<GridState<NUM_ROWS * NUM_COLS, HISTORY_SIZE>, ACTION_SIZE>* initialNetwork,
@@ -108,7 +110,7 @@ void runWorker(
         }
 
         auto [states, distributions, outcomes] = runIteration<ImplNode, State, int NUM_ROWS, int NUM_COLS, int HISTORY_SIZE, ACTION_SIZE>(
-            worker_idx,
+            mctsWorkerIdx,
             iterationOptions,
             treeOptions,
             symmetrizer,
