@@ -11,8 +11,8 @@ namespace SPRL {
 struct IterationOptions {
     int numGamesPerWorker;  // How many games each worker players per iteration.
     int uctTraversals;      // How many UCT traversals to perform per move.
-    int maxBatchSize;       // The maximum number of traversals per batch of search.
-    int maxQueueSize;       // The maximum number of states to evaluate per batch of search.
+    int maxBatchSize;       // The maximum number of states to process in a single batch by the GPU worker.
+    int maxQueueSize;       // The maximum length that the queue of un-processed nodes can be before blocking.
 
     bool symmetrizeData;       // Whether to symmetrize the generated self-play data.
     float fastPlayoutProb;     // Chance of using a fast playout each move, in `[0, 1]`.
