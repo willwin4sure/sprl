@@ -132,7 +132,7 @@ int determineIteration(const std::string& saveDir, std::string& runName) {
  * @param saveDir The directory to save the self-play data to.
  */
 template <typename NeuralNetwork, typename ImplNode, int NUM_ROWS, int NUM_COLS, int HISTORY_SIZE, int ACTION_SIZE>
-void runGPUWorker(moodycamel::ConcurrentQueue<std::tuple<int, SPRL::GridState<BOARD_WIDTH * BOARD_WIDTH, HISTORY_SIZE>, SPRL::GameActionDist<ACTION_SIZE>>>& queue,
+void runGPUWorker(moodycamel::ConcurrentQueue<std::tuple<int, int, SPRL::GridState<BOARD_WIDTH * BOARD_WIDTH, HISTORY_SIZE>, SPRL::GameActionDist<ACTION_SIZE>>>& queue,
     std::vector<moodycamel::ConcurrentQueue<std::tuple<int, SPRL::GameActionDist<ACTION_SIZE>, float>>>& resultQueues) {
     
     using State = GridState<NUM_ROWS * NUM_COLS, HISTORY_SIZE>;
@@ -166,6 +166,10 @@ void runGPUWorker(moodycamel::ConcurrentQueue<std::tuple<int, SPRL::GridState<BO
     IterationOptions iterationOptions = workerOptions.iterationOptions;
     NeuralNetwork neuralNetwork = NeuralNetwork("random");
 
+    float active_time = 0.0f;
+
+    int total_states_processed = 0;
+
     while (true) {
         if (workerOptions.sync && iter >= workerOptions.numIters) break;
         Timer t {};
@@ -196,7 +200,35 @@ void runGPUWorker(moodycamel::ConcurrentQueue<std::tuple<int, SPRL::GridState<BO
             }
         }
 
+        // Pull states from the queue and process them using the network.
+        int numStates = 0;
+        std::vector<int> workerIds;
+        std::vector<int> leafTaskIds;
+        std::vector<State> states;
+        std::vector<GameActionDist<ACTION_SIZE>> masks;
 
+        std::tuple<int, int, State, ActionDist> tmp;
+        while(queue.try_dequeue(tmp) && numStates < iterationOptions.maxBatchSize) {
+            auto [workerId, leafTaskId, state, mask] = tmp;
+            workerIds.push_back(workerId);
+            leafTaskIds.push_back(leafTaskId);
+            states.push_back(state);
+            masks.push_back(mask);
+            numStates++;
+        }
+
+        if (numStates != 0) {
+            active_time -= t.elapsed();
+            std::vector<std::pair<GameActionDist<ACTION_SIZE>, Value>> outputs = network->evaluate(states, masks);
+            active_time += t.elapsed();
+
+            for (int i = 0; i < numStates; i++) {
+                resultQueues[workerIds[i]].enqueue({leafTaskIds[i], outputs[i].first, outputs[i].second});
+            }
+        }
+        total_states_processed += numStates;
+        std::cout << "Iteration " << iter << " completed in " << t.elapsed() << " seconds, active time: " << active_time << " seconds." << std::endl;
+        std::cout << "Throughput: " << total_states_processed / active_time << " states/second, uptime: " << active_time / t.elapsed() << std::endl;
     }
 
     std::cout << "GPU Worker process completed in " << total_t.elapsed() << " seconds." << std::endl;

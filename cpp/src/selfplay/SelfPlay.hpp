@@ -102,7 +102,7 @@ selfPlay(int myTaskId, IterationOptions iterationOptions,
             leaf_task_idx++;
 
             // Push the leaf to the queue.
-            queue.enqueue({myTaskId, leaf_task_idx, leaf_symmetry, leaf_state, leaf_dist});
+            queue.enqueue({myTaskId, leaf_task_idx, leaf_state, leaf_dist});
 
             // Check the result queue for any new results.
             std::tuple<int, ActionDist, Value> result;
