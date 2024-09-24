@@ -189,6 +189,7 @@ void runGPUWorker(moodycamel::ConcurrentQueue<std::tuple<int, int, SPRL::GridSta
                 iterationOptions = workerOptions.initIterationOptions;
             } else {
                 iterationOptions = workerOptions.iterationOptions;
+                neuralNetwork = NeuralNetwork(modelPath);
             }
             
             if (modelPath == "random") {

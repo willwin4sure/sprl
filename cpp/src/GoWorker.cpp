@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
 void startGPUWorker(moodycamel::ConcurrentQueue<std::tuple<int, int, SPRL::GridState<BOARD_WIDTH * BOARD_WIDTH, HISTORY_SIZE>, SPRL::GameActionDist<ACTION_SIZE>>>& queue,
     std::vector<moodycamel::ConcurrentQueue<std::tuple<int, SPRL::GameActionDist<ACTION_SIZE>, SPRL::Value>>>& resultQueues
 ) {
-    SPRL::runGPUWorker<SPRL::GridState<BOARD_WIDTH * BOARD_WIDTH, HISTORY_SIZE>, SPRL::GameActionDist<ACTION_SIZE>>(queue, resultQueues);
+    SPRL::runGPUWorker<SPRL::GridNetwork<BOARD_WIDTH, BOARD_WIDTH, HISTORY_SIZE, ACTION_SIZE>, SPRL::GoNode, BOARD_WIDTH, BOARD_WIDTH, HISTORY_SIZE, ACTION_SIZE>(queue, resultQueues);
 }
 
 
