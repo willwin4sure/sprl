@@ -13,8 +13,10 @@
 
 #include "../uct/UCTOptions.hpp"
 
+#include "../utils/blockingconcurrentqueue.h"
 #include "../utils/npy.hpp"
 #include "../utils/timer.hpp"
+
 #include "../constants.hpp"
 
 #include <filesystem>
@@ -24,8 +26,50 @@
 
 namespace SPRL {
 
-constexpr int MODEL_PATH_WAIT_INTERVAL = 30;  // Seconds to wait between checking for the model file.
+/**
+ * Work item from CPU thread to GPU thread to evaluate a state
+ * using the neural network.
+ * 
+ * @tparam State The state of the game.
+ * @tparam ACTION_SIZE The number of possible actions in the game.
+ */
+template <typename State, int ACTION_SIZE>
+struct WorkItem {
+    int m_workerId;
+    int m_leafTaskId;
+    State m_state;
+    GameActionDist<ACTION_SIZE> m_mask;
+};
 
+
+/**
+ * Result item for GPU thread to send back to the CPU thread.
+ * 
+ * @tparam ACTION_SIZE The number of possible actions in the game.
+ */
+template <int ACTION_SIZE>
+struct ResultItem {
+    int m_leafTaskId;
+    GameActionDist<ACTION_SIZE> m_policy;
+    Value m_value;
+};
+
+
+/**
+ * Work queue for CPU threads to push work items to the GPU thread.
+ */
+template <typename State, int ACTION_SIZE>
+using WorkQueue = moodycamel::BlockingConcurrentQueue<WorkItem<State, ACTION_SIZE>>;
+
+
+/**
+ * Result queue for the GPU thread to push result items to the CPU threads.
+ */
+template <int ACTION_SIZE>
+using ResultQueue = moodycamel::BlockingConcurrentQueue<ResultItem<ACTION_SIZE>>;
+
+
+constexpr int MODEL_PATH_WAIT_INTERVAL = 30;  // Seconds to wait between checking for the model file.
 
 std::string getTracedModelPath(const std::string& runName, int iteration) {
     if (iteration == -1) {
@@ -54,7 +98,7 @@ std::string getOutcomesPath(const std::string& saveDir, const std::string& runNa
  * 
  * @param runName The name of the run, defining the model file path.
  * @param sync Whether to wait for the model file to exist.
- * @param iteration The iteration to get the model file for, if sync is false.
+ * @param iteration The iteration to get the model file for, if sync is true.
  * 
  * @returns The current iteration (useful if sync is true).
 */
@@ -113,6 +157,7 @@ int determineIteration(const std::string& saveDir, std::string& runName) {
 
     return iteration;
 }
+
 } // namespace SPRL
 
 
