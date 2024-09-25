@@ -9,6 +9,7 @@
 
 #include "../games/GameNode.hpp"
 #include "../networks/INetwork.hpp"
+#include "../selfplay/WorkerUtils.hpp"
 #include "../selfplay/SelfPlayOptions.hpp"
 #include "../symmetry/ISymmetrizer.hpp"
 #include "../uct/UCTOptions.hpp"
@@ -51,9 +52,8 @@ std::tuple<std::vector<State>, std::vector<GameActionDist<ACTION_SIZE>>, std::ve
 selfPlay(int mctsWorkerIdx, IterationOptions iterationOptions,
          TreeOptions treeOptions,
          ISymmetrizer<State, ACTION_SIZE>* symmetrizer,
-         moodycamel::ConcurrentQueue<std::tuple<int, int, State, SPRL::GameActionDist<ACTION_SIZE>>>& queue,
-        moodycamel::ConcurrentQueue<std::tuple<int, SPRL::GameActionDist<ACTION_SIZE>, SPRL::Value>>& resultQueue
-         ) {
+         WorkQueue<State, ACTION_SIZE>& queue,
+         ResultQueue<ACTION_SIZE>& resultQueue) {
 
     using ActionDist = GameActionDist<ACTION_SIZE>;
 
@@ -88,9 +88,7 @@ selfPlay(int mctsWorkerIdx, IterationOptions iterationOptions,
         float throttle_elapsed = 0.0f;
         while (traversals < numTraversals) {
             // Returns vector of collected leaves and total number of traversals performed.
-            auto leaf = tree.searchAndGetLeaf(
-                iterationOptions.forcedPlayouts,
-                );
+            auto leaf = tree.searchAndGetLeaf(iterationOptions.forcedPlayouts);
 
             if (leaf == nullptr) {
                 continue;
@@ -289,12 +287,12 @@ void insertTrainingData(IterationOptions iterationOptions,
 */
 template <typename ImplNode, typename State, int ACTION_SIZE>
 std::tuple<std::vector<State>, std::vector<GameActionDist<ACTION_SIZE>>, std::vector<Value>>
-runIteration(int mctsWorkerIdx, IterationOptions iterationOptions,
+runIteration(int mctsWorkerIdx,
+             IterationOptions iterationOptions,
              TreeOptions treeOptions,
              ISymmetrizer<State, ACTION_SIZE>* symmetrizer,
-            moodycamel::ConcurrentQueue<std::tuple<int, int, State, SPRL::GameActionDist<ACTION_SIZE>>>& queue,
-            moodycamel::ConcurrentQueue<std::tuple<int, SPRL::GameActionDist<ACTION_SIZE>, SPRL::Value>>& resultQueue
-             ) {
+             WorkQueue<State, ACTION_SIZE>& queue,
+             ResultQueue<ACTION_SIZE>& resultQueue) {
 
     using ActionDist = GameActionDist<ACTION_SIZE>;
 

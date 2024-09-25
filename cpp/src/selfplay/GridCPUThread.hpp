@@ -5,11 +5,13 @@
 
 #include "../selfplay/SelfPlay.hpp"
 #include "../selfplay/SelfPlayOptions.hpp"
+#include "../selfplay/WorkerUtils.hpp"
 
 #include "../uct/UCTOptions.hpp"
 
 #include "../utils/npy.hpp"
 #include "../utils/timer.hpp"
+
 #include "../constants.hpp"
 
 #include <filesystem>
@@ -36,20 +38,18 @@ namespace SPRL {
  * @param initialNetwork The network to use for the first iteration.
  * @param symmetrizer The symmetrizer to use for symmetrizing the network and data.
  * @param saveDir The directory to save the self-play data to.
- * @param queue The queue to receive queries from the CPU threads.
+ * @param workQueue The queue to receive queries from the CPU threads.
  * @param resultQueue The queue to send the results back to the CPU threads.
  */
 template <typename NeuralNetwork, typename ImplNode, int NUM_ROWS, int NUM_COLS, int HISTORY_SIZE, int ACTION_SIZE>
-void runWorker(
-                int mctsWorkerIdx,
-                SPRL::WorkerOptions workerOptions,
+void runWorker(int mctsWorkerIdx,
+               SPRL::WorkerOptions workerOptions,
                SPRL::TreeOptions treeOptions,
                INetwork<GridState<NUM_ROWS * NUM_COLS, HISTORY_SIZE>, ACTION_SIZE>* initialNetwork,
                ISymmetrizer<GridState<NUM_ROWS * NUM_COLS, HISTORY_SIZE>, ACTION_SIZE>* symmetrizer,
                const std::string& saveDir,
-               moodycamel::ConcurrentQueue<std::tuple<int, GridState<NUM_ROWS * NUM_COLS, HISTORY_SIZE>, SPRL::GameActionDist<ACTION_SIZE>>>& queue,
-                moodycamel::ConcurrentQueue<std::tuple<int, SPRL::GameActionDist<ACTION_SIZE>, SPRL::Value>>& resultQueue
-               ) {
+               WorkQueue<State, ACTION_SIZE>& workQueue,
+               ResultQueue<ACTION_SIZE>& resultQueue) {
     
     using State = GridState<NUM_ROWS * NUM_COLS, HISTORY_SIZE>;
     using ActionDist = GameActionDist<ACTION_SIZE>;
@@ -78,6 +78,7 @@ void runWorker(
         } else {
             std::cout << "Directory already exists: " << saveDir << std::endl;
         }
+
     } catch (std::exception& e) {
         std::cerr << "Error creating directory: " << e.what() << std::endl;
         return;
@@ -86,21 +87,29 @@ void runWorker(
     INetwork<State, ACTION_SIZE>* network;  // Holds the current network.
 
     // Check which iteration it is.
-    int iter = determineIteration(saveDir, runName);
+    int iter = determineGameIteration(saveDir, runName);
     std::cout << "I now believe it is iteration " << iter << "." << std::endl;
 
     while (true) {
         if (workerOptions.sync && iter >= workerOptions.numIters) break;
+        
         Timer t {};
         t.reset();
 
         std::cout << "Starting iteration " << iter << "..." << std::endl;
 
-        // Block until the model file for the previous iteration exists.
-        int modelIter = waitModelPath(runName, workerOptions.sync, iter - 1);
+        int modelIter;
+        if (workerOptions.sync) {
+            // Block until the model file for the previous iteration exists.
+            modelIter = iter - 1;
+            waitModelPath(runName, modelIter);
 
-        if (!workerOptions.sync && modelIter >= workerOptions.numIters - 1) break;
-
+        } else {
+            // Stop if the controllers have finished training the models.
+            modelIter = determineModelIteration(saveDir, runName);
+            if (modelIter >= workerOptions.numIters - 1) break;
+        }
+        
         std::string modelPath = getTracedModelPath(runName, modelIter);
         std::string savePath = saveDir + "/" + runName + "_iteration_" + std::to_string(iter);
 
@@ -114,10 +123,11 @@ void runWorker(
             iterationOptions,
             treeOptions,
             symmetrizer,
-            queue,
+            workQueue,
             resultQueue
         );
 
+        // Embed and save the states.
         std::vector<float> embeddedStates;
 
         for (const State& state : states) {
@@ -151,6 +161,7 @@ void runWorker(
 
         npy::write_npy(savePath + "_states.npy", stateData);
 
+        // Embed and save the distributions.
         std::vector<float> embeddedDistributions;
         for (const ActionDist& dist : distributions) {
             for (int i = 0; i < ACTION_SIZE; ++i) {
@@ -164,14 +175,16 @@ void runWorker(
 
         npy::write_npy(savePath + "_distributions.npy", distData);
 
+        // Save the outcomes.
         npy::npy_data_ptr<float> outcomeData {};
         outcomeData.data_ptr = outcomes.data();
         outcomeData.shape = { static_cast<unsigned long>(outcomes.size()) };
+        
+        npy::write_npy(savePath + "_outcomes.npy", outcomeData);
 
-        npy::write_npy(savePath + "_outcomes.npy", outcomeData);        
         std::cout << "Games collected in " << t.elapsed() << " seconds." << std::endl;
     
-        iter++;
+        ++iter;
     }
 
     std::cout << "Worker process completed in " << total_t.elapsed() << " seconds." << std::endl;
