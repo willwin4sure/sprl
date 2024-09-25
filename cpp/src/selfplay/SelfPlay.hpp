@@ -109,7 +109,7 @@ selfPlay(int mctsWorkerIdx, IterationOptions iterationOptions,
             std::tuple<int, ActionDist, Value> result;
             throttle_timer.reset();
             do{
-                while (resultQueue.try_dequeue(result)) {
+                while (resultQueue.wait_dequeue(result)) {
                     auto [leaf_task_idx, policy, value] = result;
                     assert (leaf_map.find(leaf_task_idx) != leaf_map.end());
                     auto [leaf, symmetry] = leaf_map[leaf_task_idx];
