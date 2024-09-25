@@ -110,15 +110,17 @@ selfPlay(int mctsWorkerIdx, IterationOptions iterationOptions,
             // Check the result queue for any new results.
             std::tuple<int, ActionDist, Value> result;
             throttle_timer.reset();
-            while (resultQueue.try_dequeue(result) || leaf_map.size() > iterationOptions.maxQueueSize) {
-                auto [leaf_task_idx, policy, value] = result;
-                assert (leaf_map.find(leaf_task_idx) != leaf_map.end());
-                auto [leaf, symmetry] = leaf_map[leaf_task_idx];
-                leaf_map.erase(leaf_task_idx);
+            do{
+                while (resultQueue.try_dequeue(result)) {
+                    auto [leaf_task_idx, policy, value] = result;
+                    assert (leaf_map.find(leaf_task_idx) != leaf_map.end());
+                    auto [leaf, symmetry] = leaf_map[leaf_task_idx];
+                    leaf_map.erase(leaf_task_idx);
 
-                // Update the leaf with the result.
-                tree.applyInverseSymmetryAndBackpropagate(leaf, policy, value, symmetry);
-            }
+                    // Update the leaf with the result.
+                    tree.applyInverseSymmetryAndBackpropagate(leaf, policy, value, symmetry);
+                }
+            } while(leaf_map.size() > iterationOptions.maxQueueSize)
             throttle_elapsed += throttle_timer.elapsed();
 
             traversals ++;
