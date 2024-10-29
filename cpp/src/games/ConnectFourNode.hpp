@@ -43,7 +43,8 @@ public:
     */
     ConnectFourNode(ConnectFourNode* parent, ActionIdx action, ActionDist&& actionMask,
                     Player player, Player winner, bool isTerminal, Board&& board)
-        : GameNode<ConnectFourNode, State, C4_ACTION_SIZE> { parent, action, std::move(actionMask), player, winner, isTerminal },
+        : GameNode<ConnectFourNode, State, C4_ACTION_SIZE>
+          { parent, action, std::move(actionMask), player, winner, isTerminal },
           m_board { std::move(board) } {
 
     }
