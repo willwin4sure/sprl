@@ -6,13 +6,7 @@
 
 namespace SPRL {
 
-constexpr int CHESS_BOARD_WIDTH = 8;
-constexpr int CHESS_BOARD_SIZE = CHESS_BOARD_WIDTH * CHESS_BOARD_WIDTH;
-constexpr int CHESS_HISTORY_SIZE = 8;
 constexpr int CHESS_MAX_DEPTH = 500;
-
-// can use chess::constants::MAX_MOVES to bound length of game
-
 class ChessNode : public GameNode<ChessNode, ChessState, CHESS_ACTION_SIZE> {
 public:
     using State = ChessState;

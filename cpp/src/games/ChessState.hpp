@@ -9,7 +9,10 @@
 
 namespace SPRL {
 
+constexpr int CHESS_BOARD_WIDTH = 8;
+constexpr int CHESS_BOARD_SIZE = CHESS_BOARD_WIDTH * CHESS_BOARD_WIDTH;
 constexpr int CHESS_ACTION_SIZE = 1858;
+constexpr int CHESS_HISTORY_SIZE = 8;
 
 const std::array<std::string, CHESS_ACTION_SIZE> CHESS_MOVE_STRS = {
     "a1a2", "a1a3", "a1a4", "a1a5", "a1a6", "a1a7", "a1a8", "a1b1", 
@@ -255,10 +258,8 @@ const std::unordered_map<std::string, int> CHESS_MOVE_STR_TO_IDX = []() {
     return map;
 }();
 
-class ChessState {
-
-
-
+struct ChessState {
+    std::array<chess::PackedBoard, CHESS_HISTORY_SIZE> m_history;
 };
 
 } // namespace SPRL
