@@ -51,8 +51,12 @@ static void addBasePlanes(
 
             for (int i = 0; i < CHESS_BOARD_WIDTH; ++i) {
                 for (int j = 0; j < CHESS_BOARD_WIDTH; ++j) {
+                    // Flip the rank for Black.
+                    int rank = (toMove == chess::Color::WHITE) ? CHESS_BOARD_WIDTH - 1 - i : i;
+                    int file = j;
+
                     chess::Piece piece = board.at(
-                        chess::Square { chess::Rank { i }, chess::File { j } });
+                        chess::Square { chess::Rank { rank }, chess::File { file } });
 
                     if (piece.color() == color && piece.type() == pieceType) {
                         plane[i][j] = 1.0f;
@@ -67,6 +71,7 @@ static void addBasePlanes(
     if (toMove == chess::Color::WHITE) {
         planes.push_back(torch::ones(
             { CHESS_BOARD_WIDTH, CHESS_BOARD_WIDTH }, torch::kFloat32));
+
     } else {
         planes.push_back(torch::zeros(
             { CHESS_BOARD_WIDTH, CHESS_BOARD_WIDTH }, torch::kFloat32));
@@ -99,6 +104,8 @@ std::vector<at::Tensor> ChessNetwork::embed(
         chess::Board board = chess::Board::Compact::decode(state.m_history[0]);
 
         std::vector<at::Tensor> planes;
+
+        // When encoding these, remember to flip the ranks for Black!
         if (flags & ChessEmbeddingFlags::BASE) {
             addBasePlanes(planes, board);
         }
