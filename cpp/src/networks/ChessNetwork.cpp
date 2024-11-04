@@ -111,7 +111,10 @@ std::vector<at::Tensor> ChessNetwork::embed(
         }
 
         at::Tensor embeddedState = torch::cat(planes, 0);
+        embeddedStates.push_back(embeddedState);
     }
+
+    return embeddedStates;
 }
 
 std::vector<std::pair<ChessNetwork::ActionDist, Value>> ChessNetwork::evaluate(

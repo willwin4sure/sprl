@@ -11,8 +11,6 @@
 
 namespace SPRL {
 
-using EmbeddingFlags = uint64_t;
-
 enum ChessEmbeddingFlags : EmbeddingFlags {
     BASE = 1ULL << 0,
     LEGAL_MOVES = 1ULL << 1,
@@ -48,7 +46,7 @@ public:
      */
     std::vector<at::Tensor> embed(
         const std::vector<State>& states,
-        EmbeddingFlags flags = ChessEmbeddingFlags::BASE);
+        EmbeddingFlags flags = ChessEmbeddingFlags::BASE) override;
     
     /**
      * Implementation of evaluate for Chess, including

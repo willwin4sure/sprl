@@ -3,7 +3,11 @@
 
 #include "../games/GameNode.hpp"
 
+#include <torch/torch.h>
+
 namespace SPRL {
+
+using EmbeddingFlags = uint64_t;
 
 /**
  * Interface for evaluation of game states, e.g. using a neural network
@@ -19,6 +23,10 @@ public:
 
     virtual ~INetwork() = default;
 
+    virtual std::vector<at::Tensor> embed(
+        const std::vector<State>& states,
+        EmbeddingFlags flags) = 0;
+
     /**
      * @returns A pair of the action distribution and the value estimate for the given state.
     */
@@ -26,6 +34,9 @@ public:
         const std::vector<State>& states,
         const std::vector<ActionDist>& masks) = 0;
     
+    /**
+     * @returns Whether the network is alive and can be used.
+     */
     virtual bool isAlive() = 0;
 
     /**
