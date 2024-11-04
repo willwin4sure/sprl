@@ -18,13 +18,6 @@ public:
 
     RandomNetwork() {}
 
-    std::vector<at::Tensor> embed(
-        const std::vector<State>& states,
-        EmbeddingFlags flags) override {
-            
-        return {};
-    }
-
     std::vector<std::pair<ActionDist, Value>> evaluate(
         const std::vector<State>& states,
         const std::vector<ActionDist>& masks) override {

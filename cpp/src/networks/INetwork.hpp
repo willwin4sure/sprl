@@ -23,10 +23,6 @@ public:
 
     virtual ~INetwork() = default;
 
-    virtual std::vector<at::Tensor> embed(
-        const std::vector<State>& states,
-        EmbeddingFlags flags) = 0;
-
     /**
      * @returns A pair of the action distribution and the value estimate for the given state.
     */

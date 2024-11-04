@@ -72,48 +72,6 @@ public:
     }
 
     /**
-     * Embeds the given states into the network's input format.
-     */
-    std::vector<at::Tensor> embed(
-        const std::vector<State>& states,
-        EmbeddingFlags flags) override {
-            
-        std::vector<at::Tensor> embeddedStates;
-        embeddedStates.reserve(states.size());
-
-        for (const State& state : states) {
-            at::Tensor embedded = torch::zeros({ 2 * HISTORY_SIZE + 1, NUM_ROWS, NUM_COLS }).to(m_device);
-
-            Piece ourPiece = pieceFromPlayer(state.getPlayer());
-
-            // Stone bitmask channels for current player and opponent player
-            for (int t = 0; t < state.size(); ++t) {
-                for (int i = 0; i < NUM_ROWS; ++i) {
-                    for (int j = 0; j < NUM_COLS; ++j) {
-                        if (state.getHistory()[t][i * NUM_COLS + j] == ourPiece) {
-                            embedded[2 * t][i][j] = 1.0f;
-
-                        } else if (state.getHistory()[t][i * NUM_COLS + j] == otherPiece(ourPiece)) {
-                            embedded[2 * t + 1][i][j] = 1.0f;
-                        }
-                    }
-                }
-            }
-
-            // Color channel for which player you are
-            for (int i = 0; i < NUM_ROWS; ++i) {
-                for (int j = 0; j < NUM_COLS; ++j) {
-                    embedded[2 * HISTORY_SIZE][i][j] = ((state.getPlayer() == Player::ZERO) ? 1.0f : 0.0f);
-                }
-            }
-
-            embeddedStates.push_back(embedded);
-        }
-
-        return embeddedStates;
-    }
-
-    /**
      * Implementation of evaluate for Go, including
      * the proper embedding of the game state.
      * 

@@ -26,6 +26,7 @@ file(GLOB headers
 
 # add_executable(Challenge src/Challenge.cpp ${srcs} ${headers})
 add_executable(ChessChallenge src/ChessChallenge.cpp ${srcs} ${headers})
+add_executable(RunChessWorker src/RunChessWorker.cpp ${srcs} ${headers})
 # add_executable(GTP src/GTP.cpp ${srcs} ${headers})
 # add_executable(Evaluate src/Evaluate.cpp ${srcs} ${headers})
 # add_executable(TestGame src/TestGame.cpp ${srcs} ${headers})
@@ -39,6 +40,7 @@ add_executable(ChessChallenge src/ChessChallenge.cpp ${srcs} ${headers})
 
 # target_link_libraries(Challenge ${TORCH_LIBRARIES})
 target_link_libraries(ChessChallenge ${TORCH_LIBRARIES})
+target_link_libraries(RunChessWorker ${TORCH_LIBRARIES})
 # target_link_libraries(GTP ${TORCH_LIBRARIES})
 # target_link_libraries(Evaluate ${TORCH_LIBRARIES})
 # target_link_libraries(TestGame ${TORCH_LIBRARIES})

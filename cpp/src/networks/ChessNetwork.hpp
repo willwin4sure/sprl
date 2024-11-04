@@ -44,9 +44,9 @@ public:
     /**
      * Embeds the given states into the network's input format.
      */
-    std::vector<at::Tensor> embed(
+    static std::vector<at::Tensor> embed(
         const std::vector<State>& states,
-        EmbeddingFlags flags = ChessEmbeddingFlags::BASE) override;
+        EmbeddingFlags flags = ChessEmbeddingFlags::BASE);
     
     /**
      * Implementation of evaluate for Chess, including
