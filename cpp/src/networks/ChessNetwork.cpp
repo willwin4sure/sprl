@@ -122,7 +122,7 @@ std::vector<std::pair<ChessNetwork::ActionDist, Value>> ChessNetwork::evaluate(
     auto input = torch::stack(embeddedStates, 0).to(m_device);
     auto output = m_model->forward({ input }).toTuple();
 
-    auto policyOutput = output->elements()[0].toTensor();
+    auto policyOutput = output->elements()[0].toTensor();  // [B, 73, 8, 8]
     auto valueOutput = output->elements()[1].toTensor();
 
     std::vector<std::pair<ActionDist, Value>> results;
@@ -130,8 +130,15 @@ std::vector<std::pair<ChessNetwork::ActionDist, Value>> ChessNetwork::evaluate(
 
     for (int b = 0; b < numStates; ++b) {
         ActionDist policy;
-        for (int i = 0; i < CHESS_ACTION_SIZE; ++i) {
-            policy[i] = policyOutput[b][i].item<float>();
+        for (int c = 0; c < 73; ++c) {
+            for (int i = 0; i < 8; ++i) {
+                for (int j = 0; j < 8; ++j) {
+                    ActionIdx idx = convPolicyMapping[64 * c + 8 * i + j];
+                    if (idx != -1) {
+                        policy[idx] = policyOutput[b][c][i][j].item<float>();
+                    }
+                }
+            }
         }
 
         // Policy is returned as logits, so exponentiate.
