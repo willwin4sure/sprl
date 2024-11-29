@@ -1,6 +1,6 @@
 {
     "modelName": "quail",
-    "modelVariant": "iota",
+    "modelVariant": "kappa",
     "numGroups": 8,
     "numWorkerTasks": 384,
     "numIters": 4000,

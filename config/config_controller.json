@@ -8,11 +8,11 @@
     "numTrainSamples": 2097152,
     "numSaveSamples": 8388608,
     "batchSize": 1024,
-    "lrInit": 0.001,
+    "lrInit": 0.01,
     "scheduler": {
         "name": "MultiStepLR",
         "kwargs": {
-            "milestones": [20, 40, 60, 80, 100, 200, 300, 400],
+            "milestones": [20, 40, 60, 80, 100, 200, 300, 400, 500, 600, 700],
             "gamma": 0.5
         }
     },
